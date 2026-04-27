@@ -43,7 +43,7 @@ as the input.
 | Step | What it does | Outputs |
 |---|---|---|
 | `extract` | text detection → OCR → mask refinement → inpainting | `work/<task>/clean/*.png`, `work/<task>/pages.json` (text + positions) |
-| `translate` | groups blocks into ~1500-char batches, calls the configured LLM, fills `translation` fields | updated `pages.json` per task |
+| `translate` | groups blocks into ~1500-char batches, calls the LLM, fills `translation` fields. Supports `--overwrite` to re-translate and `--start-index <N>` to re-translate from a specific page. | updated `pages.json` per task |
 | `render` | paints translations onto the inpainted images; no-text pages are copied as-is | `out/<task>/*.png` (same count as input) |
 | `run` | extract → translate → render in one shot | both |
 
@@ -154,6 +154,18 @@ looks like:
 
 Edit any `translation` field, then run `render`. Pages with `"no_text": true`
 have no blocks — they are copied as-is to the output.
+
+### Re-translating
+
+If you want to redo translations from a certain page (e.g., after changing the context or fixing a previous page), use:
+
+```bash
+# Re-translate from index 10 onwards
+python -m manga_translator_lite translate ./work --start-index 10
+
+# Force re-translate everything
+python -m manga_translator_lite translate ./work --overwrite
+```
 
 ## Project layout
 

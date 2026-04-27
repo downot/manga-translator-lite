@@ -39,7 +39,7 @@
 | 步骤 | 功能 | 输出 |
 |---|---|---|
 | `extract` | 文本检测 → OCR → 掩码优化 → 图像修复 | `work/<任务名>/clean/*.png`, `work/<任务名>/pages.json` (文本 + 位置) |
-| `translate` | 将文本块分组为约1500字符的批次，调用配置的 LLM，填充翻译字段 | 各任务更新后的 `pages.json` |
+| `translate` | 将文本块分组为约1500字符的批次，调用 LLM，填充翻译字段。支持 `--overwrite` 覆盖已有翻译，以及 `--start-index <N>` 从指定页码开始（重新）翻译。 | 各任务更新后的 `pages.json` |
 | `render` | 将翻译后的文本绘制到修复后的图像上；无文字页面原样复制 | `out/<任务名>/*.png`（数量与输入一致） |
 | `run` | 一键完成 提取 → 翻译 → 渲染 | 两者皆有 |
 
@@ -144,6 +144,19 @@ python -m manga_translator_lite config-help
 ```
 
 编辑任何 `translation` 字段，然后运行 `render`。标记为 `"no_text": true` 的页面没有文本块——它们会被原样复制到输出目录。
+
+### 重新翻译
+
+如果您想从某一页开始重新翻译（例如在修改了前文或调整了配置后），可以使用：
+
+```bash
+# 从索引 10 开始重新翻译
+python -m manga_translator_lite translate ./work --start-index 10
+
+# 强制重新翻译所有内容
+python -m manga_translator_lite translate ./work --overwrite
+```
+
 
 ## 项目布局
 

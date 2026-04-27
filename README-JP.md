@@ -40,7 +40,7 @@
 | ステップ | 内容 | 出力 |
 |---|---|---|
 | `extract` | テキスト検出 → OCR → マスク精査 → インペイント | `work/<タスク>/clean/*.png`, `work/<タスク>/pages.json` |
-| `translate` | テキストを約1500文字のバッチにまとめ、LLMを呼び出し翻訳を充填 | 各タスクの更新された `pages.json` |
+| `translate` | テキストを約1500文字のバッチにまとめ、LLMを呼び出し翻訳を充填。`--overwrite` での再翻訳や、`--start-index <N>` での指定ページ以降の（再）翻訳をサポート。 | 各タスクの更新された `pages.json` |
 | `render` | 翻訳されたテキストをインペイント済み画像に描画、テキストなしページはそのままコピー | `out/<タスク>/*.png`（入力と同数） |
 | `run` | 抽出 → 翻訳 → 描画を一括実行 | 両方 |
 
@@ -144,6 +144,19 @@ python -m manga_translator_lite config-help
 
 任意の `translation` フィールドを編集した後、`render` を実行してください。`"no_text": true`
 のページにはブロックがなく、そのまま出力にコピーされます。
+
+### 再翻訳
+
+特定のページから翻訳をやり直したい場合（文脈を修正した後など）は、以下を使用します：
+
+```bash
+# インデックス 10 以降を再翻訳
+python -m manga_translator_lite translate ./work --start-index 10
+
+# 全てを強制的に再翻訳
+python -m manga_translator_lite translate ./work --overwrite
+```
+
 
 ## プロジェクト構成
 
