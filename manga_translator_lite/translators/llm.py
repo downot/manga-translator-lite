@@ -170,18 +170,22 @@ class LLMTranslator:
                 extra_instructions=self.cfg.extra_instructions,
             )
             logger.info(f"Batch {batch_no}/{len(batches)}: {len(batch.items)} blocks, ~{batch.char_count} chars")
-            translations = await self._request(prompt, len(batch.items))
+            try:
+                translations = await self._request(prompt, len(batch.items))
 
-            table = Table(show_header=True, header_style="bold magenta")
-            table.add_column("Source Text", style="cyan", width=50)
-            table.add_column(f"Translation ({self.target_human})", style="green")
+                table = Table(show_header=True, header_style="bold magenta")
+                table.add_column("Source Text", style="cyan", width=50)
+                table.add_column(f"Translation ({self.target_human})", style="green")
 
-            for item, trans in zip(batch.items, translations):
-                item.translation = trans
-                table.add_row(item.text.replace("\n", " "), trans.replace("\n", " "))
+                for item, trans in zip(batch.items, translations):
+                    item.translation = trans
+                    table.add_row(item.text.replace("\n", " "), trans.replace("\n", " "))
 
-            console.print(table)
-            print() # Add a newline after the table
+                console.print(table)
+                print() # Add a newline after the table
+            except InvalidServerResponse as e:
+                logger.error(f"Batch {batch_no} failed after {self.cfg.max_retries} attempts: {e}. Skipping this batch.")
+                continue
 
     # ---- Provider dispatch ----
 
