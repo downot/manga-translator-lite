@@ -19,7 +19,12 @@ from .schema import Block, Workspace, discover_tasks, load_workspace, save_works
 logger = get_logger('translate')
 
 
-async def _translate_task(workspace: Workspace, cfg: Config, overwrite: bool = False) -> Workspace:
+async def _translate_task(
+    workspace: Workspace,
+    cfg: Config,
+    overwrite: bool = False,
+    start_index: Optional[int] = None,
+) -> Workspace:
     """Translate all blocks in a single task workspace."""
     translator = build_translator(cfg.translator)
     if cfg.translator.provider == LLMProvider.none:
@@ -33,8 +38,23 @@ async def _translate_task(workspace: Workspace, cfg: Config, overwrite: bool = F
         # Skip no_text pages — they have no blocks to translate
         if page.no_text:
             continue
+
+        # If a start_index is set, pages before it should be added as context
+        # and pages at or after it should be forced to re-translate.
+        is_at_or_after_start = start_index is not None and page.index >= start_index
+        force_page = overwrite or is_at_or_after_start
+
+        if not force_page:
+            # Check if this page is already fully translated
+            page_translations = [b.translation for b in page.blocks if b.translation]
+            if len(page_translations) == len(page.blocks) and len(page.blocks) > 0:
+                # Fully translated, add to context and skip
+                translator.add_context_page(page_translations)
+                continue
+
+        # Otherwise, add blocks to the translation queue
         for blk in page.blocks:
-            if blk.translation and not overwrite:
+            if blk.translation and not force_page:
                 continue
             all_items.append(TranslationItem(id=blk.id, text=blk.text))
             block_map[blk.id] = blk
@@ -59,12 +79,6 @@ async def _translate_task(workspace: Workspace, cfg: Config, overwrite: bool = F
         if blk:
             blk.translation = item.translation
 
-    # Update rolling context for future runs (per page)
-    for page in workspace.pages:
-        page_translations = [b.translation for b in page.blocks if b.translation]
-        if page_translations:
-            translator.add_context_page(page_translations)
-
     # Final save
     save_workspace(workspace)
     logger.info(f"[task: {workspace.task_name}] Translations written: {workspace.pages_json_path}")
@@ -77,6 +91,7 @@ async def run_translate(
     cfg: Config,
     overwrite: bool = False,
     target_lang: Optional[str] = None,
+    start_index: Optional[int] = None,
 ) -> List[Workspace]:
     """Translate all tasks under work_dir.
 
@@ -105,7 +120,7 @@ async def run_translate(
         else:
             cfg.translator.target_lang = workspace.target_lang
 
-        ws = await _translate_task(workspace, cfg, overwrite=overwrite)
+        ws = await _translate_task(workspace, cfg, overwrite=overwrite, start_index=start_index)
         results.append(ws)
 
     logger.info(f"Translation complete for {len(results)} task(s).")

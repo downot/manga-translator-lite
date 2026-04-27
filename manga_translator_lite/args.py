@@ -69,6 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_tx.add_argument('work_dir', help='Existing workspace directory.')
     p_tx.add_argument('--overwrite', action='store_true',
                       help='Re-translate even blocks that already have translations.')
+    p_tx.add_argument('--start-index', type=int, default=None,
+                      help='Starting page index in pages.json to (re)translate from.')
     _add_common(p_tx)
 
     p_render = sub.add_parser('render',

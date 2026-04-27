@@ -22,7 +22,7 @@ async def _dispatch(args) -> int:
     if args.cmd == 'translate':
         from .pipeline.translate import run_translate
         await run_translate(args.work_dir, cfg, overwrite=args.overwrite,
-                            target_lang=args.target_lang)
+                            target_lang=args.target_lang, start_index=args.start_index)
         return 0
 
     if args.cmd == 'render':
