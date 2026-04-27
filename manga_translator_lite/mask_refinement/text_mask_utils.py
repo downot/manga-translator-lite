@@ -11,15 +11,15 @@ from shapely.geometry import Polygon
 # from collections import defaultdict
 # from scipy.optimize import linear_sum_assignment
 
-from ..utils import Quadrilateral, image_resize
+from ..utils import Quadrilateral, image_resize, cv2_imwrite
 
 COLOR_RANGE_SIGMA = 1.5 # how many stddev away is considered the same color
 
 def save_rgb(fn, img):
     if len(img.shape) == 3 and img.shape[2] == 3:
-        cv2.imwrite(fn, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        cv2_imwrite(fn, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
     else:
-        cv2.imwrite(fn, img)
+        cv2_imwrite(fn, img)
 
 def area_overlap(x1, y1, w1, h1, x2, y2, w2, h2):  # returns None if rectangles don't intersect
     x_overlap = max(0, min(x1 + w1, x2 + w2) - max(x1, x2))

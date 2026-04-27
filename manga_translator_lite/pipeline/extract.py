@@ -29,6 +29,7 @@ from ..ocr import dispatch as dispatch_ocr, prepare as prepare_ocr
 from ..textline_merge import dispatch as dispatch_textline_merge
 from ..utils import (
     TextBlock,
+    cv2_imwrite,
     get_logger,
     is_valuable_text,
     load_image,
@@ -164,7 +165,7 @@ async def _process_image(
 
     if not textlines:
         logger.info(f"[page {page_idx}] no text detected — marked as no_text, copying original")
-        cv2.imwrite(clean_abs, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
+        cv2_imwrite(clean_abs, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
         return Page(
             index=page_idx,
             name=os.path.basename(img_path),
@@ -181,7 +182,7 @@ async def _process_image(
 
     if not textlines:
         logger.info(f"[page {page_idx}] OCR empty — marked as no_text, copying original")
-        cv2.imwrite(clean_abs, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
+        cv2_imwrite(clean_abs, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
         return Page(
             index=page_idx,
             name=os.path.basename(img_path),
@@ -230,7 +231,7 @@ async def _process_image(
     else:
         inpainted = img_rgb
 
-    cv2.imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
+    cv2_imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
     logger.info(f"[page {page_idx}] saved clean → {clean_rel} ({len(text_regions)} blocks)")
 
     # If textline merge + filtering produced no valuable blocks, mark as no_text

@@ -248,6 +248,26 @@ def dump_image(img_pil: Image.Image, img: np.ndarray, alpha_ch: Image.Image = No
     result.paste(Image.fromarray(img), mask = alpha_ch)
     return result
 
+def cv2_imread(path: str, flags: int = cv2.IMREAD_COLOR) -> Optional[np.ndarray]:
+    """Read an image from a path, supporting Unicode paths on Windows."""
+    try:
+        return cv2.imdecode(np.fromfile(path, dtype=np.uint8), flags)
+    except Exception:
+        return None
+
+def cv2_imwrite(path: str, img: np.ndarray) -> bool:
+    """Save an image to a path, supporting Unicode paths on Windows."""
+    try:
+        ext = os.path.splitext(path)[1]
+        is_success, buffer = cv2.imencode(ext, img)
+        if is_success:
+            with open(path, "wb") as f:
+                f.write(buffer)
+            return True
+    except Exception:
+        pass
+    return False
+
 def resize_keep_aspect(img, size):
     ratio = (float(size)/max(img.shape[0], img.shape[1]))
     new_width = round(img.shape[1] * ratio)

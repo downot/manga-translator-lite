@@ -21,7 +21,7 @@ from PIL import Image
 
 from ..config import Config
 from ..rendering import dispatch as dispatch_rendering
-from ..utils import BASE_PATH, TextBlock, get_logger
+from ..utils import BASE_PATH, TextBlock, get_logger, cv2_imread
 from .schema import Block, Page, Workspace, discover_tasks, load_workspace
 
 logger = get_logger('render')
@@ -91,7 +91,7 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str) -> 
         logger.warning(f"[page {page.index}] clean image missing: {clean_path}, skipping")
         return None
 
-    img_bgr = cv2.imread(clean_path, cv2.IMREAD_COLOR)
+    img_bgr = cv2_imread(clean_path, cv2.IMREAD_COLOR)
     if img_bgr is None:
         logger.warning(f"[page {page.index}] could not read {clean_path}")
         return None
