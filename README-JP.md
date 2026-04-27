@@ -19,26 +19,32 @@
 ローカル OCR + サードパーティ LLM API。パイプラインは 3 つのステップに分かれており、翻訳結果を画像に書き戻す前に手動で編集することができます。
 
 ```
-  in/                                   work_dir/                          out/
-  ┌───────────┐                         ┌─────────────┐                    ┌───────────┐
-  │ 0001.jpg  │ ─── extract (CV) ──▶  │ pages.json  │ ── render ──▶     │ 0001.png  │
-  │ 0002.jpg  │                       │ clean/0001  │                    │ 0002.png  │
-  └───────────┘                         └─────────────┘                    └───────────┘
-                                              ▲
-                                              │ translate (LLM API)
-                                              │ + 手動編集
+  in/                                   work/                              out/
+  ├── manga_a/                          ├── manga_a/                       ├── manga_a/
+  │   ├── 0001.jpg  ── extract ──▶    │   ├── pages.json  ── render ──▶ │   ├── 0001.png
+  │   └── 0002.jpg                     │   └── clean/                     │   └── 0002.png
+  └── manga_b/                          └── manga_b/                       └── manga_b/
+      ├── 0001.jpg                          ├── pages.json                     ├── 0001.png
+      └── 0002.jpg                          └── clean/                         └── 0002.png
+                                                  ▲
+                                                  │ translate (LLM API)
+                                                  │ + 手動編集
 ```
+
+`in/` 以下の各サブディレクトリは独立した**タスク**として扱われます。ディレクトリ構造は
+`work/` と `out/` にミラーリングされます。テキストが検出されなかった画像はそのまま出力され——
+出力の画像数は常に入力と一致します。
 
 ## 手順
 
 | ステップ | 内容 | 出力 |
 |---|---|---|
-| `extract` | テキスト検出 → OCR → マスク精査 → インペイント | `work_dir/clean/*.png`, `work_dir/pages.json` |
-| `translate` | テキストを約1500文字のバッチにまとめ、LLMを呼び出し翻訳を充填 | 更新された `pages.json` |
-| `render` | 翻訳されたテキストをインペイント済み画像に描画 | `out_dir/*.png` |
+| `extract` | テキスト検出 → OCR → マスク精査 → インペイント | `work/<タスク>/clean/*.png`, `work/<タスク>/pages.json` |
+| `translate` | テキストを約1500文字のバッチにまとめ、LLMを呼び出し翻訳を充填 | 各タスクの更新された `pages.json` |
+| `render` | 翻訳されたテキストをインペイント済み画像に描画、テキストなしページはそのままコピー | `out/<タスク>/*.png`（入力と同数） |
 | `run` | 抽出 → 翻訳 → 描画を一括実行 | 両方 |
 
-`pages.json` は唯一の信頼できる情報源です。`translate` と `render` の間にこれを開いて、翻訳を修正することができます。
+各タスクの `pages.json` は唯一の信頼できる情報源です。`translate` と `render` の間にこれを開いて、翻訳を修正することができます。
 
 ## クイックスタート
 
@@ -46,12 +52,12 @@
 pip install -r requirements.txt          # Python >= 3.10 推奨
 cp examples/Example.env .env             # OPENAI_API_KEY を追加
 
-python -m manga_translator_lite extract -i ./input -w ./work -c examples/config-example.toml
+python -m manga_translator_lite extract -i ./in -w ./work -c examples/config-example.toml
 python -m manga_translator_lite translate ./work -c examples/config-example.toml
 python -m manga_translator_lite render ./work -o ./out -c examples/config-example.toml
 
 # またはエンドツーエンド実行（手動確認をスキップ）
-python -m manga_translator_lite run -i ./input -w ./work -o ./out -c examples/config-example.toml
+python -m manga_translator_lite run -i ./in -w ./work -o ./out -c examples/config-example.toml
 ```
 
 ## 設定
@@ -97,12 +103,13 @@ python -m manga_translator_lite config-help
 
 ## 翻訳の編集
 
-`translate` ステップの後、`pages.json` は以下のようになります：
+`translate` ステップの後、各タスクディレクトリの `pages.json`（例： `work/manga_a/pages.json`）は以下のようになります：
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "target_lang": "JPN",
+  "task_name": "manga_a",
   "pages": [
     {
       "index": 0,
@@ -122,12 +129,21 @@ python -m manga_translator_lite config-help
           "alignment": "auto"
         }
       ]
+    },
+    {
+      "index": 1,
+      "name": "0002.jpg",
+      "size": [1200, 1700],
+      "clean": "clean/0001_0002.png",
+      "no_text": true,
+      "blocks": []
     }
   ]
 }
 ```
 
-任意の `translation` フィールドを編集した後、`render` を実行してください。
+任意の `translation` フィールドを編集した後、`render` を実行してください。`"no_text": true`
+のページにはブロックがなく、そのまま出力にコピーされます。
 
 ## プロジェクト構成
 
@@ -166,10 +182,11 @@ cp examples/Example.env .env
 # .env ファイルを編集して API キーを設定します
 ```
 
-ルートディレクトリに `input` という名前のフォルダを作成し、漫画の画像を配置して実行します：
+`in/` の下に各漫画のサブディレクトリを作成し、画像を配置して実行します：
 
 ```bash
-python -m manga_translator_lite extract -i ./input -w ./work -c examples/config-example.toml
+# in/manga_a/0001.jpg, in/manga_a/0002.jpg, ...
+python -m manga_translator_lite extract -i ./in -w ./work -c examples/config-example.toml
 python -m manga_translator_lite translate ./work
 python -m manga_translator_lite render ./work -o ./out
 ```

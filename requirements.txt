@@ -48,6 +48,6 @@ cython
 protobuf<6.0.0,>=3.20.2
 marshmallow
 pandas
-
+rusty-manga-image-translator
 # Native detection / model loaders
 pydensecrf@https://github.com/lucasb-eyer/pydensecrf/archive/refs/heads/master.zip

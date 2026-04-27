@@ -21,27 +21,34 @@ steps so you can edit translations by hand before they get rendered back onto
 the page.
 
 ```
-  input/                                work_dir/                          out/
-  ┌───────────┐                         ┌─────────────┐                    ┌───────────┐
-  │ 0001.jpg  │ ─── extract (CV) ──▶  │ pages.json  │ ── render ──▶     │ 0001.png  │
-  │ 0002.jpg  │                       │ clean/0001  │                    │ 0002.png  │
-  └───────────┘                         └─────────────┘                    └───────────┘
-                                              ▲
-                                              │ translate (LLM API)
-                                              │ + manual edit
+  in/                                   work/                              out/
+  ├── manga_a/                          ├── manga_a/                       ├── manga_a/
+  │   ├── 0001.jpg  ── extract ──▶    │   ├── pages.json  ── render ──▶ │   ├── 0001.png
+  │   └── 0002.jpg                     │   └── clean/                     │   └── 0002.png
+  └── manga_b/                          └── manga_b/                       └── manga_b/
+      ├── 0001.jpg                          ├── pages.json                     ├── 0001.png
+      └── 0002.jpg                          └── clean/                         └── 0002.png
+                                                  ▲
+                                                  │ translate (LLM API)
+                                                  │ + manual edit
 ```
+
+Each subdirectory under `in/` is treated as a separate **task**. The directory
+structure is mirrored into `work/` and `out/`. Images where no text is detected
+are passed through unchanged — the output always has the same number of images
+as the input.
 
 ## Steps
 
 | Step | What it does | Outputs |
 |---|---|---|
-| `extract` | text detection → OCR → mask refinement → inpainting | `work_dir/clean/*.png`, `work_dir/pages.json` (text + positions) |
-| `translate` | groups blocks into ~1500-char batches, calls the configured LLM, fills `translation` fields | updated `pages.json` |
-| `render` | paints translations onto the inpainted images | `out_dir/*.png` |
+| `extract` | text detection → OCR → mask refinement → inpainting | `work/<task>/clean/*.png`, `work/<task>/pages.json` (text + positions) |
+| `translate` | groups blocks into ~1500-char batches, calls the configured LLM, fills `translation` fields | updated `pages.json` per task |
+| `render` | paints translations onto the inpainted images; no-text pages are copied as-is | `out/<task>/*.png` (same count as input) |
 | `run` | extract → translate → render in one shot | both |
 
-`pages.json` is the single source of truth. Open it between `translate` and
-`render` to revise any translation.
+Each task's `pages.json` is the single source of truth. Open it between
+`translate` and `render` to revise any translation.
 
 ## Quick start
 
@@ -49,12 +56,12 @@ the page.
 pip install -r requirements.txt          # python >= 3.10, < 3.12
 cp examples/Example.env .env             # add OPENAI_API_KEY or GEMINI_API_KEY
 
-python -m manga_translator_lite extract -i ./input -w ./work -c examples/config-example.toml
+python -m manga_translator_lite extract -i ./in -w ./work -c examples/config-example.toml
 python -m manga_translator_lite translate ./work -c examples/config-example.toml
 python -m manga_translator_lite render ./work -o ./out -c examples/config-example.toml
 
 # Or end-to-end (skips manual review)
-python -m manga_translator_lite run -i ./input -w ./work -o ./out -c examples/config-example.toml
+python -m manga_translator_lite run -i ./in -w ./work -o ./out -c examples/config-example.toml
 ```
 
 ## Configuration
@@ -105,12 +112,14 @@ python -m manga_translator_lite config-help
 
 ## Editing translations
 
-After `translate`, `pages.json` looks like:
+After `translate`, each task's `pages.json` (e.g. `work/manga_a/pages.json`)
+looks like:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "target_lang": "ENG",
+  "task_name": "manga_a",
   "pages": [
     {
       "index": 0,
@@ -130,12 +139,21 @@ After `translate`, `pages.json` looks like:
           "alignment": "auto"
         }
       ]
+    },
+    {
+      "index": 1,
+      "name": "0002.jpg",
+      "size": [1200, 1700],
+      "clean": "clean/0001_0002.png",
+      "no_text": true,
+      "blocks": []
     }
   ]
 }
 ```
 
-Edit any `translation` field, then run `render`.
+Edit any `translation` field, then run `render`. Pages with `"no_text": true`
+have no blocks — they are copied as-is to the output.
 
 ## Project layout
 
@@ -174,10 +192,11 @@ cp examples/Example.env .env
 # Modify the .env file with your API key and other settings
 ```
 
-Add a folder named `input` in the root directory, place your manga images in it, and run:
+Create subdirectories under `in/` for each manga, place images in them, and run:
 
 ```bash
-python -m manga_translator_lite extract -i ./input -w ./work -c examples/config-example.toml
+# in/manga_a/0001.jpg, in/manga_a/0002.jpg, ...
+python -m manga_translator_lite extract -i ./in -w ./work -c examples/config-example.toml
 python -m manga_translator_lite translate ./work
 python -m manga_translator_lite render ./work -o ./out
 ```

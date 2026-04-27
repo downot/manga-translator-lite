@@ -2,15 +2,19 @@
 
 Walks the input path, runs the local CV pipeline on each image, and writes:
 
-  - workspace/clean/<idx>_<name>.png    text-removed image
-  - workspace/pages.json                  metadata + OCR text per block
+  - workspace/<task>/clean/<idx>_<name>.png    text-removed image
+  - workspace/<task>/pages.json                metadata + OCR text per block
+
+When the input directory contains subdirectories, each subdirectory is treated
+as a separate *task*.  When the input is a flat directory of images (no sub-
+directories), a single task named after the directory basename is created.
 
 Translation is left blank for the translate step to fill in.
 """
 from __future__ import annotations
 
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -52,12 +56,42 @@ def _list_images(input_path: str) -> List[str]:
     if os.path.isfile(input_path):
         return [input_path]
     files: List[str] = []
-    for root, _, names in os.walk(input_path):
-        for n in natural_sort(names):
-            ext = os.path.splitext(n)[1].lower()
-            if ext in IMG_EXTS and not n.startswith('.'):
-                files.append(os.path.join(root, n))
+    for n in natural_sort(os.listdir(input_path)):
+        ext = os.path.splitext(n)[1].lower()
+        if ext in IMG_EXTS and not n.startswith('.'):
+            files.append(os.path.join(input_path, n))
     return files
+
+
+def _discover_input_tasks(input_path: str) -> List[Tuple[str, str]]:
+    """Discover tasks from the input directory.
+
+    Returns a list of (task_name, task_input_dir) tuples.
+    - If input_path contains image-bearing subdirectories, each subdirectory
+      becomes a separate task.
+    - If input_path is a flat directory of images (or a single file), it becomes
+      one task named after the directory's basename.
+    """
+    input_path = os.path.abspath(input_path)
+
+    if os.path.isfile(input_path):
+        parent = os.path.dirname(input_path)
+        return [(os.path.basename(parent), parent)]
+
+    # Check if input_path has subdirectories with images
+    subdirs: List[Tuple[str, str]] = []
+    for entry in natural_sort(os.listdir(input_path)):
+        full = os.path.join(input_path, entry)
+        if os.path.isdir(full) and not entry.startswith('.'):
+            # Check if this subdir has images
+            if _list_images(full):
+                subdirs.append((entry, full))
+
+    if subdirs:
+        return subdirs
+
+    # No subdirectories with images — treat as single flat task
+    return [(os.path.basename(input_path), input_path)]
 
 
 def _polygon_from_lines(region: TextBlock) -> List[List[int]]:
@@ -129,7 +163,7 @@ async def _process_image(
     os.makedirs(workspace.clean_dir, exist_ok=True)
 
     if not textlines:
-        logger.info(f"[page {page_idx}] no text detected, copying as clean image")
+        logger.info(f"[page {page_idx}] no text detected — marked as no_text, copying original")
         cv2.imwrite(clean_abs, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
         return Page(
             index=page_idx,
@@ -138,6 +172,7 @@ async def _process_image(
             original=os.path.abspath(img_path),
             clean=clean_rel,
             blocks=[],
+            no_text=True,
         )
 
     # 2. OCR
@@ -145,7 +180,7 @@ async def _process_image(
     textlines = [tl for tl in textlines if tl.text and tl.text.strip()]
 
     if not textlines:
-        logger.info(f"[page {page_idx}] OCR empty, copying as clean image")
+        logger.info(f"[page {page_idx}] OCR empty — marked as no_text, copying original")
         cv2.imwrite(clean_abs, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
         return Page(
             index=page_idx,
@@ -154,6 +189,7 @@ async def _process_image(
             original=os.path.abspath(img_path),
             clean=clean_rel,
             blocks=[],
+            no_text=True,
         )
 
     # 3. textline merge → regions
@@ -197,6 +233,18 @@ async def _process_image(
     cv2.imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
     logger.info(f"[page {page_idx}] saved clean → {clean_rel} ({len(text_regions)} blocks)")
 
+    # If textline merge + filtering produced no valuable blocks, mark as no_text
+    if not text_regions:
+        return Page(
+            index=page_idx,
+            name=os.path.basename(img_path),
+            size=(w, h),
+            original=os.path.abspath(img_path),
+            clean=clean_rel,
+            blocks=[],
+            no_text=True,
+        )
+
     blocks = [_serialise_block(r, page_idx, i) for i, r in enumerate(text_regions)]
     return Page(
         index=page_idx,
@@ -208,6 +256,63 @@ async def _process_image(
     )
 
 
+async def _extract_task(
+    task_name: str,
+    task_input_dir: str,
+    task_work_dir: str,
+    cfg: Config,
+    device: str,
+    verbose: bool,
+    target_lang: Optional[str],
+    overwrite: bool,
+) -> Workspace:
+    """Extract a single task (one subdirectory worth of images)."""
+    files = _list_images(task_input_dir)
+    if not files:
+        raise FileNotFoundError(f"No images found under {task_input_dir}")
+
+    logger.info(f"[task: {task_name}] Found {len(files)} image(s)")
+
+    # Resume logic: Load existing workspace if pages.json exists.
+    existing_pages: Dict[str, Page] = {}
+    if not overwrite and os.path.exists(os.path.join(task_work_dir, "pages.json")):
+        try:
+            ws_old = load_workspace(task_work_dir)
+            existing_pages = {os.path.abspath(p.original): p for p in ws_old.pages}
+            logger.info(f"[task: {task_name}] Found existing workspace with {len(existing_pages)} processed pages. Resuming...")
+        except Exception as e:
+            logger.warning(f"[task: {task_name}] Could not load existing workspace: {e}. Starting fresh.")
+
+    workspace = Workspace(
+        root=task_work_dir,
+        target_lang=target_lang or cfg.translator.target_lang,
+        source_lang=cfg.translator.source_lang,
+        task_name=task_name,
+    )
+    for i, path in enumerate(files):
+        abs_path = os.path.abspath(path)
+        if abs_path in existing_pages:
+            page = existing_pages[abs_path]
+            page.index = i
+            workspace.pages.append(page)
+            logger.info(f"[task: {task_name}] [page {i}] skipped (already processed): {os.path.basename(path)}")
+            continue
+
+        try:
+            page = await _process_image(path, i, cfg, device, workspace, verbose)
+            workspace.pages.append(page)
+            # Incremental save after each page for crash recovery
+            save_workspace(workspace)
+        except Exception as e:
+            logger.error(f"[task: {task_name}] Failed on {path}: {e}")
+            if verbose:
+                raise
+
+    save_workspace(workspace)
+    logger.info(f"[task: {task_name}] Workspace written: {workspace.pages_json_path}")
+    return workspace
+
+
 async def run_extract(
     input_path: str,
     work_dir: str,
@@ -215,16 +320,20 @@ async def run_extract(
     verbose: bool = False,
     target_lang: Optional[str] = None,
     overwrite: bool = False,
-) -> Workspace:
-    """Run detection + OCR + inpainting over the input and write the workspace."""
+) -> List[Workspace]:
+    """Run detection + OCR + inpainting over the input and write the workspace.
+
+    Returns a list of Workspace objects, one per task (subdirectory).
+    """
     input_path = os.path.abspath(os.path.expanduser(input_path))
     work_dir = os.path.abspath(os.path.expanduser(work_dir))
     os.makedirs(work_dir, exist_ok=True)
 
-    files = _list_images(input_path)
-    if not files:
+    tasks = _discover_input_tasks(input_path)
+    if not tasks:
         raise FileNotFoundError(f"No images found under {input_path}")
-    logger.info(f"Found {len(files)} image(s)")
+
+    logger.info(f"Discovered {len(tasks)} task(s): {[t[0] for t in tasks]}")
 
     device = _select_device(cfg.use_gpu)
     logger.info(f"Using device: {device}")
@@ -235,42 +344,14 @@ async def run_extract(
     if cfg.inpainter.inpainter != Inpainter.none:
         await prepare_inpainting(cfg.inpainter.inpainter, device)
 
-    # Resume logic: Load existing workspace if pages.json exists.
-    existing_pages = {}
-    if not overwrite and os.path.exists(os.path.join(work_dir, "pages.json")):
-        try:
-            ws_old = load_workspace(work_dir)
-            existing_pages = {os.path.abspath(p.original): p for p in ws_old.pages}
-            logger.info(f"Found existing workspace with {len(existing_pages)} processed pages. Resuming...")
-        except Exception as e:
-            logger.warning(f"Could not load existing workspace: {e}. Starting fresh.")
+    workspaces: List[Workspace] = []
+    for task_name, task_input_dir in tasks:
+        task_work_dir = os.path.join(work_dir, task_name)
+        ws = await _extract_task(
+            task_name, task_input_dir, task_work_dir, cfg, device,
+            verbose, target_lang, overwrite,
+        )
+        workspaces.append(ws)
 
-    workspace = Workspace(
-        root=work_dir,
-        target_lang=target_lang or cfg.translator.target_lang,
-        source_lang=cfg.translator.source_lang,
-    )
-    for i, path in enumerate(files):
-        abs_path = os.path.abspath(path)
-        if abs_path in existing_pages:
-            # Re-use existing page, but update its index to match current file list if needed.
-            # Usually, if the file list is the same, indices won't change.
-            page = existing_pages[abs_path]
-            page.index = i
-            workspace.pages.append(page)
-            logger.info(f"[page {i}] skipped (already processed): {os.path.basename(path)}")
-            continue
-
-        try:
-            page = await _process_image(path, i, cfg, device, workspace, verbose)
-            workspace.pages.append(page)
-            # Incremental save after each page for crash recovery
-            save_workspace(workspace)
-        except Exception as e:
-            logger.error(f"Failed on {path}: {e}")
-            if verbose:
-                raise
-
-    save_workspace(workspace)
-    logger.info(f"Workspace written: {workspace.pages_json_path}")
-    return workspace
+    logger.info(f"All tasks complete: {len(workspaces)} workspace(s) written under {work_dir}")
+    return workspaces

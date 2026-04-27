@@ -19,26 +19,31 @@
 本地 OCR + 第三方 LLM API。流水线被拆分为三个可复审的步骤，因此您可以在翻译渲染回页面之前手动对其进行编辑。
 
 ```
-  in/                                   work_dir/                          out/
-  ┌───────────┐                         ┌─────────────┐                    ┌───────────┐
-  │ 0001.jpg  │ ─── extract (CV) ──▶  │ pages.json  │ ── render ──▶     │ 0001.png  │
-  │ 0002.jpg  │                       │ clean/0001  │                    │ 0002.png  │
-  └───────────┘                         └─────────────┘                    └───────────┘
-                                              ▲
-                                              │ translate (LLM API)
-                                              │ + 手动编辑
+  in/                                   work/                              out/
+  ├── manga_a/                          ├── manga_a/                       ├── manga_a/
+  │   ├── 0001.jpg  ── extract ──▶    │   ├── pages.json  ── render ──▶ │   ├── 0001.png
+  │   └── 0002.jpg                     │   └── clean/                     │   └── 0002.png
+  └── manga_b/                          └── manga_b/                       └── manga_b/
+      ├── 0001.jpg                          ├── pages.json                     ├── 0001.png
+      └── 0002.jpg                          └── clean/                         └── 0002.png
+                                                  ▲
+                                                  │ translate (LLM API)
+                                                  │ + 手动编辑
 ```
+
+`in/` 下的每个子目录会被视为一个独立的**任务**。目录结构会被镜像到 `work/` 和 `out/`。
+未检测到文字的图片将原样输出——输出图片数量始终与输入保持一致。
 
 ## 步骤说明
 
 | 步骤 | 功能 | 输出 |
 |---|---|---|
-| `extract` | 文本检测 → OCR → 掩码优化 → 图像修复 | `work_dir/clean/*.png`, `work_dir/pages.json` (文本 + 位置) |
-| `translate` | 将文本块分组为约1500字符的批次，调用配置的 LLM，填充翻译字段 | 更新后的 `pages.json` |
-| `render` | 将翻译后的文本绘制到修复后的图像上 | `out_dir/*.png` |
+| `extract` | 文本检测 → OCR → 掩码优化 → 图像修复 | `work/<任务名>/clean/*.png`, `work/<任务名>/pages.json` (文本 + 位置) |
+| `translate` | 将文本块分组为约1500字符的批次，调用配置的 LLM，填充翻译字段 | 各任务更新后的 `pages.json` |
+| `render` | 将翻译后的文本绘制到修复后的图像上；无文字页面原样复制 | `out/<任务名>/*.png`（数量与输入一致） |
 | `run` | 一键完成 提取 → 翻译 → 渲染 | 两者皆有 |
 
-`pages.json` 是唯一的真理来源。在 `translate` 和 `render` 之间打开它以修改任何翻译。
+各任务的 `pages.json` 是唯一的真理来源。在 `translate` 和 `render` 之间打开它以修改任何翻译。
 
 ## 快速入门
 
@@ -46,12 +51,12 @@
 pip install -r requirements.txt          # 建议 Python >= 3.10
 cp examples/Example.env .env             # 添加 OPENAI_API_KEY 或 GEMINI_API_KEY
 
-python -m manga_translator_lite extract -i ./input -w ./work -c examples/config-example.toml
+python -m manga_translator_lite extract -i ./in -w ./work -c examples/config-example.toml
 python -m manga_translator_lite translate ./work -c examples/config-example.toml
 python -m manga_translator_lite render ./work -o ./out -c examples/config-example.toml
 
 # 或者全流程运行（跳过手动复审）
-python -m manga_translator_lite run -i ./input -w ./work -o ./out -c examples/config-example.toml
+python -m manga_translator_lite run -i ./in -w ./work -o ./out -c examples/config-example.toml
 ```
 
 ## 配置说明
@@ -99,12 +104,13 @@ python -m manga_translator_lite config-help
 
 ## 编辑翻译
 
-在执行 `translate` 之后，`pages.json` 的结构如下：
+在执行 `translate` 之后，各任务目录下的 `pages.json`（例如 `work/manga_a/pages.json`）的结构如下：
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "target_lang": "CHS",
+  "task_name": "manga_a",
   "pages": [
     {
       "index": 0,
@@ -124,12 +130,20 @@ python -m manga_translator_lite config-help
           "alignment": "auto"
         }
       ]
+    },
+    {
+      "index": 1,
+      "name": "0002.jpg",
+      "size": [1200, 1700],
+      "clean": "clean/0001_0002.png",
+      "no_text": true,
+      "blocks": []
     }
   ]
 }
 ```
 
-编辑任何 `translation` 字段，然后运行 `render`。
+编辑任何 `translation` 字段，然后运行 `render`。标记为 `"no_text": true` 的页面没有文本块——它们会被原样复制到输出目录。
 
 ## 项目布局
 
@@ -168,10 +182,11 @@ cp examples/Example.env .env
 # 修改 .env 文件，填入您的 API 密钥和其他设置
 ```
 
-在根目录下创建一个名为 `input` 的文件夹，将漫画图像放入其中，然后运行：
+在 `in/` 下为每部漫画创建子目录，将图像放入其中，然后运行：
 
 ```bash
-python -m manga_translator_lite extract -i ./input -w ./work -c examples/config-example.toml
+# in/manga_a/0001.jpg, in/manga_a/0002.jpg, ...
+python -m manga_translator_lite extract -i ./in -w ./work -c examples/config-example.toml
 python -m manga_translator_lite translate ./work
 python -m manga_translator_lite render ./work -o ./out
 ```

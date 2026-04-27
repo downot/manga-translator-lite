@@ -1,15 +1,10 @@
 import numpy as np
 
-import os
-from manga_translator_lite.config import TranslatorConfig
-from manga_translator_lite.utils import Quadrilateral, ensure_rusty_manga_image_translator
+from rusty_manga_image_translator import Session, PyPreprocessorOptions, PyDefaultOptions, PyImage
 
-# Dynamically ensure the package is installed and imported
-rusty = ensure_rusty_manga_image_translator()
-Session = rusty.Session
-PyPreprocessorOptions = rusty.PyPreprocessorOptions
-PyDefaultOptions = rusty.PyDefaultOptions
-PyImage = rusty.PyImage
+from manga_translator_lite.config import TranslatorConfig
+from manga_translator_lite.utils import Quadrilateral
+
 
 def get_session():
     """Gets onnx session"""

@@ -1,14 +1,18 @@
 """On-disk schema for the intermediate workspace.
 
-A workspace directory looks like this:
+A workspace directory looks like this (subdirectory-based multi-task layout):
 
     work_dir/
-        pages.json         # Workspace serialised here
-        clean/0001.png     # Inpainted (text-removed) images
-        clean/0002.png
-        ...
+        task_a/
+            pages.json         # Workspace for task_a
+            clean/0001.png     # Inpainted (text-removed) images
+            clean/0002.png
+        task_b/
+            pages.json
+            clean/...
 
-`pages.json` is the single source of truth. The translate step writes
+Each subdirectory under work_dir is an independent task workspace.
+`pages.json` is the single source of truth per task. The translate step writes
 translation strings back into the same file. Users may edit pages.json
 between translate and render to revise translations.
 """
@@ -20,7 +24,7 @@ from dataclasses import asdict, dataclass, field
 from typing import List, Optional, Tuple
 
 
-WORKSPACE_VERSION = 1
+WORKSPACE_VERSION = 2
 PAGES_JSON = "pages.json"
 CLEAN_DIR = "clean"
 
@@ -77,9 +81,10 @@ class Page:
     original: str                         # original input path (relative or absolute)
     clean: str                            # path to text-removed image, relative to workspace root
     blocks: List[Block] = field(default_factory=list)
+    no_text: bool = False                 # True if no text was detected (OCR-empty page)
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "index": self.index,
             "name": self.name,
             "size": list(self.size),
@@ -87,6 +92,9 @@ class Page:
             "clean": self.clean,
             "blocks": [b.to_dict() for b in self.blocks],
         }
+        if self.no_text:
+            d["no_text"] = True
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "Page":
@@ -97,14 +105,16 @@ class Page:
             original=str(data.get("original", "")),
             clean=str(data.get("clean", "")),
             blocks=[Block.from_dict(b) for b in data.get("blocks", [])],
+            no_text=bool(data.get("no_text", False)),
         )
 
 
 @dataclass
 class Workspace:
-    root: str                             # absolute path to workspace dir
+    root: str                             # absolute path to task workspace dir (the subdirectory)
     source_lang: str = "auto"
     target_lang: str = "ENG"
+    task_name: str = ""                   # subdirectory name (task identifier)
     pages: List[Page] = field(default_factory=list)
     version: int = WORKSPACE_VERSION
 
@@ -117,12 +127,15 @@ class Workspace:
         return os.path.join(self.root, CLEAN_DIR)
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "version": self.version,
             "source_lang": self.source_lang,
             "target_lang": self.target_lang,
             "pages": [p.to_dict() for p in self.pages],
         }
+        if self.task_name:
+            d["task_name"] = self.task_name
+        return d
 
     def all_blocks(self) -> List[Block]:
         out: List[Block] = []
@@ -156,5 +169,24 @@ def load_workspace(root: str) -> Workspace:
         version=int(data.get("version", WORKSPACE_VERSION)),
         source_lang=str(data.get("source_lang", "auto")),
         target_lang=str(data.get("target_lang", "ENG")),
+        task_name=str(data.get("task_name", "")),
         pages=[Page.from_dict(p) for p in data.get("pages", [])],
     )
+
+
+def discover_tasks(work_dir: str) -> List[str]:
+    """Return a sorted list of task subdirectory names under work_dir.
+
+    Only subdirectories that contain a ``pages.json`` file are considered
+    valid task workspaces.
+    """
+    work_dir = os.path.abspath(work_dir)
+    tasks = []
+    if not os.path.isdir(work_dir):
+        return tasks
+    for entry in sorted(os.listdir(work_dir)):
+        full = os.path.join(work_dir, entry)
+        if os.path.isdir(full) and not entry.startswith('.'):
+            if os.path.isfile(os.path.join(full, PAGES_JSON)):
+                tasks.append(entry)
+    return tasks

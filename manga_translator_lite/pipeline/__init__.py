@@ -5,6 +5,7 @@ from .schema import (
     Page,
     Workspace,
     block_id,
+    discover_tasks,
     load_workspace,
     save_workspace,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "Page",
     "Workspace",
     "block_id",
+    "discover_tasks",
     "load_workspace",
     "save_workspace",
 ]

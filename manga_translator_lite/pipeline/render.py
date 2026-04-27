@@ -3,10 +3,16 @@
 Reads pages.json and the matching ``clean/*.png``, draws translated text onto
 each clean image using the rendering module, and writes the result into the
 output directory.
+
+This step iterates over all task subdirectories and mirrors the subdirectory
+structure in the output directory. **Every** input image produces an output
+image — pages marked ``no_text`` are copied as-is so the output count always
+matches the input count.
 """
 from __future__ import annotations
 
 import os
+import shutil
 from typing import List, Optional
 
 import cv2
@@ -16,7 +22,7 @@ from PIL import Image
 from ..config import Config
 from ..rendering import dispatch as dispatch_rendering
 from ..utils import BASE_PATH, TextBlock, get_logger
-from .schema import Block, Page, Workspace, load_workspace
+from .schema import Block, Page, Workspace, discover_tasks, load_workspace
 
 logger = get_logger('render')
 
@@ -57,6 +63,29 @@ def _block_to_textblock(block: Block, target_lang: str, render_cfg) -> TextBlock
 
 
 async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str) -> Optional[str]:
+    """Render a single page.  Always produces an output file.
+
+    - ``no_text`` pages → copy the original image directly.
+    - Pages with blocks but no translations → copy the clean image.
+    - Normal pages → render translated text onto the clean image.
+    """
+    out_name = os.path.splitext(page.name)[0] + ".png"
+    out_path = os.path.join(out_dir, out_name)
+
+    # no_text pages — copy original directly (pass-through)
+    if page.no_text:
+        if page.original and os.path.exists(page.original):
+            img = Image.open(page.original).convert('RGB')
+            img.save(out_path)
+            logger.info(f"[page {page.index}] no_text → copied original as-is → {out_path}")
+        elif os.path.exists(os.path.join(ws.root, page.clean)):
+            shutil.copy2(os.path.join(ws.root, page.clean), out_path)
+            logger.info(f"[page {page.index}] no_text → copied clean image → {out_path}")
+        else:
+            logger.warning(f"[page {page.index}] no_text but no source found, skipping")
+            return None
+        return out_path
+
     clean_path = os.path.join(ws.root, page.clean)
     if not os.path.exists(clean_path):
         logger.warning(f"[page {page.index}] clean image missing: {clean_path}, skipping")
@@ -96,26 +125,53 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str) -> 
             disable_font_border=cfg.render.disable_font_border,
         )
 
-    out_name = os.path.splitext(page.name)[0] + ".png"
-    out_path = os.path.join(out_dir, out_name)
     Image.fromarray(rendered_rgb).save(out_path)
     logger.info(f"[page {page.index}] → {out_path}")
     return out_path
 
 
+async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cfg: Config) -> List[str]:
+    """Render all pages for a single task."""
+    workspace = load_workspace(task_work_dir)
+    os.makedirs(task_out_dir, exist_ok=True)
+    logger.info(f"[task: {task_name}] Rendering {len(workspace.pages)} page(s) into {task_out_dir}")
+
+    written: List[str] = []
+    for page in workspace.pages:
+        path = await _render_page(page, workspace, cfg, task_out_dir)
+        if path:
+            written.append(path)
+
+    no_text_count = sum(1 for p in workspace.pages if p.no_text)
+    logger.info(f"[task: {task_name}] Wrote {len(written)} image(s) "
+                f"({no_text_count} no-text pass-through)")
+    return written
+
+
 async def run_render(work_dir: str, out_dir: str, cfg: Config) -> List[str]:
+    """Render all tasks under work_dir.
+
+    Mirrors the subdirectory structure: work_dir/<task>/ → out_dir/<task>/.
+    """
     work_dir = os.path.abspath(os.path.expanduser(work_dir))
     out_dir = os.path.abspath(os.path.expanduser(out_dir))
     os.makedirs(out_dir, exist_ok=True)
 
-    workspace = load_workspace(work_dir)
-    logger.info(f"Rendering {len(workspace.pages)} page(s) into {out_dir}")
+    tasks = discover_tasks(work_dir)
+    if not tasks:
+        raise FileNotFoundError(f"No task subdirectories found under {work_dir}")
 
-    written: List[str] = []
-    for page in workspace.pages:
-        path = await _render_page(page, workspace, cfg, out_dir)
-        if path:
-            written.append(path)
+    logger.info(f"Found {len(tasks)} task(s) to render: {tasks}")
 
-    logger.info(f"Wrote {len(written)} image(s)")
-    return written
+    all_written: List[str] = []
+    for task_name in tasks:
+        task_work_dir = os.path.join(work_dir, task_name)
+        task_out_dir = os.path.join(out_dir, task_name)
+        try:
+            written = await _render_task(task_name, task_work_dir, task_out_dir, cfg)
+            all_written.extend(written)
+        except FileNotFoundError:
+            logger.warning(f"[task: {task_name}] No pages.json found, skipping.")
+
+    logger.info(f"Rendered {len(all_written)} image(s) total across {len(tasks)} task(s)")
+    return all_written
