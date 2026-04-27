@@ -4,7 +4,7 @@
 
 ## Acknowledgements
 
-This project is deeply indebted to **zyddnys** and the original [manga-image-translator](https://github.com/zyddnys/manga-image-translator). Without zyddnys' outstanding work, this project would not exist. This "Lite" version is a simplified, modularized, and modernized refactor of the original codebase. The core capabilities of this project will still be based on the original project.
+This project is deeply indebted to **frederik-uni** and **zyddnys** and the original [manga-image-translator](https://github.com/zyddnys/manga-image-translator). Without [frederik-uni](https://github.com/frederik-uni) and [zyddnys](https://github.com/zyddnys)' outstanding work, this project would not exist. This "Lite" version is a simplified, modularized, and modernized refactor of the original codebase. The core capabilities of this project will still be based on the original project.
 
 ## Core Differences from Original
 
@@ -174,10 +174,10 @@ cp examples/Example.env .env
 # Modify the .env file with your API key and other settings
 ```
 
-Add a folder named `in` in the root directory, place your manga images in it, and run:
+Add a folder named `input` in the root directory, place your manga images in it, and run:
 
 ```bash
-python -m manga_translator_lite extract -i ./in -w ./work -c examples/config-example.toml
+python -m manga_translator_lite extract -i ./input -w ./work -c examples/config-example.toml
 python -m manga_translator_lite translate ./work
 python -m manga_translator_lite render ./work -o ./out
 ```

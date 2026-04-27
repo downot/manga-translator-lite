@@ -1,8 +1,10 @@
 # Manga Image Translator Lite (漫画图像翻译器轻量版)
 
+[English](README.md) | [日本語](README-JP.md) | [中文](README-CN.md)
+
 ## 致谢
 
-本项目深感荣幸地感谢 **zyddnys** 及其原始项目 [manga-image-translator](https://github.com/zyddnys/manga-image-translator)。如果没有 zyddnys 的杰出工作，本项目将不复存在。此“轻量版”是对原始代码库的简化、模块化和现代化重构。本项目的核心功能仍然基于原始项目。
+本项目深感荣幸地感谢 **frederik-uni**、**zyddnys** 及其原始项目 [manga-image-translator](https://github.com/zyddnys/manga-image-translator)。如果没有 [frederik-uni](https://github.com/frederik-uni) 和 [zyddnys](https://github.com/zyddnys) 的杰出工作，本项目将不复存在。此“轻量版”是对原始代码库的简化、模块化和现代化重构。本项目的核心功能仍然基于原始项目。
 
 ## 与原项目的核心差异
 
@@ -44,12 +46,12 @@
 pip install -r requirements.txt          # 建议 Python >= 3.10
 cp examples/Example.env .env             # 添加 OPENAI_API_KEY 或 GEMINI_API_KEY
 
-python -m manga_translator_lite extract -i ./in -w ./work -c examples/config-example.toml
+python -m manga_translator_lite extract -i ./input -w ./work -c examples/config-example.toml
 python -m manga_translator_lite translate ./work -c examples/config-example.toml
 python -m manga_translator_lite render ./work -o ./out -c examples/config-example.toml
 
 # 或者全流程运行（跳过手动复审）
-python -m manga_translator_lite run -i ./in -w ./work -o ./out -c examples/config-example.toml
+python -m manga_translator_lite run -i ./input -w ./work -o ./out -c examples/config-example.toml
 ```
 
 ## 配置说明
@@ -84,6 +86,50 @@ font_size_offset = 0
 direction = "auto"
 alignment = "auto"
 ```
+
+`provider = "openai"` 支持任何兼容 OpenAI 的 HTTP 接口，包括 DeepSeek、OpenRouter、Groq 和 Ollama —— 只需将 `api_base` 和 `model` 指向您想要的服务。
+
+API 密钥可以放在 `[translator] api_key` 中，也可以使用环境变量 (`OPENAI_API_KEY` / `GEMINI_API_KEY`)；参见 [examples/Example.env](examples/Example.env)。
+
+使用以下命令打印完整配置结构：
+
+```bash
+python -m manga_translator_lite config-help
+```
+
+## 编辑翻译
+
+在执行 `translate` 之后，`pages.json` 的结构如下：
+
+```json
+{
+  "version": 1,
+  "target_lang": "CHS",
+  "pages": [
+    {
+      "index": 0,
+      "name": "0001.jpg",
+      "size": [1200, 1700],
+      "clean": "clean/0000_0001.png",
+      "blocks": [
+        {
+          "id": "p0000_b000",
+          "text": "おはよう",
+          "translation": "早上好",
+          "bbox": [120, 340, 80, 40],
+          "polygon": [[120,340],[200,340],[200,380],[120,380]],
+          "lines": [...],
+          "font_size": 24,
+          "direction": "auto",
+          "alignment": "auto"
+        }
+      ]
+    }
+  ]
+}
+```
+
+编辑任何 `translation` 字段，然后运行 `render`。
 
 ## 项目布局
 
@@ -122,10 +168,10 @@ cp examples/Example.env .env
 # 修改 .env 文件，填入您的 API 密钥和其他设置
 ```
 
-在根目录下创建一个名为 `in` 的文件夹，将漫画图像放入其中，然后运行：
+在根目录下创建一个名为 `input` 的文件夹，将漫画图像放入其中，然后运行：
 
 ```bash
-python -m manga_translator_lite extract -i ./in -w ./work -c examples/config-example.toml
+python -m manga_translator_lite extract -i ./input -w ./work -c examples/config-example.toml
 python -m manga_translator_lite translate ./work
 python -m manga_translator_lite render ./work -o ./out
 ```
