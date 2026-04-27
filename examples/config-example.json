@@ -1,0 +1,51 @@
+{
+  "use_gpu": false,
+  "kernel_size": 3,
+  "mask_dilation_offset": 20,
+  "force_simple_sort": false,
+  "detector": {
+    "detector": "default",
+    "detection_size": 2048,
+    "text_threshold": 0.5,
+    "box_threshold": 0.7,
+    "unclip_ratio": 2.3
+  },
+  "ocr": {
+    "ocr": "48px",
+    "min_text_length": 0,
+    "ignore_bubble": 0
+  },
+  "inpainter": {
+    "inpainter": "lama_large",
+    "inpainting_size": 2048,
+    "inpainting_precision": "bf16"
+  },
+  "translator": {
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "api_key": null,
+    "api_base": "https://api.openai.com/v1",
+    "target_lang": "ENG",
+    "source_lang": "auto",
+    "batch_chars": 1500,
+    "context_pages": 1,
+    "timeout": 120,
+    "max_retries": 3,
+    "extra_instructions": null
+  },
+  "render": {
+    "font_path": "",
+    "font_size": null,
+    "font_size_offset": 0,
+    "font_size_minimum": -1,
+    "line_spacing": null,
+    "direction": "auto",
+    "alignment": "auto",
+    "uppercase": false,
+    "lowercase": false,
+    "disable_font_border": false,
+    "no_hyphenation": false,
+    "rtl": true,
+    "font_color": null
+  }
+}

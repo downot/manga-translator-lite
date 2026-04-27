@@ -1,0 +1,42 @@
+# Models and large files
+*.ckpt
+*.pt
+*.onnx
+/models
+
+# Python runtime and build artifacts
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Environment and configuration
+.env
+config.toml
+config.json
+*.local
+.venv/
+/venv
+pyvenv.cfg
+
+# Editor and System
+.vscode/
+.idea/
+.DS_Store
+.history/
+
+# Project specific
+test/testdata
+dev/
+ocrs/
+
+# Default work directories
+/in
+/work
+/out
+
+# Temporary files
+*.bak
+*.tmp

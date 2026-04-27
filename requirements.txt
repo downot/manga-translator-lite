@@ -1,0 +1,55 @@
+# Core ML / image
+torch
+torchvision
+numpy==1.26.4
+opencv-python
+einops
+scikit-image
+shapely
+pyclipper
+freetype-py
+ImageHash
+kornia
+networkx
+timm
+safetensors
+huggingface_hub
+onnxruntime
+
+# Local OCR
+manga-ocr
+
+# LLM API providers
+openai==1.63.0
+google-genai
+httpx==0.27.2
+
+# Utilities
+requests
+tqdm
+tomli; python_version < "3.11"
+omegaconf
+pydantic==2.5.0
+python-dotenv
+py3langid==0.2.2
+langcodes[data]
+langdetect
+colorama
+rich
+regex
+pyhyphen
+arabic-reshaper
+python-bidi
+backports.cached-property
+aiofiles
+aioshutil
+nest-asyncio
+cython
+protobuf<6.0.0,>=3.20.2
+marshmallow
+pandas
+
+# Native detection / model loaders
+--extra-index-url https://frederik-uni.github.io/manga-image-translator-rust/python/wheels/simple/
+rusty-manga-image-translator
+pydensecrf@https://github.com/lucasb-eyer/pydensecrf/archive/refs/heads/master.zip
