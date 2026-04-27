@@ -50,6 +50,4 @@ marshmallow
 pandas
 
 # Native detection / model loaders
---extra-index-url https://frederik-uni.github.io/manga-image-translator-rust/python/wheels/simple/
-rusty-manga-image-translator
 pydensecrf@https://github.com/lucasb-eyer/pydensecrf/archive/refs/heads/master.zip
