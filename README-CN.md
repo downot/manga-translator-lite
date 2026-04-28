@@ -102,6 +102,24 @@ API 密钥可以放在 `[translator] api_key` 中，也可以使用环境变量 
 python -m manga_translator_lite config-help
 ```
 
+## 可视化编辑器 (实验性)
+
+项目中包含了一个轻量级的网页版可视化编辑器 `editor.html`，用于提供更好的手动校对体验。它可以让你直观地编辑 `pages.json` 数据并实时查看渲染效果。
+
+- **实时预览**：在页面上直接查看译文的最终呈现效果。
+- **快速编辑**：在侧边栏修改译文，画布会立即更新。
+- **缩放与适应**：支持“最佳比例”和“100% 大小”模式，适配不同尺寸的屏幕。
+- **多语言界面**：支持中文、英文和日文界面。
+- **快捷键支持**：`←`/`→` 翻页，`Z` 切换缩放，`R` 重新加载，`S` 保存。
+
+### 使用方法：
+1. 在项目根目录启动本地服务器（File System Access API 的安全限制需要）：
+   ```bash
+   python -m http.server 8000
+   ```
+2. 在现代浏览器（推荐 Chrome 或 Edge）中打开 `http://localhost:8000/editor.html`。
+3. 点击 **“打开 work 目录”** 并选择你的 `work` 文件夹即可开始编辑。
+
 ## 编辑翻译
 
 在执行 `translate` 之后，各任务目录下的 `pages.json`（例如 `work/manga_a/pages.json`）的结构如下：

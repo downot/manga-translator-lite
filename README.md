@@ -110,6 +110,24 @@ Print the full schema with:
 python -m manga_translator_lite config-help
 ```
 
+## Visual Editor (Experimental)
+
+A lightweight web-based visual editor `editor.html` is provided for a better manual review experience. It allows you to visually edit the `pages.json` data with real-time rendering.
+
+- **Real-time Preview**: See how the translated text looks on the actual page.
+- **Quick Edit**: Modify translations in a sidebar and see instant updates on canvas.
+- **Safe Centering & Zoom**: Supports "Best Fit" and "100% Size" modes with proper scrolling.
+- **Multi-language UI**: Supports English, Japanese, and Chinese.
+- **Keyboard Shortcuts**: `←`/`→` for paging, `Z` for zoom toggle, `R` for reload, `S` for save.
+
+### How to Use:
+1. Start a local server (required for File System Access API):
+   ```bash
+   python -m http.server 8000
+   ```
+2. Open `http://localhost:8000/editor.html` in a modern browser (Chrome or Edge recommended).
+3. Click **"Open Work Dir"** and select your `work` folder to start editing.
+
 ## Editing translations
 
 After `translate`, each task's `pages.json` (e.g. `work/manga_a/pages.json`)
