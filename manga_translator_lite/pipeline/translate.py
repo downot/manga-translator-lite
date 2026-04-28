@@ -39,22 +39,27 @@ async def _translate_task(
         if page.no_text:
             continue
 
-        # If a start_index is set, pages before it should be added as context
-        # and pages at or after it should be forced to re-translate.
-        is_at_or_after_start = start_index is not None and page.index >= start_index
-        force_page = overwrite or is_at_or_after_start
-
-        if not force_page:
-            # Check if this page is already fully translated
+        # Logic for start_index and overwrite:
+        # 1. If page is before start_index, it's context-only. No translation allowed.
+        is_before_start = start_index is not None and page.index < start_index
+        if is_before_start:
             page_translations = [b.translation for b in page.blocks if b.translation]
-            if len(page_translations) == len(page.blocks) and len(page.blocks) > 0:
-                # Fully translated, add to context and skip
+            if page_translations:
                 translator.add_context_page(page_translations)
-                continue
+            continue
 
-        # Otherwise, add blocks to the translation queue
+        # 2. If no overwrite, we can skip fully translated pages
+        page_translations = [b.translation for b in page.blocks if b.translation]
+        is_fully_translated = len(page_translations) == len(page.blocks) and len(page.blocks) > 0
+        if not overwrite and is_fully_translated:
+            # Fully translated, add to context and skip
+            translator.add_context_page(page_translations)
+            continue
+
+        # 3. Otherwise, add blocks to the translation queue
         for blk in page.blocks:
-            if blk.translation and not force_page:
+            # Skip if already translated and we are not overwriting
+            if blk.translation and not overwrite:
                 continue
             all_items.append(TranslationItem(id=blk.id, text=blk.text))
             block_map[blk.id] = blk
