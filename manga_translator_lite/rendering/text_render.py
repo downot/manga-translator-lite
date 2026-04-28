@@ -208,9 +208,10 @@ def add_color(bw_char_map, color, stroke_char_map, stroke_color):
     return bg#, alpha_char_map
 
 FALLBACK_FONTS = [
-    os.path.join(BASE_PATH, 'fonts/Arial-Unicode-Regular.ttf'),
     os.path.join(BASE_PATH, 'fonts/msyh.ttc'),
-    os.path.join(BASE_PATH, 'fonts/msgothic.ttc'),
+    os.path.join(BASE_PATH, 'fonts/SourceHanSans-Bold.ttc'),
+    os.path.join(BASE_PATH, 'fonts/LXGWWenKai-Medium.ttf'),
+    os.path.join(BASE_PATH, 'fonts/Arial-Unicode-Regular.ttf'),
 ]
 FONT_SELECTION: List[freetype.Face] = []
 font_cache = {}
@@ -228,7 +229,17 @@ def set_font(font_path: str):
         selection = [font_path] + FALLBACK_FONTS
     else:
         selection = FALLBACK_FONTS
-    FONT_SELECTION = [get_cached_font(p) for p in selection]
+    
+    FONT_SELECTION = []
+    for p in selection:
+        if p and os.path.isfile(p):
+            try:
+                FONT_SELECTION.append(get_cached_font(p))
+            except Exception as e:
+                logger.warning(f"Failed to load font {p}: {e}")
+    
+    if not FONT_SELECTION:
+        logger.error("No valid fonts found in selection or fallbacks!")
 
 class namespace:
     pass

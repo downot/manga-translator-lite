@@ -527,6 +527,7 @@
         let isDirty = false;
         let zoomMode = 'fit'; // 'fit' or 'orig'
         let selectedBlockIndex = -1;
+        let needsSort = false;
 
         const elements = {
             btnOpen: document.getElementById('btn-open'),
@@ -594,6 +595,43 @@
                 }
             }
             return files;
+        }
+
+        function getRect(poly) {
+            const xs = poly.map(p => p[0]);
+            const ys = poly.map(p => p[1]);
+            return {
+                minX: Math.min(...xs),
+                maxX: Math.max(...xs),
+                minY: Math.min(...ys),
+                maxY: Math.max(...ys)
+            };
+        }
+
+        /**
+         * Sorts blocks according to Japanese manga reading order:
+         * 1. Right to Left (Primary)
+         * 2. Top to Bottom (Secondary, within the same vertical 'column')
+         */
+        function sortBlocks(blocks, imgWidth) {
+            if (!blocks || blocks.length <= 1) return;
+            
+            // Threshold for considering blocks to be in the same vertical column.
+            // 60-80px is usually enough to catch side-by-side bubbles in a panel.
+            const thresholdX = Math.max(50, imgWidth * 0.08); 
+            
+            blocks.sort((a, b) => {
+                const rA = getRect(a.polygon);
+                const rB = getRect(b.polygon);
+                
+                // Primary: Right to Left (X descending)
+                const diffX = rB.maxX - rA.maxX;
+                if (Math.abs(diffX) > thresholdX) {
+                    return diffX;
+                }
+                // Secondary: Top to Bottom (Y ascending)
+                return rA.minY - rB.minY;
+            });
         }
 
         // --- Core Logic ---
@@ -704,6 +742,8 @@
             
             currentPageIndex = index;
             elements.inputPage.value = index + 1;
+            selectedBlockIndex = -1; // Reset selection on page change
+            needsSort = true; // Request sort on next image load
             
             // UI Update
             Array.from(elements.pageList.children).forEach((el, i) => {
@@ -783,6 +823,13 @@
                 ctx.clearRect(0, 0, img.width, img.height);
                 ctx.drawImage(img, 0, 0);
                 
+                // Perform manga-style sorting if requested
+                if (needsSort && page.blocks && page.blocks.length > 1) {
+                    sortBlocks(page.blocks, img.width);
+                    needsSort = false;
+                    renderBlockEditors(); // Refresh editor to match new order
+                }
+
                 // Draw Blocks
                 renderOverlays(page.blocks);
                 URL.revokeObjectURL(url);
@@ -852,14 +899,26 @@
 
                 ctx.save();
 
-                // Highlight selected block (even if no translation)
+                // Highlight selected block
                 if (bIndex === selectedBlockIndex) {
                     ctx.strokeStyle = '#3b82f6';
                     ctx.lineWidth = 4;
                     ctx.setLineDash([8, 4]);
                     ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
                     ctx.setLineDash([]);
+                } else {
+                    // Subtle border for all blocks to show reading order
+                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, w, h);
                 }
+
+                // Draw block index for reference
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
+                ctx.fillRect(x, y - 22, 35, 20);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText(`${bIndex + 1}`, x + 5, y - 7);
 
                 const text = block.translation || "";
                 if (text) {
