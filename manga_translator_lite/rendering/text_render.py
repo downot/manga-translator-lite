@@ -557,7 +557,7 @@ def put_text_vertical(font_size: int, text: str, h: int, alignment: str, fg: Tup
     spacing_x = int(font_size * (line_spacing or 0.2))
 
     # make large canvas
-    num_char_y = h // font_size
+    num_char_y = max(1, h // font_size)
     num_char_x = len(text) // num_char_y + 1
     canvas_x = font_size * num_char_x + spacing_x * (num_char_x - 1) + (font_size + bg_size) * 2
     canvas_y = font_size * num_char_y + (font_size + bg_size) * 2

@@ -171,9 +171,7 @@ async def run_render(work_dir: str, out_dir: str, cfg: Config) -> List[str]:
             written = await _render_task(task_name, task_work_dir, task_out_dir, cfg)
             all_written.extend(written)
         except Exception as e:
-            logger.error(f"[task: {task_name}] Error during rendering: {e}")
-            if cfg.verbose:
-                logger.exception(e)
+            logger.error(f"[task: {task_name}] Error during rendering: {e}", exc_info=True)
 
     logger.info(f"Rendered {len(all_written)} image(s) total across {len(tasks)} task(s)")
     return all_written
