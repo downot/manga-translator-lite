@@ -220,9 +220,10 @@
             border-color: var(--accent);
         }
 
-        .block-card.active {
+        .block-card.active, .block-card.selected {
             border-color: var(--accent);
             box-shadow: 0 0 0 1px var(--accent);
+            background-color: var(--bg-hover);
         }
 
         .block-info {
@@ -525,6 +526,7 @@
         let currentPageIndex = -1;
         let isDirty = false;
         let zoomMode = 'fit'; // 'fit' or 'orig'
+        let selectedBlockIndex = -1;
 
         const elements = {
             btnOpen: document.getElementById('btn-open'),
@@ -789,35 +791,92 @@
             img.src = url;
         }
 
-        function renderOverlays(blocks) {
-            blocks.forEach(block => {
-                if (!block.translation && !block.text) return;
-                
-                const text = block.translation || "";
-                if (!text) return;
+        // --- Interaction Logic ---
+        elements.canvas.onclick = (e) => {
+            if (!currentTask || currentPageIndex === -1) return;
+            
+            const rect = elements.canvas.getBoundingClientRect();
+            const scaleX = elements.canvas.width / rect.width;
+            const scaleY = elements.canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
 
+            const page = currentTask.data.pages[currentPageIndex];
+            const blocks = page.blocks || [];
+            
+            // Find block under cursor (reverse order to get top-most)
+            let foundIndex = -1;
+            for (let i = blocks.length - 1; i >= 0; i--) {
+                const poly = blocks[i].polygon;
+                const minX = Math.min(...poly.map(p => p[0]));
+                const maxX = Math.max(...poly.map(p => p[0]));
+                const minY = Math.min(...poly.map(p => p[1]));
+                const maxY = Math.max(...poly.map(p => p[1]));
+                
+                if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+                    foundIndex = i;
+                    break;
+                }
+            }
+
+            if (foundIndex !== -1) {
+                selectBlock(foundIndex, true);
+            }
+        };
+
+        function selectBlock(index, scrollToEditor = false) {
+            selectedBlockIndex = index;
+            
+            // Update Canvas
+            renderPage();
+
+            // Update Sidebar
+            const cards = elements.blocksContainer.querySelectorAll('.block-card');
+            cards.forEach((card, i) => {
+                const isSelected = i === index;
+                card.classList.toggle('selected', isSelected);
+                if (isSelected && scrollToEditor) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.querySelector('textarea').focus();
+                }
+            });
+        }
+
+        function renderOverlays(blocks) {
+            blocks.forEach((block, bIndex) => {
                 const poly = block.polygon;
-                // Simple bbox for now, we could use rotation
                 const x = Math.min(...poly.map(p => p[0]));
                 const y = Math.min(...poly.map(p => p[1]));
                 const w = Math.max(...poly.map(p => p[0])) - x;
                 const h = Math.max(...poly.map(p => p[1])) - y;
 
-                const fg = block.fg_color || [0, 0, 0];
-                const bg = block.bg_color || [255, 255, 255];
-                const fontSize = block.font_size || 24;
-                const isVertical = block.direction === 'v';
-
                 ctx.save();
-                
-                // Set font
-                ctx.font = `${fontSize}px "Noto Sans SC", sans-serif`;
-                ctx.textBaseline = 'top';
-                
-                if (isVertical) {
-                    drawTextVertical(text, x, y, w, h, fontSize, fg, bg, block.alignment);
-                } else {
-                    drawTextHorizontal(text, x, y, w, h, fontSize, fg, bg, block.alignment);
+
+                // Highlight selected block (even if no translation)
+                if (bIndex === selectedBlockIndex) {
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 4;
+                    ctx.setLineDash([8, 4]);
+                    ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+                    ctx.setLineDash([]);
+                }
+
+                const text = block.translation || "";
+                if (text) {
+                    const fg = block.fg_color || [0, 0, 0];
+                    const bg = block.bg_color || [255, 255, 255];
+                    const fontSize = block.font_size || 24;
+                    const isVertical = block.direction === 'v';
+
+                    // Set font
+                    ctx.font = `${fontSize}px "Noto Sans SC", sans-serif`;
+                    ctx.textBaseline = 'top';
+                    
+                    if (isVertical) {
+                        drawTextVertical(text, x, y, w, h, fontSize, fg, bg, block.alignment);
+                    } else {
+                        drawTextHorizontal(text, x, y, w, h, fontSize, fg, bg, block.alignment);
+                    }
                 }
                 
                 ctx.restore();
@@ -927,6 +986,33 @@
                     // Debounce canvas update
                     clearTimeout(textarea.t);
                     textarea.t = setTimeout(renderPage, 300);
+                };
+
+                textarea.onfocus = () => {
+                    selectedBlockIndex = bIndex;
+                    renderPage();
+                    // Mark card as selected
+                    elements.blocksContainer.querySelectorAll('.block-card').forEach((c, i) => {
+                        c.classList.toggle('selected', i === bIndex);
+                    });
+                };
+
+                textarea.onkeydown = (e) => {
+                    if (e.key === 'ArrowUp' && bIndex > 0) {
+                        e.preventDefault();
+                        const prevTextarea = elements.blocksContainer.querySelectorAll('textarea')[bIndex - 1];
+                        if (prevTextarea) {
+                            prevTextarea.focus();
+                            prevTextarea.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    } else if (e.key === 'ArrowDown' && bIndex < page.blocks.length - 1) {
+                        e.preventDefault();
+                        const nextTextarea = elements.blocksContainer.querySelectorAll('textarea')[bIndex + 1];
+                        if (nextTextarea) {
+                            nextTextarea.focus();
+                            nextTextarea.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
                 };
 
                 elements.blocksContainer.appendChild(card);
