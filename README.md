@@ -94,6 +94,9 @@ alignment = "auto"
 
 A lightweight web-based visual editor `editor.html` is provided for a better manual review experience.
 
+![Editor Screenshot](screenshot.jpg)
+*Example of the Visual Editor (editor.html) in action.*
+
 - **Real-time Preview**: See how the translated text looks on the actual page.
 - **Quick Edit**: Modify translations in a sidebar and see instant updates on canvas.
 - **Keyboard Shortcuts**: `←`/`→` for paging, `Z` for zoom, `R` for reload, `S` for save.
