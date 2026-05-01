@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Manga Translator Lite Editor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg-dark: #0f1115;
@@ -21,12 +24,14 @@
             --success: #10b981;
             --sidebar-width: 280px;
             --editor-width: 350px;
+            --terminal-height: 180px;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -47,22 +52,22 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 15px;
             z-index: 100;
         }
 
         .logo {
             font-weight: 600;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             color: var(--accent);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .controls {
             display: flex;
-            gap: 12px;
+            gap: 8px;
             align-items: center;
         }
 
@@ -70,7 +75,7 @@
             background-color: var(--accent);
             color: white;
             border: none;
-            padding: 8px 16px;
+            padding: 8px 12px;
             border-radius: 6px;
             font-weight: 500;
             cursor: pointer;
@@ -78,17 +83,16 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            font-size: 0.9rem;
         }
 
         button:hover {
             background-color: var(--accent-hover);
-            transform: translateY(-1px);
         }
 
         button:disabled {
             background-color: var(--border);
             cursor: not-allowed;
-            transform: none;
         }
 
         button.secondary {
@@ -96,37 +100,47 @@
             border: 1px solid var(--border);
         }
 
-        button.secondary:hover {
-            background-color: var(--border);
-        }
-
         /* Main Layout */
         main {
             flex: 1;
             display: flex;
             overflow: hidden;
+            position: relative;
         }
 
-        /* Sidebar */
-        #sidebar {
+        /* Sidebar & Editor */
+        #sidebar,
+        #editor {
             width: var(--sidebar-width);
             background-color: var(--bg-card);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        #editor {
+            width: var(--editor-width);
+            border-right: none;
+            border-left: 1px solid var(--border);
         }
 
         .section-title {
             padding: 15px 20px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 600;
             text-transform: uppercase;
             color: var(--text-secondary);
             letter-spacing: 0.05em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .task-list, .page-list {
+        .task-list,
+        .page-list,
+        .blocks-container {
             flex: 1;
             overflow-y: auto;
             padding: 0 10px 15px;
@@ -136,7 +150,7 @@
             padding: 10px 12px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             margin-bottom: 4px;
             transition: background 0.2s;
             white-space: nowrap;
@@ -167,17 +181,18 @@
             flex: 1;
             display: flex;
             overflow: auto;
-            padding: 40px;
+            padding: 20px;
             background-color: #0a0a0a;
             position: relative;
         }
 
         canvas {
             margin: auto;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
             background-color: #333;
             transition: transform 0.2s;
             flex-shrink: 0;
+            touch-action: none;
         }
 
         canvas.zoom-fit {
@@ -191,38 +206,17 @@
             height: auto !important;
         }
 
-        /* Right Editor */
-        #editor {
-            width: var(--editor-width);
-            background-color: var(--bg-card);
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .blocks-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-        }
-
+        /* Right Editor Card */
         .block-card {
             background-color: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 12px;
             margin-bottom: 15px;
-            transition: border-color 0.2s;
         }
 
-        .block-card:hover {
+        .block-card.selected {
             border-color: var(--accent);
-        }
-
-        .block-card.active, .block-card.selected {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 1px var(--accent);
             background-color: var(--bg-hover);
         }
 
@@ -230,20 +224,16 @@
             display: flex;
             justify-content: space-between;
             margin-bottom: 8px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: var(--text-secondary);
-        }
-
-        .block-label {
-            font-weight: 500;
         }
 
         .original-text {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
             margin-bottom: 8px;
             font-style: italic;
-            background: rgba(255,255,255,0.03);
+            background: rgba(255, 255, 255, 0.03);
             padding: 6px;
             border-radius: 4px;
         }
@@ -258,70 +248,138 @@
             font-family: inherit;
             font-size: 0.9rem;
             resize: vertical;
-            min-height: 60px;
+            min-height: 80px;
         }
 
-        textarea:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        /* Footer / Pagination */
+        /* Pagination */
         .pagination {
-            height: 50px;
+            height: 55px;
             background-color: var(--bg-card);
             border-top: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 20px;
-            padding: 0 20px;
+            gap: 10px;
+            padding: 0 10px;
         }
 
         .page-info {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-secondary);
-            min-width: 120px;
             text-align: center;
         }
 
         input[type="number"] {
-            width: 60px;
+            width: 50px;
             background-color: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 4px;
             color: white;
-            padding: 4px 8px;
+            padding: 4px;
             text-align: center;
         }
 
-        /* Notifications */
+        /* Mobile specific */
+        #mobile-nav {
+            display: none;
+            height: 50px;
+            background-color: var(--bg-card);
+            border-top: 1px solid var(--border);
+            justify-content: space-around;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .nav-btn {
+            background: none;
+            color: var(--text-secondary);
+            border: none;
+            font-size: 0.7rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 5px;
+        }
+
+        .nav-btn.active {
+            color: var(--accent);
+        }
+
+        @media (max-width: 768px) {
+            header .logo span {
+                display: none;
+            }
+
+            #sidebar,
+            #editor {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                z-index: 150;
+                width: 85%;
+                box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+            }
+
+            #sidebar {
+                left: 0;
+                transform: translateX(-100%);
+            }
+
+            #editor {
+                right: 0;
+                transform: translateX(100%);
+                border-left: none;
+            }
+
+            #sidebar.open,
+            #editor.open {
+                transform: translateX(0);
+            }
+
+            #mobile-nav {
+                display: flex;
+            }
+
+            .controls button span {
+                display: none;
+            }
+
+            .controls button {
+                padding: 8px;
+            }
+            .resizer {
+                display: none;
+            }
+        }
+
+        /* Toast & Loader */
         #toast {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            background-color: var(--bg-card);
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            transform: translateY(100px);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            padding: 10px 20px;
+            border-radius: 20px;
+            background-color: var(--accent);
+            color: white;
+            transition: all 0.3s;
             z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            font-size: 0.9rem;
+            opacity: 0;
+            pointer-events: none;
         }
 
         #toast.show {
-            transform: translateY(0);
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
         }
 
-        #toast.success { border-left: 4px solid var(--success); }
-        #toast.error { border-left: 4px solid var(--danger); }
-
-        /* Loader */
         .loader {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255,255,255,0.1);
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
@@ -329,10 +387,11 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
-        /* Empty state */
         .empty-state {
             display: flex;
             flex-direction: column;
@@ -341,802 +400,1007 @@
             height: 100%;
             color: var(--text-secondary);
             text-align: center;
-            padding: 40px;
+            padding: 20px;
+            font-size: 0.9rem;
         }
 
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            opacity: 0.5;
+        /* Sidebar Tabs */
+        .sidebar-tabs {
+            display: flex;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+        .sidebar-tab.active {
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        /* Pipeline Form */
+        .pipeline-form {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .form-group label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        .form-group select, .form-group input {
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            padding: 8px;
+            font-size: 0.85rem;
+        }
+        .form-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+        }
+
+        /* Terminal */
+        #terminal-container {
+            height: var(--terminal-height);
+            background-color: #050505;
+            border-top: 1px solid var(--border);
+            display: none;
+            flex-direction: column;
+            z-index: 100;
+        }
+        #terminal-header {
+            padding: 5px 15px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        #terminal-output {
+            flex: 1;
+            padding: 10px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.75rem;
+            color: #10b981;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+        #terminal-output .error { color: var(--danger); }
+        #terminal-output .status { color: var(--accent); font-weight: bold; }
+
+        /* Resizer */
+        .resizer {
+            width: 4px;
+            cursor: col-resize;
+            background-color: transparent;
+            transition: background-color 0.2s;
+            z-index: 10;
+        }
+        .resizer:hover, .resizer.dragging {
+            background-color: var(--accent);
         }
     </style>
 </head>
+
 <body>
     <header>
         <div class="logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
-            Manga Translator Lite
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                <circle cx="11" cy="11" r="2"></circle>
+            </svg>
+            <span>Manga Translator</span>
         </div>
         <div class="controls">
             <div id="status-loader" class="loader"></div>
-            <span id="status-text" style="font-size: 0.85rem; color: var(--text-secondary); margin-right: 10px;"></span>
-            <select id="lang-select" class="secondary" style="background-color: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 0.85rem; cursor: pointer;">
-                <option value="zh">简体中文</option>
-                <option value="en">English</option>
-                <option value="ja">日本語</option>
-            </select>
-            <button id="btn-open" class="secondary">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                <span data-i18n="btnOpen">打开 work 目录</span>
+            <span id="status-text" style="font-size: 0.8rem; color: var(--text-secondary); display: none;"></span>
+
+            <!-- UI Language -->
+            <div style="display: flex; align-items: center; background: var(--bg-hover); padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); height: 36px;"
+                title="Interface Language">
+                <select id="lang-select"
+                    style="background: none; color: var(--text-primary); border: none; font-size: 1.2rem; outline: none; cursor: pointer;">
+                    <option value="en">🇬🇧</option>
+                    <option value="ja">🇯🇵</option>
+                    <option value="zh">🇨🇳</option>
+                </select>
+            </div>
+
+            <button id="btn-open" class="secondary" title="Open local work directory">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span data-i18n="btnOpen">Open</span>
             </button>
-            <button id="btn-reload" class="secondary" disabled title="重新加载当前任务的 JSON 数据">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                <span data-i18n="btnReload">重新加载</span>
+
+            <!-- Translation Language -->
+            <div style="display: flex; align-items: center; gap: 8px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; height: 38px;"
+                title="Target Translation Language">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 8l6 6 6-6"></path>
+                </svg>
+                <select id="target-lang-select"
+                    style="background: none; color: var(--text-primary); border: none; font-size: 0.9rem; font-weight: 500; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none;">
+                    <option value="ENG">ENG</option>
+                    <option value="CHS">CHS</option>
+                    <option value="CHT">CHT</option>
+                    <option value="JPN">JPN</option>
+                    <option value="KOR">KOR</option>
+                    <option value="FRA">FRA</option>
+                    <option value="GER">GER</option>
+                    <option value="SPA">SPA</option>
+                    <option value="RUS">RUS</option>
+                </select>
+            </div>
+
+            <button id="btn-reload" class="secondary" title="Reload data">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span data-i18n="btnReload">Reload</span>
             </button>
+
             <button id="btn-save" disabled>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                <span data-i18n="btnSave">保存修改</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                </svg>
+                <span data-i18n="btnSave">Save</span>
             </button>
         </div>
     </header>
 
     <main>
         <aside id="sidebar">
-            <div class="section-title" data-i18n="titleTasks">任务列表</div>
-            <div id="task-list" class="task-list">
-                <div class="empty-state" data-i18n="emptyOpenDir">请先打开目录</div>
+            <div class="sidebar-tabs">
+                <div class="sidebar-tab active" id="tab-tasks" onclick="switchTab('tasks')">Tasks</div>
+                <div class="sidebar-tab" id="tab-pipeline" onclick="switchTab('pipeline')">Pipeline</div>
             </div>
-            <div class="section-title" data-i18n="titlePages">页面</div>
-            <div id="page-list" class="page-list"></div>
+
+            <div id="sidebar-content-tasks" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <div id="sidebar-tasks-section">
+                    <div class="section-title"><span data-i18n="titleTasks">Tasks</span></div>
+                    <div id="task-list" class="task-list">
+                        <div class="empty-state" data-i18n="emptyOpenDir">Open a directory first</div>
+                    </div>
+                </div>
+                <div class="section-title">
+                    <span data-i18n="titlePages">Pages</span>
+                    <button class="secondary mobile-only" style="padding:2px 5px; font-size:10px; display:none;"
+                        onclick="toggleSidebar(false)">Close</button>
+                </div>
+                <div id="page-list" class="page-list"></div>
+            </div>
+
+            <div id="sidebar-content-pipeline" style="flex: 1; display: none; flex-direction: column; overflow-y: auto;">
+                <div class="section-title"><span data-i18n="titlePipeline">Pipeline Control</span></div>
+                <div class="pipeline-form">
+                    <div class="form-group">
+                        <label data-i18n="labelCmd">Command</label>
+                        <select id="pipeline-cmd" onchange="updatePipelineForm()">
+                            <option value="run">Full Run (Extract+Trans+Render)</option>
+                            <option value="extract">Step 1: Extract (OCR)</option>
+                            <option value="translate">Step 2: Translate (LLM)</option>
+                            <option value="render">Step 3: Render (Paint)</option>
+                        </select>
+                    </div>
+                    <div id="group-input" class="form-group">
+                        <label data-i18n="labelInput">Input Path</label>
+                        <input type="text" id="pipeline-input" placeholder="Path to images (optional)">
+                    </div>
+                    <div id="group-output" class="form-group">
+                        <label data-i18n="labelOutput">Output Path</label>
+                        <input type="text" id="pipeline-output" placeholder="Path to results (optional)">
+                    </div>
+                    <div class="form-row">
+                        <input type="checkbox" id="pipeline-overwrite">
+                        <label for="pipeline-overwrite" data-i18n="labelOverwrite">Overwrite existing</label>
+                    </div>
+                    <div id="group-start-index" class="form-group" style="display: none;">
+                        <label data-i18n="labelStartIndex">Start Index</label>
+                        <input type="number" id="pipeline-start-index" value="0" min="0">
+                    </div>
+                    <button id="btn-run-pipeline" style="margin-top: 10px; justify-content: center;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        <span data-i18n="btnRun">Run Pipeline</span>
+                    </button>
+                </div>
+            </div>
         </aside>
 
         <section id="viewport">
             <div id="canvas-container">
-                <div class="empty-state" data-i18n="emptySelectPage">选择一个页面开始编辑</div>
                 <canvas id="preview-canvas" style="display: none;"></canvas>
+                <div class="empty-state" id="initial-state" data-i18n="emptySelectPage">Select a page to start</div>
             </div>
             <div class="pagination">
-                <button id="btn-prev" class="secondary" disabled data-i18n="btnPrev">&larr; 上一页</button>
+                <button id="btn-prev" class="secondary" disabled>&larr;</button>
                 <div class="page-info">
-                    <span data-i18n="pagePrefix">第</span> <input type="number" id="input-page" value="1" min="1"> <span data-i18n="pageSuffix">页</span> / <span id="total-pages">0</span>
+                    <span data-i18n="pagePrefix"></span> <input type="number" id="input-page" value="1" min="1"> / <span
+                        id="total-pages">0</span>
                 </div>
-                <button id="btn-next" class="secondary" disabled data-i18n="btnNext">下一页 &rarr;</button>
-                <button id="btn-zoom" class="secondary" title="切换缩放模式">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-                    <span data-i18n="zoomFit">最佳比例</span>
+                <button id="btn-next" class="secondary" disabled>&rarr;</button>
+                <button id="btn-zoom" class="secondary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
                 </button>
             </div>
         </section>
 
+        <div id="editor-resizer" class="resizer"></div>
+
         <aside id="editor">
-            <div class="section-title" data-i18n="titleEditor">译文编辑</div>
-            <div id="blocks-container" class="blocks-container">
-                <div class="empty-state" data-i18n="emptyNoBlocks">无选中页面</div>
+            <div class="section-title">
+                <span data-i18n="titleEditor">Editor</span>
             </div>
+            <div id="blocks-container" class="blocks-container"></div>
         </aside>
     </main>
 
-    <div id="toast" data-i18n="saveSuccess">保存成功</div>
+    <div id="terminal-container">
+        <div id="terminal-header">
+            <span>CONSOLE OUTPUT</span>
+            <button class="secondary" style="padding: 2px 8px; font-size: 0.6rem;" onclick="toggleTerminal(false)">CLOSE</button>
+        </div>
+        <div id="terminal-output"></div>
+    </div>
+
+    <nav id="mobile-nav">
+        <button class="nav-btn" onclick="toggleSidebar(true)" id="nav-pages">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+            Pages
+        </button>
+        <button class="nav-btn active" onclick="showCanvas()" id="nav-canvas">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            </svg>
+            Canvas
+        </button>
+        <button class="nav-btn" onclick="toggleEditor(true)" id="nav-edit">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            </svg>
+            Edit
+        </button>
+    </nav>
+
+    <div id="toast"></div>
 
     <script>
-        // --- Translations ---
         const i18n = {
-            zh: {
-                btnOpen: "打开 work 目录",
-                btnReload: "重新加载",
-                btnSave: "保存修改",
-                titleTasks: "任务列表",
-                titlePages: "页面",
-                titleEditor: "译文编辑",
-                btnPrev: "← 上一页",
-                btnNext: "下一页 →",
-                pagePrefix: "第",
-                pageSuffix: "页",
-                zoomFit: "最佳比例",
-                zoomOrig: "100% 大小",
-                emptyOpenDir: "请先打开目录",
-                emptySelectPage: "选择一个页面开始编辑",
-                emptyNoBlocks: "无选中页面或文本块",
-                saveSuccess: "保存成功！",
-                saveError: "保存失败: ",
-                msgScanning: "正在扫描目录...",
-                msgTasksFound: "找到 {count} 个任务",
-                msgLoadingTask: "加载任务: {name}...",
-                msgTaskLoaded: "{name} 已加载",
-                msgAccessDenied: "无法访问目录",
-                msgReloading: "重新加载数据...",
-                msgDataUpdated: "数据已更新",
-                labelBlock: "块",
-                labelVertical: "垂直",
-                labelHorizontal: "水平",
-                labelFont: "字体",
-                placeholderEdit: "输入译文...",
-                confirmSwitch: "有未保存的修改，确定要切换吗？"
+            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引" },
+            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index" },
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引" }
+        };
+
+        const storage = {
+            isServer: new URLSearchParams(window.location.search).has('t'),
+            token: new URLSearchParams(window.location.search).get('t'),
+            workDirHandle: null,
+            currentTask: null, // { name, handle, data, translations, pagesJsonHandle, transHandle, imageHandles: {} }
+
+            async init() {
+                if (this.isServer) {
+                    document.getElementById('btn-open').style.display = 'none';
+                    document.getElementById('sidebar-tasks-section').style.display = 'none';
+                    await this.loadServerTask();
+                }
             },
-            en: {
-                btnOpen: "Open Work Dir",
-                btnReload: "Reload",
-                btnSave: "Save Changes",
-                titleTasks: "Tasks",
-                titlePages: "Pages",
-                titleEditor: "Translation Editor",
-                btnPrev: "← Prev",
-                btnNext: "Next →",
-                pagePrefix: "Page",
-                pageSuffix: "",
-                zoomFit: "Best Fit",
-                zoomOrig: "100% Size",
-                emptyOpenDir: "Open a directory first",
-                emptySelectPage: "Select a page to start",
-                emptyNoBlocks: "No text blocks found",
-                saveSuccess: "Saved successfully!",
-                saveError: "Save failed: ",
-                msgScanning: "Scanning directory...",
-                msgTasksFound: "Found {count} tasks",
-                msgLoadingTask: "Loading: {name}...",
-                msgTaskLoaded: "{name} loaded",
-                msgAccessDenied: "Access denied",
-                msgReloading: "Reloading data...",
-                msgDataUpdated: "Data updated",
-                labelBlock: "Block",
-                labelVertical: "Vertical",
-                labelHorizontal: "Horizontal",
-                labelFont: "Font",
-                placeholderEdit: "Enter translation...",
-                confirmSwitch: "Unsaved changes! Switch anyway?"
+
+            async loadServerTask() {
+                elements.statusLoader.style.display = 'block';
+                try {
+                    const resp = await fetch(`api/data?t=${this.token}`);
+                    if (!resp.ok) throw new Error("Task not found");
+                    const data = await resp.json();
+                    this.currentTask = { name: "Remote Task", data: data };
+                    const targetLang = data.target_lang || "ENG";
+                    elements.targetLangSelect.value = targetLang;
+                    await this.loadTranslations(targetLang);
+                    renderPageList();
+                    selectPage(0);
+                } catch (e) {
+                    showToast(e.message, 'error');
+                } finally {
+                    elements.statusLoader.style.display = 'none';
+                }
             },
-            ja: {
-                btnOpen: "Workディレクトリを開く",
-                btnReload: "再読み込み",
-                btnSave: "変更を保存",
-                titleTasks: "タスクリスト",
-                titlePages: "ページ",
-                titleEditor: "翻訳エディタ",
-                btnPrev: "← 前へ",
-                btnNext: "次へ →",
-                pagePrefix: "",
-                pageSuffix: "ページ",
-                zoomFit: "最適サイズ",
-                zoomOrig: "100% 表示",
-                emptyOpenDir: "ディレクトリを先に開いてください",
-                emptySelectPage: "ページを選択して開始",
-                emptyNoBlocks: "テキストブロックなし",
-                saveSuccess: "保存しました！",
-                saveError: "保存失敗: ",
-                msgScanning: "スキャン中...",
-                msgTasksFound: "{count} 個のタスクが見つかりました",
-                msgLoadingTask: "読み込み中: {name}...",
-                msgTaskLoaded: "{name} を読み込みました",
-                msgAccessDenied: "アクセス拒否",
-                msgReloading: "再読み込み中...",
-                msgDataUpdated: "更新しました",
-                labelBlock: "ブロック",
-                labelVertical: "垂直",
-                labelHorizontal: "水平",
-                labelFont: "フォント",
-                placeholderEdit: "翻訳を入力...",
-                confirmSwitch: "未保存の変更があります。切り替えますか？"
+
+            async loadLocalTask(task) {
+                try {
+                    const file = await task.pagesJsonHandle.getFile();
+                    task.data = JSON.parse(await file.text());
+                    task.imageHandles = {};
+                    const cleanDir = await task.handle.getDirectoryHandle('clean');
+                    for await (const entry of cleanDir.values()) if (entry.kind === 'file') task.imageHandles[entry.name] = entry;
+                    this.currentTask = task;
+                    const targetLang = task.data.target_lang || "ENG";
+                    elements.targetLangSelect.value = targetLang;
+                    await this.loadTranslations(targetLang);
+                } catch (e) { throw e; }
+            },
+
+            async loadTranslations(lang) {
+                if (this.isServer) {
+                    const resp = await fetch(`api/translations?t=${this.token}&lang=${lang}`);
+                    this.currentTask.translations = resp.ok ? await resp.json() : {};
+                } else {
+                    try {
+                        const transDir = await this.currentTask.handle.getDirectoryHandle('translations', { create: true });
+                        const handle = await transDir.getFileHandle(`${lang}.json`, { create: true });
+                        const file = await handle.getFile();
+                        const text = await file.text();
+                        this.currentTask.translations = text ? JSON.parse(text) : {};
+                        this.currentTask.transHandle = handle;
+                    } catch (e) { this.currentTask.translations = {}; }
+                }
+                isDirty = false;
+                elements.btnSave.disabled = true;
+            },
+
+            async saveTranslations() {
+                const lang = elements.targetLangSelect.value;
+                if (this.isServer) {
+                    const resp = await fetch(`api/save?t=${this.token}&lang=${lang}`, { method: 'POST', body: JSON.stringify(this.currentTask.translations) });
+                    if (!resp.ok) throw new Error("Save failed");
+                } else {
+                    if (!this.currentTask.transHandle) {
+                        const transDir = await this.currentTask.handle.getDirectoryHandle('translations', { create: true });
+                        this.currentTask.transHandle = await transDir.getFileHandle(`${lang}.json`, { create: true });
+                    }
+                    const writable = await this.currentTask.transHandle.createWritable();
+                    await writable.write(JSON.stringify(this.currentTask.translations, null, 2));
+                    await writable.close();
+                }
+            },
+
+            async getImageUrl(page) {
+                if (this.isServer) {
+                    return `api/image?t=${this.token}&name=${encodeURIComponent(page.clean.split('/').pop())}`;
+                } else {
+                    const handle = this.currentTask.imageHandles[page.clean.split('/').pop()];
+                    if (!handle) return null;
+                    return URL.createObjectURL(await handle.getFile());
+                }
             }
         };
 
-        // --- State Management ---
         let currentLang = localStorage.getItem('editor-lang') || 'zh';
-        let tasks = [];
-        let currentTask = null; // { name, handle, pagesJsonHandle, data, imageHandles: {} }
         let currentPageIndex = -1;
         let isDirty = false;
-        let zoomMode = 'fit'; // 'fit' or 'orig'
+        let zoomMode = 'fit';
         let selectedBlockIndex = -1;
         let needsSort = false;
 
         const elements = {
-            btnOpen: document.getElementById('btn-open'),
             btnSave: document.getElementById('btn-save'),
             btnPrev: document.getElementById('btn-prev'),
             btnNext: document.getElementById('btn-next'),
+            btnOpen: document.getElementById('btn-open'),
+            btnReload: document.getElementById('btn-reload'),
+            btnZoom: document.getElementById('btn-zoom'),
             taskList: document.getElementById('task-list'),
             pageList: document.getElementById('page-list'),
             blocksContainer: document.getElementById('blocks-container'),
             canvas: document.getElementById('preview-canvas'),
-            canvasContainer: document.getElementById('canvas-container'),
             inputPage: document.getElementById('input-page'),
             totalPages: document.getElementById('total-pages'),
-            statusText: document.getElementById('status-text'),
             statusLoader: document.getElementById('status-loader'),
+            statusText: document.getElementById('status-text'),
             toast: document.getElementById('toast'),
-            btnReload: document.getElementById('btn-reload'),
-            btnZoom: document.getElementById('btn-zoom'),
-            langSelect: document.getElementById('lang-select')
+            langSelect: document.getElementById('lang-select'),
+            targetLangSelect: document.getElementById('target-lang-select'),
+            sidebar: document.getElementById('sidebar'),
+            editor: document.getElementById('editor')
         };
 
         const ctx = elements.canvas.getContext('2d');
 
-        function updateLanguage(lang) {
-            currentLang = lang;
-            localStorage.setItem('editor-lang', lang);
-            const dict = i18n[lang];
+        async function init() {
+            // Load saved editor width
+            const savedWidth = localStorage.getItem('editor-width');
+            if (savedWidth) {
+                document.documentElement.style.setProperty('--editor-width', savedWidth);
+            }
+
+            updateLanguage(currentLang);
+            elements.langSelect.value = currentLang;
+            await storage.init();
             
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (dict[key]) el.textContent = dict[key];
+            // Add Pipeline Event Listeners
+            document.getElementById('btn-run-pipeline').onclick = runPipeline;
+            
+            // Resizer Logic
+            const resizer = document.getElementById('editor-resizer');
+            let isResizing = false;
+
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                document.body.style.cursor = 'col-resize';
+                resizer.classList.add('dragging');
+                e.preventDefault();
             });
 
-            // Update complex dynamic strings
-            if (currentTask) {
-                elements.statusText.textContent = t('msgTaskLoaded', { name: currentTask.name });
-            }
-            updateZoomUI();
-        }
-
-        function t(key, vars = {}) {
-            let str = i18n[currentLang][key] || key;
-            for (let v in vars) str = str.replace(`{${v}}`, vars[v]);
-            return str;
-        }
-
-        // --- File System Helpers ---
-        async function getFileHandle(dirHandle, path) {
-            const parts = path.split('/');
-            let current = dirHandle;
-            for (let i = 0; i < parts.length - 1; i++) {
-                current = await current.getDirectoryHandle(parts[i]);
-            }
-            return await current.getFileHandle(parts[parts.length - 1]);
-        }
-
-        async function listFiles(dirHandle, recursive = false) {
-            const files = [];
-            for await (const entry of dirHandle.values()) {
-                if (entry.kind === 'file') {
-                    files.push(entry);
-                } else if (recursive && entry.kind === 'directory') {
-                    const subFiles = await listFiles(entry, true);
-                    files.push(...subFiles);
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                const width = window.innerWidth - e.clientX;
+                // Minimum 250px, Maximum 50% of screen
+                if (width > 250 && width < window.innerWidth * 0.6) {
+                    document.documentElement.style.setProperty('--editor-width', `${width}px`);
                 }
-            }
-            return files;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    resizer.classList.remove('dragging');
+                    localStorage.setItem('editor-width', getComputedStyle(document.documentElement).getPropertyValue('--editor-width'));
+                }
+            });
         }
 
-        function getRect(poly) {
-            const xs = poly.map(p => p[0]);
-            const ys = poly.map(p => p[1]);
-            return {
-                minX: Math.min(...xs),
-                maxX: Math.max(...xs),
-                minY: Math.min(...ys),
-                maxY: Math.max(...ys)
+        function switchTab(tab) {
+            document.getElementById('tab-tasks').classList.toggle('active', tab === 'tasks');
+            document.getElementById('tab-pipeline').classList.toggle('active', tab === 'pipeline');
+            document.getElementById('sidebar-content-tasks').style.display = tab === 'tasks' ? 'flex' : 'none';
+            document.getElementById('sidebar-content-pipeline').style.display = tab === 'pipeline' ? 'flex' : 'none';
+        }
+
+        function toggleTerminal(show) {
+            document.getElementById('terminal-container').style.display = show ? 'flex' : 'none';
+        }
+
+        function updatePipelineForm() {
+            const cmd = document.getElementById('pipeline-cmd').value;
+            document.getElementById('group-input').style.display = (cmd === 'extract' || cmd === 'run') ? 'flex' : 'none';
+            document.getElementById('group-output').style.display = (cmd === 'render' || cmd === 'run') ? 'flex' : 'none';
+            document.getElementById('group-start-index').style.display = (cmd === 'translate') ? 'flex' : 'none';
+        }
+
+        async function runPipeline() {
+            if (!storage.isServer) {
+                showToast("Pipeline only available in Server mode", "error");
+                return;
+            }
+            
+            const btn = document.getElementById('btn-run-pipeline');
+            const cmd = document.getElementById('pipeline-cmd').value;
+            const payload = {
+                cmd: cmd,
+                target_lang: elements.targetLangSelect.value,
+                overwrite: document.getElementById('pipeline-overwrite').checked,
+                input: document.getElementById('pipeline-input').value,
+                output: document.getElementById('pipeline-output').value,
+                start_index: parseInt(document.getElementById('pipeline-start-index').value)
             };
-        }
 
-        /**
-         * Sorts blocks according to Japanese manga reading order:
-         * 1. Right to Left (Primary)
-         * 2. Top to Bottom (Secondary, within the same vertical 'column')
-         */
-        function sortBlocks(blocks, imgWidth) {
-            if (!blocks || blocks.length <= 1) return;
-            
-            // Threshold for considering blocks to be in the same vertical column.
-            // 60-80px is usually enough to catch side-by-side bubbles in a panel.
-            const thresholdX = Math.max(50, imgWidth * 0.08); 
-            
-            blocks.sort((a, b) => {
-                const rA = getRect(a.polygon);
-                const rB = getRect(b.polygon);
-                
-                // Primary: Right to Left (X descending)
-                const diffX = rB.maxX - rA.maxX;
-                if (Math.abs(diffX) > thresholdX) {
-                    return diffX;
-                }
-                // Secondary: Top to Bottom (Y ascending)
-                return rA.minY - rB.minY;
-            });
-        }
+            btn.disabled = true;
+            toggleTerminal(true);
+            const output = document.getElementById('terminal-output');
+            output.innerHTML = `<div class="status">Starting ${cmd}...</div>`;
 
-        // --- Core Logic ---
-        elements.btnOpen.onclick = async () => {
             try {
-                workDirHandle = await window.showDirectoryPicker();
-                elements.statusText.textContent = t('msgScanning');
-                elements.statusLoader.style.display = 'block';
-                
-                tasks = [];
-                for await (const entry of workDirHandle.values()) {
-                    if (entry.kind === 'directory') {
-                        try {
-                            const pagesJsonHandle = await entry.getFileHandle('pages.json');
-                            tasks.push({ name: entry.name, handle: entry, pagesJsonHandle });
-                        } catch (e) {
-                            // No pages.json, ignore
+                const response = await fetch(`api/pipeline/run?t=${storage.token}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.substring(6));
+                                const div = document.createElement('div');
+                                if (data.type === 'error') div.className = 'error';
+                                else if (data.type === 'status') div.className = 'status';
+                                div.textContent = data.msg;
+                                output.appendChild(div);
+                                output.scrollTop = output.scrollHeight;
+                                
+                                if (data.msg.includes('--- Pipeline Finished ---')) {
+                                    showToast("Pipeline completed!", "success");
+                                    // Optionally reload data
+                                    if (cmd !== 'render') storage.loadServerTask();
+                                }
+                            } catch (e) { console.error("Parse error", e, line); }
                         }
                     }
                 }
-
-                renderTaskList();
-                elements.statusText.textContent = t('msgTasksFound', { count: tasks.length });
-                elements.statusLoader.style.display = 'none';
             } catch (e) {
+                const div = document.createElement('div');
+                div.className = 'error';
+                div.textContent = `Request failed: ${e.message}`;
+                output.appendChild(div);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        elements.btnOpen.onclick = async () => {
+            if (isDirty && !confirm(t('confirmSwitch'))) return;
+            try {
+                storage.workDirHandle = await window.showDirectoryPicker();
+                // Reset state
+                storage.currentTask = null;
+                currentPageIndex = -1;
+                selectedBlockIndex = -1;
+                isDirty = false;
+                
+                elements.taskList.innerHTML = '';
+                elements.pageList.innerHTML = '';
+                elements.blocksContainer.innerHTML = '';
+                elements.totalPages.textContent = '0';
+                elements.inputPage.value = '1';
+                elements.btnSave.disabled = true;
+                elements.btnReload.disabled = true;
+                elements.btnPrev.disabled = true;
+                elements.btnNext.disabled = true;
+                
+                ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+                elements.canvas.style.display = 'none';
+                document.getElementById('initial-state').style.display = 'flex';
+                
+                renderTaskList();
+            } catch (e) { 
                 console.error(e);
-                showToast(t('msgAccessDenied'), 'error');
-                elements.statusLoader.style.display = 'none';
+                showToast("Access denied", "error"); 
             }
         };
 
-        function renderTaskList() {
+        async function renderTaskList() {
             elements.taskList.innerHTML = '';
-            if (tasks.length === 0) {
-                elements.taskList.innerHTML = `<div class="empty-state">${t('emptyOpenDir')}</div>`;
-                return;
+            for await (const entry of storage.workDirHandle.values()) {
+                if (entry.kind === 'directory') {
+                    try {
+                        const pagesJsonHandle = await entry.getFileHandle('pages.json');
+                        const item = document.createElement('div');
+                        item.className = 'list-item';
+                        item.textContent = entry.name;
+                        item.onclick = () => selectTask({ name: entry.name, handle: entry, pagesJsonHandle }, item);
+                        elements.taskList.appendChild(item);
+                    } catch (e) { }
+                }
             }
-
-            tasks.forEach((task, index) => {
-                const item = document.createElement('div');
-                item.className = 'list-item';
-                item.textContent = task.name;
-                item.onclick = () => selectTask(index);
-                elements.taskList.appendChild(item);
-            });
         }
 
-        async function selectTask(index) {
+        async function selectTask(task, itemEl) {
             if (isDirty && !confirm(t('confirmSwitch'))) return;
-
-            const task = tasks[index];
-            elements.statusText.textContent = t('msgLoadingTask', { name: task.name });
             elements.statusLoader.style.display = 'block';
-
-            // Select in UI
-            Array.from(elements.taskList.children).forEach((el, i) => {
-                el.classList.toggle('active', i === index);
-            });
-
             try {
-                const file = await task.pagesJsonHandle.getFile();
-                const content = await file.text();
-                const data = JSON.parse(content);
-
-                task.data = data;
-                task.imageHandles = {};
+                // Clear previous task state before loading new one
+                storage.currentTask = null;
                 
-                // Pre-scan clean images
-                const cleanDir = await task.handle.getDirectoryHandle('clean');
-                for await (const entry of cleanDir.values()) {
-                    if (entry.kind === 'file') {
-                        task.imageHandles[entry.name] = entry;
-                    }
-                }
-
-                currentTask = task;
-                isDirty = false;
-                elements.btnSave.disabled = true;
-                elements.btnReload.disabled = false;
+                await storage.loadLocalTask(task);
+                
+                // Highlight selected task
+                Array.from(elements.taskList.children).forEach(el => el.classList.remove('active'));
+                if (itemEl) itemEl.classList.add('active');
 
                 renderPageList();
                 selectPage(0);
-                
-                elements.statusText.textContent = t('msgTaskLoaded', { name: task.name });
-                elements.statusLoader.style.display = 'none';
-            } catch (e) {
+                elements.btnReload.disabled = false;
+            } catch (e) { 
                 console.error(e);
-                showToast(t('saveError'), 'error');
-                elements.statusLoader.style.display = 'none';
+                showToast("Load failed: " + e.message, "error"); 
             }
+            finally { elements.statusLoader.style.display = 'none'; }
         }
 
         function renderPageList() {
             elements.pageList.innerHTML = '';
-            currentTask.data.pages.forEach((page, index) => {
+            storage.currentTask.data.pages.forEach((page, index) => {
                 const item = document.createElement('div');
                 item.className = 'list-item';
                 item.textContent = `P${index + 1}: ${page.name}`;
                 item.onclick = () => selectPage(index);
                 elements.pageList.appendChild(item);
             });
-            elements.totalPages.textContent = currentTask.data.pages.length;
-            elements.inputPage.max = currentTask.data.pages.length;
+            elements.totalPages.textContent = storage.currentTask.data.pages.length;
+            elements.inputPage.max = storage.currentTask.data.pages.length;
         }
 
         async function selectPage(index) {
-            if (index < 0 || index >= currentTask.data.pages.length) return;
-            
+            if (index < 0 || index >= storage.currentTask.data.pages.length) return;
             currentPageIndex = index;
             elements.inputPage.value = index + 1;
-            selectedBlockIndex = -1; // Reset selection on page change
-            needsSort = true; // Request sort on next image load
-            
-            // UI Update
-            Array.from(elements.pageList.children).forEach((el, i) => {
-                el.classList.toggle('active', i === index);
-            });
+            selectedBlockIndex = -1;
+            needsSort = true;
+            Array.from(elements.pageList.children).forEach((el, i) => el.classList.toggle('active', i === index));
             elements.btnPrev.disabled = index === 0;
-            elements.btnNext.disabled = index === currentTask.data.pages.length - 1;
-
+            elements.btnNext.disabled = index === storage.currentTask.data.pages.length - 1;
             renderPage();
             renderBlockEditors();
         }
 
-        async function reloadCurrentTask() {
-            if (!currentTask) return;
-            if (isDirty && !confirm(t('confirmSwitch'))) return;
-
-            elements.statusText.textContent = t('msgReloading');
-            elements.statusLoader.style.display = 'block';
-
-            try {
-                const file = await currentTask.pagesJsonHandle.getFile();
-                const content = await file.text();
-                currentTask.data = JSON.parse(content);
-                isDirty = false;
-                elements.btnSave.disabled = true;
-
-                renderPageList();
-                selectPage(currentPageIndex);
-                
-                showToast(t('msgDataUpdated'));
-                elements.statusText.textContent = t('msgDataUpdated');
-                elements.statusLoader.style.display = 'none';
-            } catch (e) {
-                console.error(e);
-                showToast(t('saveError'), 'error');
-                elements.statusLoader.style.display = 'none';
-            }
-        }
-
-        function toggleZoom() {
-            zoomMode = zoomMode === 'fit' ? 'orig' : 'fit';
-            updateZoomUI();
-        }
-
-        function updateZoomUI() {
-            if (zoomMode === 'fit') {
-                elements.canvas.className = 'zoom-fit';
-                elements.btnZoom.querySelector('span').textContent = t('zoomFit');
-            } else {
-                elements.canvas.className = 'zoom-orig';
-                elements.btnZoom.querySelector('span').textContent = t('zoomOrig');
-            }
-        }
-
         async function renderPage() {
-            const page = currentTask.data.pages[currentPageIndex];
-            const cleanName = page.clean.split('/').pop();
-            const handle = currentTask.imageHandles[cleanName];
-
-            if (!handle) {
-                elements.canvasContainer.innerHTML = `<div class="empty-state">${t('emptySelectPage')}</div>`;
-                return;
-            }
-
+            const page = storage.currentTask.data.pages[currentPageIndex];
+            const url = await storage.getImageUrl(page);
+            if (!url) return;
             elements.canvas.style.display = 'block';
-            if (elements.canvasContainer.querySelector('.empty-state')) {
-                elements.canvasContainer.querySelector('.empty-state').remove();
-            }
-
-            const file = await handle.getFile();
-            const url = URL.createObjectURL(file);
             const img = new Image();
-            
             img.onload = () => {
                 elements.canvas.width = img.width;
                 elements.canvas.height = img.height;
                 ctx.clearRect(0, 0, img.width, img.height);
                 ctx.drawImage(img, 0, 0);
-                
-                // Perform manga-style sorting if requested
-                if (needsSort && page.blocks && page.blocks.length > 1) {
-                    sortBlocks(page.blocks, img.width);
-                    needsSort = false;
-                    renderBlockEditors(); // Refresh editor to match new order
-                }
-
-                // Draw Blocks
-                renderOverlays(page.blocks);
-                URL.revokeObjectURL(url);
+                if (needsSort && page.blocks && page.blocks.length > 1) { sortBlocks(page.blocks, img.width); needsSort = false; renderBlockEditors(); }
+                renderOverlays(page);
                 updateZoomUI();
+                if (!storage.isServer) URL.revokeObjectURL(url);
             };
             img.src = url;
         }
 
-        // --- Interaction Logic ---
-        elements.canvas.onclick = (e) => {
-            if (!currentTask || currentPageIndex === -1) return;
-            
-            const rect = elements.canvas.getBoundingClientRect();
-            const scaleX = elements.canvas.width / rect.width;
-            const scaleY = elements.canvas.height / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
 
-            const page = currentTask.data.pages[currentPageIndex];
-            const blocks = page.blocks || [];
-            
-            // Find block under cursor (reverse order to get top-most)
-            let foundIndex = -1;
-            for (let i = blocks.length - 1; i >= 0; i--) {
-                const poly = blocks[i].polygon;
-                const minX = Math.min(...poly.map(p => p[0]));
-                const maxX = Math.max(...poly.map(p => p[0]));
-                const minY = Math.min(...poly.map(p => p[1]));
-                const maxY = Math.max(...poly.map(p => p[1]));
-                
-                if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
-                    foundIndex = i;
-                    break;
-                }
-            }
-
-            if (foundIndex !== -1) {
-                selectBlock(foundIndex, true);
-            }
+        // --- High-Fidelity Text Rendering Engine ---
+        const CJK_H2V = {
+            "‥": "︰", "—": "︱", "—": "|", "–": "︲", "_": "︳", "(": "︵", ")": "︶", "（": "︵", "）": "︶",
+            "{": "︷", "}": "︸", "〔": "︹", "〕": "︺", "【": "︻", "】": "︼", "《": "︽", "》": "︾",
+            "〈": "︿", "〉": "﹀", "「": "﹁", "」": "﹂", "『": "﹃", "』": "﹄", "﹑": "﹅", "﹆": "﹆",
+            "[": "﹇", "]": "﹈", "…": "⋮", "⋯": "︙", "~": "︴", "〜": "︴", "～": "︴", "!": "︕",
+            "?": "︖", ".": "︒", "。": "︒", ";": "︔", "；": "︔", ":": "︓", "：": "︓", ",": "︐", "，": "︐", "、": "︑", "-": "︲"
         };
 
-        function selectBlock(index, scrollToEditor = false) {
-            selectedBlockIndex = index;
-            
-            // Update Canvas
-            renderPage();
-
-            // Update Sidebar
-            const cards = elements.blocksContainer.querySelectorAll('.block-card');
-            cards.forEach((card, i) => {
-                const isSelected = i === index;
-                card.classList.toggle('selected', isSelected);
-                if (isSelected && scrollToEditor) {
-                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    card.querySelector('textarea').focus();
-                }
-            });
+        function compactSymbols(text) {
+            return text.replace(/\.\.\./g, '…').replace(/\.\./g, '…');
         }
 
-        function renderOverlays(blocks) {
-            blocks.forEach((block, bIndex) => {
-                const poly = block.polygon;
-                const x = Math.min(...poly.map(p => p[0]));
-                const y = Math.min(...poly.map(p => p[1]));
-                const w = Math.max(...poly.map(p => p[0])) - x;
-                const h = Math.max(...poly.map(p => p[1])) - y;
-
-                ctx.save();
-
-                // Highlight selected block
-                if (bIndex === selectedBlockIndex) {
-                    ctx.strokeStyle = '#3b82f6';
-                    ctx.lineWidth = 4;
-                    ctx.setLineDash([8, 4]);
-                    ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
-                    ctx.setLineDash([]);
+        function getOptimalFontSize(text, maxWidth, maxHeight, isVertical, minFs = 8, maxFs = 100) {
+            let low = minFs, high = maxFs, best = minFs;
+            while (low <= high) {
+                let mid = Math.floor((low + high) / 2);
+                if (checkTextFits(text, maxWidth, maxHeight, mid, isVertical)) {
+                    best = mid;
+                    low = mid + 1;
                 } else {
-                    // Subtle border for all blocks to show reading order
-                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, w, h);
+                    high = mid - 1;
                 }
-
-                // Draw block index for reference
-                ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
-                ctx.fillRect(x, y - 22, 35, 20);
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 12px sans-serif';
-                ctx.fillText(`${bIndex + 1}`, x + 5, y - 7);
-
-                const text = block.translation || "";
-                if (text) {
-                    const fg = block.fg_color || [0, 0, 0];
-                    const bg = block.bg_color || [255, 255, 255];
-                    const fontSize = block.font_size || 24;
-                    const isVertical = block.direction === 'v';
-
-                    // Set font
-                    ctx.font = `${fontSize}px "Noto Sans SC", sans-serif`;
-                    ctx.textBaseline = 'top';
-                    
-                    if (isVertical) {
-                        drawTextVertical(text, x, y, w, h, fontSize, fg, bg, block.alignment);
-                    } else {
-                        drawTextHorizontal(text, x, y, w, h, fontSize, fg, bg, block.alignment);
-                    }
-                }
-                
-                ctx.restore();
-            });
-        }
-
-        function drawTextHorizontal(text, x, y, w, h, fontSize, fg, bg, align) {
-            const lines = wrapText(text, w);
-            const totalH = lines.length * fontSize * 1.1;
-            let startY = y + (h - totalH) / 2;
-
-            lines.forEach(line => {
-                const metrics = ctx.measureText(line);
-                let startX = x;
-                if (align === 'center') startX = x + (w - metrics.width) / 2;
-                else if (align === 'right') startX = x + w - metrics.width;
-
-                // Simple shadow/outline as "bg"
-                ctx.strokeStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
-                ctx.lineWidth = 3;
-                ctx.strokeText(line, startX, startY);
-                
-                ctx.fillStyle = `rgb(${fg[0]},${fg[1]},${fg[2]})`;
-                ctx.fillText(line, startX, startY);
-                startY += fontSize * 1.1;
-            });
-        }
-
-        function drawTextVertical(text, x, y, w, h, fontSize, fg, bg, align) {
-            // Simplified vertical: one char per line, multiple columns if wrap
-            const columns = [[]];
-            let currentCol = 0;
-            let currentH = 0;
-            
-            for (let char of text) {
-                if (currentH + fontSize > h && columns[currentCol].length > 0) {
-                    columns.push([]);
-                    currentCol++;
-                    currentH = 0;
-                }
-                columns[currentCol].push(char);
-                currentH += fontSize * 1.1;
             }
-
-            const totalW = columns.length * fontSize * 1.1;
-            let startX = x + w - fontSize; // Start from right for vertical usually
-
-            columns.forEach(col => {
-                let startY = y;
-                col.forEach(char => {
-                    ctx.strokeStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
-                    ctx.lineWidth = 3;
-                    ctx.strokeText(char, startX, startY);
-                    ctx.fillStyle = `rgb(${fg[0]},${fg[1]},${fg[2]})`;
-                    ctx.fillText(char, startX, startY);
-                    startY += fontSize * 1.1;
-                });
-                startX -= fontSize * 1.1;
-            });
+            return best;
         }
 
-        function wrapText(text, maxWidth) {
+        function checkTextFits(text, maxWidth, maxHeight, fontSize, isVertical) {
+            if (isVertical) {
+                const { cols, height } = layoutVertical(text, maxHeight, fontSize);
+                return (cols * fontSize * 1.1) <= maxWidth && height <= maxHeight * 1.1;
+            } else {
+                const { lines, width } = layoutHorizontal(text, maxWidth, fontSize);
+                return (lines.length * fontSize * 1.1) <= maxHeight && width <= maxWidth * 1.1;
+            }
+        }
+
+        function layoutHorizontal(text, maxWidth, fontSize) {
+            ctx.font = `${fontSize}px "Noto Sans SC", "Inter", sans-serif`;
             const words = text.split('');
             const lines = [];
             let currentLine = '';
-
+            let maxW = 0;
             for (let i = 0; i < words.length; i++) {
                 const testLine = currentLine + words[i];
                 const metrics = ctx.measureText(testLine);
-                if (metrics.width > maxWidth && i > 0) {
+                if (metrics.width > maxWidth && currentLine.length > 0) {
                     lines.push(currentLine);
                     currentLine = words[i];
                 } else {
                     currentLine = testLine;
                 }
+                maxW = Math.max(maxW, ctx.measureText(currentLine).width);
             }
             lines.push(currentLine);
-            return lines;
+            return { lines, width: maxW };
         }
+
+        function layoutVertical(text, maxHeight, fontSize) {
+            const cols = [];
+            let currentCol = [];
+            let currentH = 0;
+            let maxH = 0;
+            for (let char of text) {
+                const displayChar = CJK_H2V[char] || char;
+                const charH = fontSize * 1.1;
+                if (currentH + charH > maxHeight && currentCol.length > 0) {
+                    cols.push(currentCol);
+                    currentCol = [displayChar];
+                    currentH = charH;
+                } else {
+                    currentCol.push(displayChar);
+                    currentH += charH;
+                }
+                maxH = Math.max(maxH, currentH);
+            }
+            cols.push(currentCol);
+            return { cols, height: maxH };
+        }
+
+        function renderOverlays(page) {
+            const blocks = page.blocks || [];
+            blocks.forEach((block, bIndex) => {
+                const poly = block.polygon;
+                const rect = getRect(poly);
+                const x = rect.minX, y = rect.minY, w = rect.maxX - rect.minX, h = rect.maxY - rect.minY;
+                const angle = (block.angle || 0) * Math.PI / 180;
+                
+                ctx.save();
+                
+                // 1. Handle Rotation and Translation
+                const centerX = x + w / 2;
+                const centerY = y + h / 2;
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angle);
+                ctx.translate(-centerX, -centerY);
+
+                // 2. Draw selection highlight (rotated)
+                if (bIndex === selectedBlockIndex) {
+                    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 4; ctx.setLineDash([8, 4]); 
+                    ctx.strokeRect(x - 2, y - 2, w + 4, h + 4); ctx.setLineDash([]);
+                } else {
+                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)'; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
+                }
+
+                // 3. Draw block index tag (reset rotation for text tag if desired, or keep it)
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.8)'; ctx.fillRect(x, y - 22, 30, 20);
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif'; ctx.textBaseline = 'alphabetic';
+                ctx.fillText(`${bIndex + 1}`, x + 5, y - 7);
+
+                // 4. Draw high-fidelity translated text
+                const rawText = storage.currentTask.translations[block.id]?.text;
+                if (rawText) {
+                    const text = compactSymbols(rawText);
+                    const fg = block.fg_color || [0, 0, 0];
+                    const bg = block.bg_color || [255, 255, 255];
+                    const isVertical = block.direction === 'v';
+                    
+                    // Use unrotated dimensions for layout to match Python's 'unrotated_size'
+                    // For simplicity, we use the bounding box width/height here
+                    let fs = block.font_size || 24;
+                    fs = getOptimalFontSize(text, w, h, isVertical, 8, Math.max(fs, 100));
+
+                    ctx.font = `${fs}px "Noto Sans SC", "Inter", sans-serif`;
+                    ctx.textBaseline = 'top';
+
+                    if (isVertical) {
+                        const { cols } = layoutVertical(text, h, fs);
+                        const totalW = cols.length * fs * 1.1;
+                        let startX = x + (w + totalW) / 2 - fs;
+                        cols.forEach(col => {
+                            let startY = y + (h - col.length * fs * 1.1) / 2;
+                            col.forEach(char => {
+                                drawChar(char, startX, startY, fs, fg, bg);
+                                startY += fs * 1.1;
+                            });
+                            startX -= fs * 1.1;
+                        });
+                    } else {
+                        const { lines } = layoutHorizontal(text, w, fs);
+                        const totalH = lines.length * fs * 1.1;
+                        let startY = y + (h - totalH) / 2;
+                        lines.forEach(line => {
+                            const m = ctx.measureText(line);
+                            let startX = x + (w - m.width) / 2;
+                            drawTextLine(line, startX, startY, fs, fg, bg);
+                            startY += fs * 1.1;
+                        });
+                    }
+                }
+                ctx.restore();
+            });
+        }
+
+        function drawChar(char, x, y, fs, fg, bg) {
+            ctx.strokeStyle = `rgb(${bg.join(',')})`;
+            ctx.lineWidth = fs * 0.15;
+            ctx.lineJoin = 'round';
+            ctx.strokeText(char, x, y);
+            ctx.fillStyle = `rgb(${fg.join(',')})`;
+            ctx.fillText(char, x, y);
+        }
+
+        function drawTextLine(line, x, y, fs, fg, bg) {
+            ctx.strokeStyle = `rgb(${bg.join(',')})`;
+            ctx.lineWidth = fs * 0.15;
+            ctx.lineJoin = 'round';
+            ctx.strokeText(line, x, y);
+            ctx.fillStyle = `rgb(${fg.join(',')})`;
+            ctx.fillText(line, x, y);
+        }
+
 
         function renderBlockEditors() {
             elements.blocksContainer.innerHTML = '';
-            const page = currentTask.data.pages[currentPageIndex];
-            
-            if (!page.blocks || page.blocks.length === 0) {
-                elements.blocksContainer.innerHTML = `<div class="empty-state">${t('emptyNoBlocks')}</div>`;
-                return;
-            }
-
+            const page = storage.currentTask.data.pages[currentPageIndex];
+            if (!page.blocks?.length) { elements.blocksContainer.innerHTML = `<div class="empty-state">No text blocks</div>`; return; }
             page.blocks.forEach((block, bIndex) => {
                 const card = document.createElement('div');
-                card.className = 'block-card';
-                const labelDir = block.direction === 'v' ? t('labelVertical') : t('labelHorizontal');
-                card.innerHTML = `
-                    <div class="block-info">
-                        <span class="block-label">${t('labelBlock')} #${bIndex + 1} (${labelDir})</span>
-                        <span>${t('labelFont')}: ${block.font_size}px</span>
-                    </div>
-                    <div class="original-text">${block.text || ''}</div>
-                    <textarea placeholder="${t('placeholderEdit')}">${block.translation || ''}</textarea>
-                `;
-
+                card.className = 'block-card' + (bIndex === selectedBlockIndex ? ' selected' : '');
+                const transText = storage.currentTask.translations[block.id]?.text || "";
+                card.innerHTML = `<div class="block-info"><span>Block #${bIndex + 1}</span><span>${block.font_size}px</span></div><div class="original-text">${block.text || ''}</div><textarea placeholder="Translation...">${transText}</textarea>`;
                 const textarea = card.querySelector('textarea');
                 textarea.oninput = () => {
-                    block.translation = textarea.value;
-                    markDirty();
-                    // Debounce canvas update
-                    clearTimeout(textarea.t);
-                    textarea.t = setTimeout(renderPage, 300);
+                    storage.currentTask.translations[block.id] = { text: textarea.value, edited: true };
+                    isDirty = true; elements.btnSave.disabled = false;
+                    clearTimeout(textarea.t); textarea.t = setTimeout(renderPage, 300);
                 };
-
-                textarea.onfocus = () => {
-                    selectedBlockIndex = bIndex;
-                    renderPage();
-                    // Mark card as selected
-                    elements.blocksContainer.querySelectorAll('.block-card').forEach((c, i) => {
-                        c.classList.toggle('selected', i === bIndex);
-                    });
-                };
-
-                textarea.onkeydown = (e) => {
-                    if (e.key === 'ArrowUp' && bIndex > 0) {
-                        e.preventDefault();
-                        const prevTextarea = elements.blocksContainer.querySelectorAll('textarea')[bIndex - 1];
-                        if (prevTextarea) {
-                            prevTextarea.focus();
-                            prevTextarea.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    } else if (e.key === 'ArrowDown' && bIndex < page.blocks.length - 1) {
-                        e.preventDefault();
-                        const nextTextarea = elements.blocksContainer.querySelectorAll('textarea')[bIndex + 1];
-                        if (nextTextarea) {
-                            nextTextarea.focus();
-                            nextTextarea.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    }
-                };
-
+                textarea.onfocus = () => { selectedBlockIndex = bIndex; renderPage(); Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex)); };
                 elements.blocksContainer.appendChild(card);
             });
         }
 
-        function markDirty() {
-            isDirty = true;
-            elements.btnSave.disabled = false;
+        function sortBlocks(blocks, imgWidth) {
+            const thresholdX = Math.max(50, imgWidth * 0.08);
+            blocks.sort((a, b) => {
+                const rA = getRect(a.polygon), rB = getRect(b.polygon);
+                const diffX = rB.maxX - rA.maxX;
+                if (Math.abs(diffX) > thresholdX) return diffX;
+                return rA.minY - rB.minY;
+            });
+        }
+        function getRect(poly) {
+            const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]);
+            return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
         }
 
         elements.btnSave.onclick = async () => {
-            if (!currentTask) return;
-            
-            elements.statusText.textContent = t('msgScanning'); // reusing scanning for saving msg
             elements.statusLoader.style.display = 'block';
-
             try {
-                const writable = await currentTask.pagesJsonHandle.createWritable();
-                await writable.write(JSON.stringify(currentTask.data, null, 2));
-                await writable.close();
-                
-                isDirty = false;
-                elements.btnSave.disabled = true;
+                await storage.saveTranslations();
+                isDirty = false; elements.btnSave.disabled = true;
                 showToast(t('saveSuccess'));
-                elements.statusText.textContent = t('saveSuccess');
-                elements.statusLoader.style.display = 'none';
-            } catch (e) {
-                console.error(e);
-                showToast(t('saveError') + e.message, 'error');
-                elements.statusText.textContent = t('saveError');
-                elements.statusLoader.style.display = 'none';
-            }
+            } catch (e) { showToast(e.message, 'error'); }
+            finally { elements.statusLoader.style.display = 'none'; }
         };
 
-        function showToast(msg, type = 'success') {
-            elements.toast.textContent = msg;
-            elements.toast.className = `show ${type}`;
-            setTimeout(() => elements.toast.classList.remove('show'), 3000);
+        elements.btnReload.onclick = async () => {
+            if (isDirty && !confirm(t('confirmSwitch'))) return;
+            if (storage.isServer) await storage.loadServerTask();
+            else await selectTask(storage.currentTask);
+        };
+
+        elements.targetLangSelect.onchange = async () => {
+            if (isDirty && !confirm(t('confirmSwitch'))) {
+                elements.targetLangSelect.value = elements.targetLangSelect.dataset.prev || storage.currentTask.data.target_lang;
+                return;
+            }
+            const newLang = elements.targetLangSelect.value;
+            elements.targetLangSelect.dataset.prev = newLang;
+            elements.statusLoader.style.display = 'block';
+            await storage.loadTranslations(newLang);
+            renderPage();
+            renderBlockEditors();
+            elements.statusLoader.style.display = 'none';
+        };
+
+        function toggleZoom() { zoomMode = zoomMode === 'fit' ? 'orig' : 'fit'; updateZoomUI(); }
+        function updateZoomUI() { elements.canvas.className = zoomMode === 'fit' ? 'zoom-fit' : 'zoom-orig'; }
+        function showToast(msg) { elements.toast.textContent = msg; elements.toast.classList.add('show'); setTimeout(() => elements.toast.classList.remove('show'), 2000); }
+        function updateLanguage(lang) {
+            currentLang = lang; localStorage.setItem('editor-lang', lang);
+            document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (i18n[lang][k]) el.textContent = i18n[lang][k]; });
+        }
+        function t(key, vars = {}) {
+            let str = i18n[currentLang][key] || key;
+            for (let v in vars) str = str.replace(`{${v}}`, vars[v]);
+            return str;
         }
 
-        // Navigation & UI
+        function toggleSidebar(open) { elements.sidebar.classList.toggle('open', open); if (open) toggleEditor(false); }
+        function toggleEditor(open) { elements.editor.classList.toggle('open', open); if (open) toggleSidebar(false); }
+        function showCanvas() { toggleSidebar(false); toggleEditor(false); }
+
         elements.btnPrev.onclick = () => selectPage(currentPageIndex - 1);
         elements.btnNext.onclick = () => selectPage(currentPageIndex + 1);
         elements.inputPage.onchange = () => selectPage(parseInt(elements.inputPage.value) - 1);
-        elements.btnReload.onclick = reloadCurrentTask;
         elements.btnZoom.onclick = toggleZoom;
         elements.langSelect.onchange = (e) => updateLanguage(e.target.value);
 
-        // Initialize i18n
-        elements.langSelect.value = currentLang;
-        updateLanguage(currentLang);
+        function selectBlock(index) {
+            const page = storage.currentTask?.data.pages[currentPageIndex];
+            if (!page || !page.blocks || page.blocks.length === 0) return;
 
-        // Keyboard shortcuts
-        window.onkeydown = (e) => {
-            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-            if (e.key === 'ArrowLeft') elements.btnPrev.click();
-            if (e.key === 'ArrowRight') elements.btnNext.click();
-            if (e.key === 'z') toggleZoom();
-            if (e.key === 'r') reloadCurrentTask();
-            if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                elements.btnSave.click();
+            // Wrap around
+            if (index < 0) index = page.blocks.length - 1;
+            if (index >= page.blocks.length) index = 0;
+
+            selectedBlockIndex = index;
+            renderPage();
+            renderBlockEditors();
+
+            const card = elements.blocksContainer.children[index];
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // We focus the textarea, but prevent recursion if needed
+                const ta = card.querySelector('textarea');
+                if (document.activeElement !== ta) ta.focus();
+            }
+        }
+
+        elements.canvas.onclick = (e) => {
+            const rect = elements.canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (elements.canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (elements.canvas.height / rect.height);
+            const blocks = storage.currentTask.data.pages[currentPageIndex].blocks || [];
+            let found = -1;
+            for (let i = blocks.length - 1; i >= 0; i--) {
+                const r = getRect(blocks[i].polygon);
+                if (x >= r.minX && x <= r.maxX && y >= r.minY && y <= r.maxY) { found = i; break; }
+            }
+            if (found !== -1) {
+                selectBlock(found);
             }
         };
+
+        document.addEventListener('keydown', (e) => {
+            const isInput = e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT';
+
+            if (e.key === 'ArrowLeft') {
+                if (isInput && !e.altKey) return;
+                e.preventDefault();
+                selectPage(currentPageIndex - 1);
+            } else if (e.key === 'ArrowRight') {
+                if (isInput && !e.altKey) return;
+                e.preventDefault();
+                selectPage(currentPageIndex + 1);
+            } else if (e.key === 'ArrowUp') {
+                // If in textarea, only switch if at the start of the text
+                if (isInput && e.target.selectionStart !== 0) return;
+                e.preventDefault();
+                selectBlock(selectedBlockIndex - 1);
+            } else if (e.key === 'ArrowDown') {
+                // If in textarea, only switch if at the end of the text
+                if (isInput && e.target.selectionEnd !== e.target.value.length) return;
+                e.preventDefault();
+                selectBlock(selectedBlockIndex + 1);
+            }
+        });
+
+        init();
     </script>
 </body>
+
 </html>

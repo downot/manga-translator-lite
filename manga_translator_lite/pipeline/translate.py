@@ -14,7 +14,11 @@ from typing import List, Optional
 from ..config import Config, LLMProvider
 from ..translators import LLMTranslator, NoneTranslator, TranslationItem, build_translator
 from ..utils import get_logger
-from .schema import Block, Workspace, discover_tasks, load_workspace, save_workspace
+from .schema import (
+    Block, Page, Workspace, Translation,
+    discover_tasks, load_workspace, save_workspace,
+    load_translations, save_translations
+)
 
 logger = get_logger('translate')
 
@@ -30,9 +34,12 @@ async def _translate_task(
     if cfg.translator.provider == LLMProvider.none:
         logger.warning("Translator provider is 'none'; no API calls will be made.")
 
+    # Load existing translations for the target language
+    translations = load_translations(workspace.root, workspace.target_lang)
+
     # Collect all blocks that need translation across all pages
     all_items: List[TranslationItem] = []
-    block_map: dict[str, Block] = {}
+    block_map: dict[str, tuple[Page, Block]] = {}
 
     for page in workspace.pages:
         # Skip no_text pages — they have no blocks to translate
@@ -43,13 +50,21 @@ async def _translate_task(
         # 1. If page is before start_index, it's context-only. No translation allowed.
         is_before_start = start_index is not None and page.index < start_index
         if is_before_start:
-            page_translations = [b.translation for b in page.blocks if b.translation]
+            page_translations = []
+            for b in page.blocks:
+                t = translations.get(b.id)
+                if t and t.text:
+                    page_translations.append(t.text)
             if page_translations:
                 translator.add_context_page(page_translations)
             continue
 
         # 2. If no overwrite, we can skip fully translated pages
-        page_translations = [b.translation for b in page.blocks if b.translation]
+        page_translations = []
+        for b in page.blocks:
+            t = translations.get(b.id)
+            if t and t.text:
+                page_translations.append(t.text)
         is_fully_translated = len(page_translations) == len(page.blocks) and len(page.blocks) > 0
         if not overwrite and is_fully_translated:
             # Fully translated, add to context and skip
@@ -59,10 +74,11 @@ async def _translate_task(
         # 3. Otherwise, add blocks to the translation queue
         for blk in page.blocks:
             # Skip if already translated and we are not overwriting
-            if blk.translation and not overwrite:
+            t = translations.get(blk.id)
+            if t and t.text and not overwrite:
                 continue
             all_items.append(TranslationItem(id=blk.id, text=blk.text))
-            block_map[blk.id] = blk
+            block_map[blk.id] = (page, blk)
 
     if not all_items:
         logger.info(f"[task: {workspace.task_name}] All blocks already translated, skipping.")
@@ -80,14 +96,11 @@ async def _translate_task(
 
     # Write back translations
     for item in all_items:
-        blk = block_map.get(item.id)
-        if blk:
-            blk.translation = item.translation
+        translations[item.id] = Translation(text=item.translation, edited=False)
 
     # Final save
-    save_workspace(workspace)
-    logger.info(f"[task: {workspace.task_name}] Translations written: {workspace.pages_json_path}")
-    logger.info("Open pages.json to review/edit translations before running render.")
+    save_translations(workspace.root, workspace.target_lang, translations)
+    logger.info(f"[task: {workspace.task_name}] Translations written to {workspace.target_lang}.json")
     return workspace
 
 

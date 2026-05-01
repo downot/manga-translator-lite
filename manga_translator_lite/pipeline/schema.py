@@ -21,12 +21,29 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict, dataclass, field
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
-WORKSPACE_VERSION = 2
+WORKSPACE_VERSION = 4
 PAGES_JSON = "pages.json"
 CLEAN_DIR = "clean"
+TRANSLATIONS_DIR = "translations"
+
+
+@dataclass
+class Translation:
+    text: str = ""
+    edited: bool = False
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Translation":
+        return cls(
+            text=str(data.get("text", "")),
+            edited=bool(data.get("edited", False))
+        )
 
 
 def block_id(page_idx: int, block_idx: int) -> str:
@@ -48,7 +65,6 @@ class Block:
     direction: str = "auto"               # auto | h | v | hr | vr
     alignment: str = "auto"               # auto | left | center | right
     prob: float = 1.0
-    translation: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -69,7 +85,6 @@ class Block:
             direction=str(data.get("direction", "auto")),
             alignment=str(data.get("alignment", "auto")),
             prob=float(data.get("prob", 1.0)),
-            translation=str(data.get("translation", "")),
         )
 
 
@@ -78,7 +93,7 @@ class Page:
     index: int
     name: str                             # original filename (basename)
     size: Tuple[int, int]                 # (width, height)
-    original: str                         # original input path (relative or absolute)
+    original: str                         # original filename (basename) for identification
     clean: str                            # path to text-removed image, relative to workspace root
     blocks: List[Block] = field(default_factory=list)
     no_text: bool = False                 # True if no text was detected (OCR-empty page)
@@ -157,13 +172,48 @@ def save_workspace(ws: Workspace) -> str:
     return ws.pages_json_path
 
 
+def get_translations_dir(root: str) -> str:
+    return os.path.join(root, TRANSLATIONS_DIR)
+
+
+def get_translation_path(root: str, lang: str) -> str:
+    return os.path.join(get_translations_dir(root), f"{lang}.json")
+
+
+def load_translations(root: str, lang: str) -> Dict[str, Translation]:
+    path = get_translation_path(root, lang)
+    if not os.path.exists(path):
+        return {}
+    if os.path.getsize(path) == 0:
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return {bid: Translation.from_dict(t) for bid, t in data.items()}
+    except json.JSONDecodeError:
+        return {}
+
+
+def save_translations(root: str, lang: str, translations: Dict[str, Translation]):
+    os.makedirs(get_translations_dir(root), exist_ok=True)
+    path = get_translation_path(root, lang)
+    data = {bid: t.to_dict() for bid, t in translations.items()}
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def load_workspace(root: str) -> Workspace:
     root = os.path.abspath(root)
     path = os.path.join(root, PAGES_JSON)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Workspace metadata not found: {path}")
+    if os.path.getsize(path) == 0:
+        raise ValueError(f"Workspace metadata file is empty: {path}")
     with open(path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to decode workspace metadata {path}: {e}")
     return Workspace(
         root=root,
         version=int(data.get("version", WORKSPACE_VERSION)),

@@ -22,14 +22,14 @@ from PIL import Image
 from ..config import Config
 from ..rendering import dispatch as dispatch_rendering
 from ..utils import BASE_PATH, TextBlock, get_logger, cv2_imread
-from .schema import Block, Page, Workspace, discover_tasks, load_workspace
+from .schema import Block, Page, Workspace, discover_tasks, load_workspace, load_translations
 
 logger = get_logger('render')
 
 DEFAULT_FONT = os.path.join(BASE_PATH, 'fonts', 'Arial-Unicode-Regular.ttf')
 
 
-def _block_to_textblock(block: Block, target_lang: str, render_cfg) -> TextBlock:
+def _block_to_textblock(block: Block, translation_text: str, target_lang: str, render_cfg) -> TextBlock:
     """Reconstruct a TextBlock for the rendering layer."""
     lines = np.array(block.lines, dtype=np.int32) if block.lines else np.array([block.polygon], dtype=np.int32)
     fg = render_cfg.font_color_fg or block.fg_color
@@ -48,7 +48,7 @@ def _block_to_textblock(block: Block, target_lang: str, render_cfg) -> TextBlock
         texts=[block.text],
         font_size=block.font_size or 24,
         angle=block.angle,
-        translation=block.translation,
+        translation=translation_text,
         fg_color=tuple(fg),
         bg_color=tuple(bg),
         direction=direction,
@@ -62,7 +62,7 @@ def _block_to_textblock(block: Block, target_lang: str, render_cfg) -> TextBlock
     return tb
 
 
-async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str) -> Optional[str]:
+async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, translations: dict) -> Optional[str]:
     """Render a single page.  Always produces an output file.
 
     - ``no_text`` pages → copy the original image directly.
@@ -72,17 +72,14 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str) -> 
     out_name = os.path.splitext(page.name)[0] + ".png"
     out_path = os.path.join(out_dir, out_name)
 
-    # no_text pages — copy original directly (pass-through)
+    # no_text pages — copy clean directly (which is a copy of original)
     if page.no_text:
-        if page.original and os.path.exists(page.original):
-            img = Image.open(page.original).convert('RGB')
-            img.save(out_path)
-            logger.info(f"[page {page.index}] no_text → copied original as-is → {out_path}")
-        elif os.path.exists(os.path.join(ws.root, page.clean)):
-            shutil.copy2(os.path.join(ws.root, page.clean), out_path)
-            logger.info(f"[page {page.index}] no_text → copied clean image → {out_path}")
+        clean_abs = os.path.join(ws.root, page.clean)
+        if os.path.exists(clean_abs):
+            shutil.copy2(clean_abs, out_path)
+            logger.info(f"[page {page.index}] no_text → copied original (from clean) → {out_path}")
         else:
-            logger.warning(f"[page {page.index}] no_text but no source found, skipping")
+            logger.warning(f"[page {page.index}] no_text but clean image missing, skipping")
             return None
         return out_path
 
@@ -97,13 +94,18 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str) -> 
         return None
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-    blocks = [b for b in page.blocks if b.translation and b.translation.strip()]
-    if not blocks:
+    blocks_to_render: List[tuple[Block, str]] = []
+    for b in page.blocks:
+        t = translations.get(b.id)
+        if t and t.text and t.text.strip():
+            blocks_to_render.append((b, t.text))
+
+    if not blocks_to_render:
         logger.info(f"[page {page.index}] no translated blocks, copying clean image as-is")
         rendered_rgb = img_rgb
     else:
         text_regions: List[TextBlock] = [
-            _block_to_textblock(b, ws.target_lang, cfg.render) for b in blocks
+            _block_to_textblock(b, text, ws.target_lang, cfg.render) for b, text in blocks_to_render
         ]
         if cfg.render.uppercase:
             for tb in text_regions:
@@ -136,9 +138,12 @@ async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cf
     os.makedirs(task_out_dir, exist_ok=True)
     logger.info(f"[task: {task_name}] Rendering {len(workspace.pages)} page(s) into {task_out_dir}")
 
+    # Load translations for the target language
+    translations = load_translations(workspace.root, workspace.target_lang)
+
     written: List[str] = []
     for page in workspace.pages:
-        path = await _render_page(page, workspace, cfg, task_out_dir)
+        path = await _render_page(page, workspace, cfg, task_out_dir, translations)
         if path:
             written.append(path)
 

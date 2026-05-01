@@ -36,7 +36,10 @@ from ..utils import (
     natural_sort,
     sort_regions,
 )
-from .schema import Block, Page, Workspace, block_id, save_workspace, load_workspace
+from .schema import (
+    Block, Page, Workspace, block_id, save_workspace, load_workspace,
+    load_translations, save_translations, get_translations_dir, Translation
+)
 
 logger = get_logger('extract')
 
@@ -170,7 +173,7 @@ async def _process_image(
             index=page_idx,
             name=os.path.basename(img_path),
             size=(w, h),
-            original=os.path.abspath(img_path),
+            original=os.path.basename(img_path),
             clean=clean_rel,
             blocks=[],
             no_text=True,
@@ -187,7 +190,7 @@ async def _process_image(
             index=page_idx,
             name=os.path.basename(img_path),
             size=(w, h),
-            original=os.path.abspath(img_path),
+            original=os.path.basename(img_path),
             clean=clean_rel,
             blocks=[],
             no_text=True,
@@ -240,7 +243,7 @@ async def _process_image(
             index=page_idx,
             name=os.path.basename(img_path),
             size=(w, h),
-            original=os.path.abspath(img_path),
+            original=os.path.basename(img_path),
             clean=clean_rel,
             blocks=[],
             no_text=True,
@@ -251,11 +254,60 @@ async def _process_image(
         index=page_idx,
         name=os.path.basename(img_path),
         size=(w, h),
-        original=os.path.abspath(img_path),
+        original=os.path.basename(img_path),
         clean=clean_rel,
         blocks=blocks,
     )
 
+
+def _compute_iou(box1: List[int], box2: List[int]) -> float:
+    x1, y1, w1, h1 = box1
+    x2, y2, w2, h2 = box2
+    xi1 = max(x1, x2)
+    yi1 = max(y1, y2)
+    xi2 = min(x1 + w1, x2 + w2)
+    yi2 = min(y1 + h1, y2 + h2)
+    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+    box1_area = w1 * h1
+    box2_area = w2 * h2
+    union_area = box1_area + box2_area - inter_area
+    if union_area == 0:
+        return 0.0
+    return inter_area / union_area
+
+def _merge_task_translations(workspace: Workspace, existing_pages: Dict[str, Page]) -> None:
+    """Merge existing translations into the newly extracted workspace based on spatial IoU."""
+    trans_dir = get_translations_dir(workspace.root)
+    if not os.path.isdir(trans_dir):
+        return
+        
+    langs = [f[:-5] for f in os.listdir(trans_dir) if f.endswith('.json')]
+    if not langs:
+        return
+        
+    logger.info(f"[task: {workspace.task_name}] Merging translations for: {', '.join(langs)}")
+    
+    for lang in langs:
+        old_trans = load_translations(workspace.root, lang)
+        new_trans = {}
+        
+        for new_p in workspace.pages:
+            fname = os.path.basename(new_p.original)
+            if fname in existing_pages:
+                old_p = existing_pages[fname]
+                for new_b in new_p.blocks:
+                    best_iou = 0.0
+                    best_old_b_id = None
+                    for old_b in old_p.blocks:
+                        iou = _compute_iou(new_b.bbox, old_b.bbox)
+                        if iou > best_iou:
+                            best_iou = iou
+                            best_old_b_id = old_b.id
+                    
+                    if best_iou > 0.3 and best_old_b_id in old_trans:
+                        new_trans[new_b.id] = old_trans[best_old_b_id]
+        
+        save_translations(workspace.root, lang, new_trans)
 
 async def _extract_task(
     task_name: str,
@@ -275,12 +327,16 @@ async def _extract_task(
     logger.info(f"[task: {task_name}] Found {len(files)} image(s)")
 
     # Resume logic: Load existing workspace if pages.json exists.
+    # Try to load existing workspace to salvage translations even if we overwrite
     existing_pages: Dict[str, Page] = {}
-    if not overwrite and os.path.exists(os.path.join(task_work_dir, "pages.json")):
+    if os.path.exists(os.path.join(task_work_dir, "pages.json")):
         try:
             ws_old = load_workspace(task_work_dir)
-            existing_pages = {os.path.abspath(p.original): p for p in ws_old.pages}
-            logger.info(f"[task: {task_name}] Found existing workspace with {len(existing_pages)} processed pages. Resuming...")
+            existing_pages = {os.path.basename(p.original): p for p in ws_old.pages}
+            if not overwrite:
+                logger.info(f"[task: {task_name}] Found existing workspace with {len(existing_pages)} processed pages. Resuming...")
+            else:
+                logger.info(f"[task: {task_name}] Found existing workspace. Will attempt to merge translations into new extraction...")
         except Exception as e:
             logger.warning(f"[task: {task_name}] Could not load existing workspace: {e}. Starting fresh.")
 
@@ -291,9 +347,9 @@ async def _extract_task(
         task_name=task_name,
     )
     for i, path in enumerate(files):
-        abs_path = os.path.abspath(path)
-        if abs_path in existing_pages:
-            page = existing_pages[abs_path]
+        fname = os.path.basename(path)
+        if not overwrite and fname in existing_pages:
+            page = existing_pages[fname]
             page.index = i
             workspace.pages.append(page)
             logger.info(f"[task: {task_name}] [page {i}] skipped (already processed): {os.path.basename(path)}")
@@ -309,8 +365,11 @@ async def _extract_task(
             if verbose:
                 raise
 
+    if overwrite and existing_pages:
+        _merge_task_translations(workspace, existing_pages)
+
     save_workspace(workspace)
-    logger.info(f"[task: {task_name}] Workspace written: {workspace.pages_json_path}")
+    logger.info(f"[task: {workspace.task_name}] Workspace written: {workspace.pages_json_path}")
     return workspace
 
 
