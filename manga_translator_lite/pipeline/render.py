@@ -69,7 +69,7 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
     - Pages with blocks but no translations → copy the clean image.
     - Normal pages → render translated text onto the clean image.
     """
-    out_name = os.path.splitext(page.name)[0] + ".png"
+    out_name = page.name
     out_path = os.path.join(out_dir, out_name)
 
     # no_text pages — copy clean directly (which is a copy of original)
@@ -102,7 +102,9 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
 
     if not blocks_to_render:
         logger.info(f"[page {page.index}] no translated blocks, copying clean image as-is")
-        rendered_rgb = img_rgb
+        shutil.copy2(clean_path, out_path)
+        logger.info(f"[page {page.index}] → {out_path}")
+        return out_path
     else:
         text_regions: List[TextBlock] = [
             _block_to_textblock(b, text, ws.target_lang, cfg.render) for b, text in blocks_to_render
@@ -127,7 +129,36 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
             disable_font_border=cfg.render.disable_font_border,
         )
 
-    Image.fromarray(rendered_rgb).save(out_path)
+    pil_img = Image.fromarray(rendered_rgb)
+    _, ext = os.path.splitext(out_path)
+    ext_lower = ext.lower()
+    
+    clean_format = None
+    clean_info = {}
+    try:
+        pil_clean = Image.open(clean_path)
+        clean_format = pil_clean.format
+        clean_info = pil_clean.info
+    except Exception:
+        pass
+
+    try:
+        if clean_format == 'JPEG' or ext_lower in ['.jpg', '.jpeg']:
+            try:
+                pil_img.info = clean_info
+                pil_img.save(out_path, format='JPEG', quality='keep', subsampling='keep', optimize=True)
+            except Exception:
+                pil_img.save(out_path, format='JPEG', quality=90, optimize=True)
+        elif clean_format == 'WEBP' or ext_lower == '.webp':
+            pil_img.save(out_path, format='WEBP', quality=85, method=6)
+        elif clean_format == 'PNG' or ext_lower == '.png':
+            pil_img.save(out_path, format='PNG', optimize=True)
+        else:
+            pil_img.save(out_path)
+    except Exception as e:
+        logger.warning(f"[page {page.index}] PIL save failed for {out_path}, falling back: {e}")
+        pil_img.save(out_path)
+
     logger.info(f"[page {page.index}] → {out_path}")
     return out_path
 
