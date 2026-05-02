@@ -44,7 +44,7 @@ def process_workspace(in_dir: str, work_dir: str, task_name: str):
             orig_ext = '.png'
             
         new_clean_name = f"{page.index:04d}_{os.path.splitext(page.original)[0]}{orig_ext}"
-        new_clean_rel = os.path.join("clean", new_clean_name)
+        new_clean_rel = f"clean/{new_clean_name}"
         new_clean_abs = os.path.join(ws_root, new_clean_rel)
         
         orig_size = os.path.getsize(orig_path)

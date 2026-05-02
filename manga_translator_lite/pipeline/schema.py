@@ -117,8 +117,8 @@ class Page:
             index=int(data["index"]),
             name=str(data.get("name", "")),
             size=tuple(data.get("size", [0, 0])),
-            original=str(data.get("original", "")),
-            clean=str(data.get("clean", "")),
+            original=str(data.get("original", "")).replace("\\", "/"),
+            clean=str(data.get("clean", "")).replace("\\", "/"),
             blocks=[Block.from_dict(b) for b in data.get("blocks", [])],
             no_text=bool(data.get("no_text", False)),
         )

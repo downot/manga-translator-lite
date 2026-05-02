@@ -166,7 +166,7 @@ async def _process_image(
     if not ext:
         ext = '.png'
     clean_name = f"{page_idx:04d}_{os.path.splitext(os.path.basename(img_path))[0]}{ext}"
-    clean_rel = os.path.join("clean", clean_name)
+    clean_rel = f"clean/{clean_name}"
     clean_abs = os.path.join(workspace.clean_dir, clean_name)
     os.makedirs(workspace.clean_dir, exist_ok=True)
 
