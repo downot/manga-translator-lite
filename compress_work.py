@@ -69,11 +69,14 @@ def process_workspace(in_dir: str, work_dir: str, task_name: str):
             print(f"  -> {page.original}: Size already reasonable ({clean_size // 1024}KB vs orig {orig_size // 1024}KB). Skipping.")
             continue
             
+        print(f"  -> {page.original}: Recompressing (current: {clean_size // 1024}KB, orig: {orig_size // 1024}KB)...")
+        
+        orig_format = None
         try:
             pil_orig = Image.open(orig_path)
+            orig_format = pil_orig.format
         except Exception as e:
             print(f"  [Warning] Failed to open original image {orig_path}: {e}")
-            continue
             
         img_bgr = cv2_imread(clean_abs)
         if img_bgr is None:
@@ -81,18 +84,23 @@ def process_workspace(in_dir: str, work_dir: str, task_name: str):
             continue
             
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        pil_img = Image.fromarray(img_rgb)
         
-        print(f"  -> {page.original}: Recompressing (current: {clean_size // 1024}KB, orig: {orig_size // 1024}KB)...")
-        if pil_orig.format == 'JPEG':
-            pil_img = Image.fromarray(img_rgb)
-            pil_img.format = pil_orig.format
-            pil_img.info = pil_orig.info
-            try:
-                pil_img.save(new_clean_abs, format=pil_orig.format, quality='keep', subsampling='keep')
-            except Exception as e:
-                print(f"     Fallback to cv2 for {page.original}: {e}")
-                cv2_imwrite(new_clean_abs, img_bgr)
-        else:
+        try:
+            if orig_format == 'JPEG' or orig_ext in ['.jpg', '.jpeg']:
+                try:
+                    pil_img.info = pil_orig.info
+                    pil_img.save(new_clean_abs, format='JPEG', quality='keep', subsampling='keep', optimize=True)
+                except Exception:
+                    pil_img.save(new_clean_abs, format='JPEG', quality=90, optimize=True)
+            elif orig_format == 'WEBP' or orig_ext == '.webp':
+                pil_img.save(new_clean_abs, format='WEBP', quality=85, method=6)
+            elif orig_format == 'PNG' or orig_ext == '.png':
+                pil_img.save(new_clean_abs, format='PNG', optimize=True)
+            else:
+                pil_img.save(new_clean_abs)
+        except Exception as e:
+            print(f"     Fallback to cv2 for {page.original}: {e}")
             cv2_imwrite(new_clean_abs, img_bgr)
             
         # Clean up old file if name changed

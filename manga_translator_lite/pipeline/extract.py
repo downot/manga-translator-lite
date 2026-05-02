@@ -243,15 +243,25 @@ async def _process_image(
     if not inpaint_done:
         shutil.copy2(img_path, clean_abs)
     else:
-        if pil.format == 'JPEG':
-            pil_img = Image.fromarray(inpainted)
-            pil_img.format = pil.format
-            pil_img.info = pil.info
-            try:
-                pil_img.save(clean_abs, format=pil.format, quality='keep', subsampling='keep')
-            except Exception:
-                cv2_imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
-        else:
+        pil_img = Image.fromarray(inpainted)
+        _, ext = os.path.splitext(clean_abs)
+        ext = ext.lower()
+        
+        try:
+            if pil.format == 'JPEG' or ext in ['.jpg', '.jpeg']:
+                try:
+                    pil_img.info = pil.info
+                    pil_img.save(clean_abs, format='JPEG', quality='keep', subsampling='keep', optimize=True)
+                except Exception:
+                    pil_img.save(clean_abs, format='JPEG', quality=90, optimize=True)
+            elif pil.format == 'WEBP' or ext == '.webp':
+                pil_img.save(clean_abs, format='WEBP', quality=85, method=6)
+            elif pil.format == 'PNG' or ext == '.png':
+                pil_img.save(clean_abs, format='PNG', optimize=True)
+            else:
+                pil_img.save(clean_abs)
+        except Exception as e:
+            logger.warning(f"[page {page_idx}] PIL save failed for {clean_abs}, fallback to cv2: {e}")
             cv2_imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
 
     logger.info(f"[page {page_idx}] saved clean → {clean_rel} ({len(text_regions)} blocks)")
