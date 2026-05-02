@@ -14,6 +14,7 @@ Translation is left blank for the translate step to fill in.
 from __future__ import annotations
 
 import os
+import shutil
 from typing import Dict, List, Optional, Tuple
 
 import cv2
@@ -161,14 +162,17 @@ async def _process_image(
         verbose,
     )
 
-    clean_name = f"{page_idx:04d}_{os.path.splitext(os.path.basename(img_path))[0]}.png"
+    _, ext = os.path.splitext(os.path.basename(img_path))
+    if not ext:
+        ext = '.png'
+    clean_name = f"{page_idx:04d}_{os.path.splitext(os.path.basename(img_path))[0]}{ext}"
     clean_rel = os.path.join("clean", clean_name)
     clean_abs = os.path.join(workspace.clean_dir, clean_name)
     os.makedirs(workspace.clean_dir, exist_ok=True)
 
     if not textlines:
         logger.info(f"[page {page_idx}] no text detected — marked as no_text, copying original")
-        cv2_imwrite(clean_abs, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
+        shutil.copy2(img_path, clean_abs)
         return Page(
             index=page_idx,
             name=os.path.basename(img_path),
@@ -185,7 +189,7 @@ async def _process_image(
 
     if not textlines:
         logger.info(f"[page {page_idx}] OCR empty — marked as no_text, copying original")
-        cv2_imwrite(clean_abs, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
+        shutil.copy2(img_path, clean_abs)
         return Page(
             index=page_idx,
             name=os.path.basename(img_path),
@@ -221,6 +225,7 @@ async def _process_image(
         )
 
     # 5. inpainting
+    inpaint_done = False
     if mask is not None and mask.any():
         inpainted = await dispatch_inpainting(
             cfg.inpainter.inpainter,
@@ -231,10 +236,24 @@ async def _process_image(
             device,
             verbose,
         )
+        inpaint_done = True
     else:
         inpainted = img_rgb
 
-    cv2_imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
+    if not inpaint_done:
+        shutil.copy2(img_path, clean_abs)
+    else:
+        if pil.format == 'JPEG':
+            pil_img = Image.fromarray(inpainted)
+            pil_img.format = pil.format
+            pil_img.info = pil.info
+            try:
+                pil_img.save(clean_abs, format=pil.format, quality='keep', subsampling='keep')
+            except Exception:
+                cv2_imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
+        else:
+            cv2_imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
+
     logger.info(f"[page {page_idx}] saved clean → {clean_rel} ({len(text_regions)} blocks)")
 
     # If textline merge + filtering produced no valuable blocks, mark as no_text
