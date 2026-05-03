@@ -162,16 +162,9 @@ class LLMTranslator:
             f"(~{self.cfg.batch_chars} chars each) to {self.target_human}"
         )
         for batch_no, batch in enumerate(batches, 1):
-            ctx = self._context_text()
-            prompt = _build_prompt(
-                batch.items,
-                self.target_human,
-                context=ctx,
-                extra_instructions=self.cfg.extra_instructions,
-            )
             logger.info(f"Batch {batch_no}/{len(batches)}: {len(batch.items)} blocks, ~{batch.char_count} chars")
             try:
-                translations = await self._request(prompt, len(batch.items))
+                translations = await self._request(batch, len(batch.items))
 
                 table = Table(show_header=True, header_style="bold magenta")
                 table.add_column("Source Text", style="cyan", width=50)
@@ -189,9 +182,16 @@ class LLMTranslator:
 
     # ---- Provider dispatch ----
 
-    async def _request(self, prompt: str, expected: int) -> List[str]:
+    async def _request(self, batch: TranslationBatch, expected: int) -> List[str]:
         last_err: Optional[Exception] = None
         for attempt in range(1, self.cfg.max_retries + 1):
+            ctx = self._context_text()
+            prompt = _build_prompt(
+                batch.items,
+                self.target_human,
+                context=ctx,
+                extra_instructions=self.cfg.extra_instructions,
+            )
             try:
                 if self.cfg.provider == LLMProvider.openai:
                     text = await self._request_openai(prompt)
@@ -203,6 +203,11 @@ class LLMTranslator:
             except Exception as e:
                 last_err = e
                 logger.warning(f"LLM request attempt {attempt}/{self.cfg.max_retries} failed: {e}")
+                
+                if "403" in str(e) or getattr(e, 'status_code', None) == 403 or getattr(e, 'code', None) == 403:
+                    logger.warning("Encountered 403 error. Clearing context and retrying...")
+                    self._context_pages.clear()
+
                 if attempt < self.cfg.max_retries:
                     await asyncio.sleep(min(2 ** attempt, 10))
         raise InvalidServerResponse(f"All {self.cfg.max_retries} attempts failed: {last_err}")
