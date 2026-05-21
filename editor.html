@@ -201,6 +201,11 @@
             object-fit: contain;
         }
 
+        canvas.zoom-width {
+            width: 100% !important;
+            height: auto !important;
+        }
+
         canvas.zoom-orig {
             width: auto !important;
             height: auto !important;
@@ -606,7 +611,18 @@
 
             <div id="sidebar-content-tasks" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
                 <div id="sidebar-tasks-section">
-                    <div class="section-title"><span data-i18n="titleTasks">Tasks</span></div>
+                    <div class="section-title">
+                        <span data-i18n="titleTasks">Tasks</span>
+                        <button id="btn-merge" class="secondary" style="padding: 2px 8px; font-size: 0.7rem;">
+                            <span data-i18n="btnMerge">Merge</span>
+                        </button>
+                    </div>
+                    <div id="merge-controls" style="display: none; padding: 0 10px 10px; gap: 5px;">
+                        <button id="btn-confirm-merge" style="flex: 1; padding: 6px; font-size: 0.8rem;"
+                            data-i18n="btnConfirmMerge">Confirm</button>
+                        <button id="btn-cancel-merge" class="secondary"
+                            style="padding: 6px; font-size: 0.8rem;">✕</button>
+                    </div>
                     <div id="task-list" class="task-list">
                         <div class="empty-state" data-i18n="emptyOpenDir">Open a directory first</div>
                     </div>
@@ -728,9 +744,9 @@
 
     <script>
         const i18n = {
-            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件" },
-            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File" },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル" }
+            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小" },
+            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size" },
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示" }
         };
 
         const storage = {
@@ -851,7 +867,8 @@
             langSelect: document.getElementById('lang-select'),
             targetLangSelect: document.getElementById('target-lang-select'),
             sidebar: document.getElementById('sidebar'),
-            editor: document.getElementById('editor')
+            editor: document.getElementById('editor'),
+            canvasContainer: document.getElementById('canvas-container')
         };
 
         const ctx = elements.canvas.getContext('2d');
@@ -870,6 +887,11 @@
             // Add Pipeline Event Listeners
             document.getElementById('btn-run-pipeline').onclick = runPipeline;
 
+            // Merge Logic
+            document.getElementById('btn-merge').onclick = () => toggleMergeMode(true);
+            document.getElementById('btn-cancel-merge').onclick = () => toggleMergeMode(false);
+            document.getElementById('btn-confirm-merge').onclick = performMerge;
+
             // Resizer Logic
             const resizer = document.getElementById('editor-resizer');
             let isResizing = false;
@@ -884,7 +906,6 @@
             document.addEventListener('mousemove', (e) => {
                 if (!isResizing) return;
                 const width = window.innerWidth - e.clientX;
-                // Minimum 250px, Maximum 50% of screen
                 if (width > 250 && width < window.innerWidth * 0.6) {
                     document.documentElement.style.setProperty('--editor-width', `${width}px`);
                 }
@@ -898,6 +919,123 @@
                     localStorage.setItem('editor-width', getComputedStyle(document.documentElement).getPropertyValue('--editor-width'));
                 }
             });
+        }
+
+        let isMergeMode = false;
+        let selectedTasksForMerge = []; // Array of {name, handle} to preserve order
+
+        function toggleMergeMode(active) {
+            isMergeMode = active;
+            selectedTasksForMerge = [];
+            document.getElementById('merge-controls').style.display = active ? 'flex' : 'none';
+            document.getElementById('btn-merge').style.display = active ? 'none' : 'block';
+            renderTaskList();
+        }
+
+        async function performMerge() {
+            if (selectedTasksForMerge.length < 2) {
+                showToast(t('msgSelectTasks'), 'error');
+                return;
+            }
+
+            elements.statusLoader.style.display = 'block';
+            elements.statusText.textContent = t('msgMerging');
+            elements.statusText.style.display = 'block';
+
+            try {
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const newTaskName = `merged_${timestamp}`;
+                const newFolder = await storage.workDirHandle.getDirectoryHandle(newTaskName, { create: true });
+                const newCleanDir = await newFolder.getDirectoryHandle('clean', { create: true });
+                const newTransDir = await newFolder.getDirectoryHandle('translations', { create: true });
+
+                const mergedPages = [];
+                const mergedTranslations = {}; // lang -> { id: {text, edited} }
+
+                const usedFilenames = new Set();
+
+                for (const task of selectedTasksForMerge) {
+                    const taskHandle = task.handle;
+                    const pagesJsonHandle = await taskHandle.getFileHandle('pages.json');
+                    const pagesFile = await pagesJsonHandle.getFile();
+                    const taskData = JSON.parse(await pagesFile.text());
+
+                    const cleanDir = await taskHandle.getDirectoryHandle('clean');
+                    const transDir = await taskHandle.getDirectoryHandle('translations').catch(() => null);
+
+                    // Merge pages
+                    for (const page of taskData.pages) {
+                        const oldImgName = page.clean.split('/').pop();
+                        let newImgName = oldImgName;
+
+                        // Handle name conflict in clean folder
+                        if (usedFilenames.has(newImgName)) {
+                            const ext = oldImgName.split('.').pop();
+                            const base = oldImgName.substring(0, oldImgName.length - ext.length - 1);
+                            let i = 1;
+                            while (usedFilenames.has(`${base}_${i}.${ext}`)) i++;
+                            newImgName = `${base}_${i}.${ext}`;
+                        }
+                        usedFilenames.add(newImgName);
+
+                        // Copy image
+                        try {
+                            const oldImgHandle = await cleanDir.getFileHandle(oldImgName);
+                            const newImgHandle = await newCleanDir.getFileHandle(newImgName, { create: true });
+                            const writable = await newImgHandle.createWritable();
+                            await writable.write(await oldImgHandle.getFile());
+                            await writable.close();
+                        } catch (e) {
+                            console.warn(`Failed to copy image ${oldImgName} from task ${taskHandle.name}`, e);
+                        }
+
+                        // Add to merged pages
+                        const newPage = JSON.parse(JSON.stringify(page));
+                        newPage.clean = `clean/${newImgName}`;
+                        // If there are other paths like 'in' or 'out', we might need to handle them,
+                        // but usually 'clean' is what matters for the editor.
+                        mergedPages.push(newPage);
+                    }
+
+                    // Merge translations
+                    if (transDir) {
+                        for await (const entry of transDir.values()) {
+                            if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                                const lang = entry.name.replace('.json', '');
+                                if (!mergedTranslations[lang]) mergedTranslations[lang] = {};
+
+                                const transFile = await entry.getFile();
+                                const transData = JSON.parse(await transFile.text());
+                                Object.assign(mergedTranslations[lang], transData);
+                            }
+                        }
+                    }
+                }
+
+                // Write new pages.json
+                const newPagesJsonHandle = await newFolder.getFileHandle('pages.json', { create: true });
+                const writablePages = await newPagesJsonHandle.createWritable();
+                await writablePages.write(JSON.stringify({ pages: mergedPages, target_lang: elements.targetLangSelect.value }, null, 2));
+                await writablePages.close();
+
+                // Write new translations
+                for (const [lang, data] of Object.entries(mergedTranslations)) {
+                    const newTransHandle = await newTransDir.getFileHandle(`${lang}.json`, { create: true });
+                    const writableTrans = await newTransHandle.createWritable();
+                    await writableTrans.write(JSON.stringify(data, null, 2));
+                    await writableTrans.close();
+                }
+
+                showToast(t('mergeSuccess', { name: newTaskName }), 'success');
+                toggleMergeMode(false);
+                await renderTaskList();
+            } catch (e) {
+                console.error(e);
+                showToast("Merge failed: " + e.message, "error");
+            } finally {
+                elements.statusLoader.style.display = 'none';
+                elements.statusText.style.display = 'none';
+            }
         }
 
         function switchTab(tab) {
@@ -1029,8 +1167,38 @@
                         const pagesJsonHandle = await entry.getFileHandle('pages.json');
                         const item = document.createElement('div');
                         item.className = 'list-item';
-                        item.textContent = entry.name;
-                        item.onclick = () => selectTask({ name: entry.name, handle: entry, pagesJsonHandle }, item);
+
+                        if (isMergeMode) {
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.style.marginRight = '8px';
+                            checkbox.checked = selectedTasksForMerge.some(t => t.name === entry.name);
+                            checkbox.onclick = (e) => e.stopPropagation();
+                            checkbox.onchange = () => {
+                                if (checkbox.checked) {
+                                    if (!selectedTasksForMerge.some(t => t.name === entry.name)) {
+                                        selectedTasksForMerge.push({ name: entry.name, handle: entry });
+                                    }
+                                } else {
+                                    selectedTasksForMerge = selectedTasksForMerge.filter(t => t.name !== entry.name);
+                                }
+                            };
+                            item.appendChild(checkbox);
+                        }
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = entry.name;
+                        item.appendChild(nameSpan);
+
+                        item.onclick = () => {
+                            if (isMergeMode) {
+                                const cb = item.querySelector('input');
+                                cb.checked = !cb.checked;
+                                cb.onchange();
+                            } else {
+                                selectTask({ name: entry.name, handle: entry, pagesJsonHandle }, item);
+                            }
+                        };
                         elements.taskList.appendChild(item);
                     } catch (e) { }
                 }
@@ -1082,6 +1250,11 @@
             Array.from(elements.pageList.children).forEach((el, i) => el.classList.toggle('active', i === index));
             elements.btnPrev.disabled = index === 0;
             elements.btnNext.disabled = index === storage.currentTask.data.pages.length - 1;
+            
+            // Reset scroll position
+            elements.canvasContainer.scrollTop = 0;
+            elements.canvasContainer.scrollLeft = 0;
+
             renderPage();
             renderBlockEditors();
         }
@@ -1091,6 +1264,7 @@
             const url = await storage.getImageUrl(page);
             if (!url) return;
             elements.canvas.style.display = 'block';
+            document.getElementById('initial-state').style.display = 'none';
             const img = new Image();
             img.onload = () => {
                 elements.canvas.width = img.width;
@@ -1343,8 +1517,17 @@
             elements.statusLoader.style.display = 'none';
         };
 
-        function toggleZoom() { zoomMode = zoomMode === 'fit' ? 'orig' : 'fit'; updateZoomUI(); }
-        function updateZoomUI() { elements.canvas.className = zoomMode === 'fit' ? 'zoom-fit' : 'zoom-orig'; }
+        function toggleZoom() {
+            if (zoomMode === 'fit') zoomMode = 'width';
+            else if (zoomMode === 'width') zoomMode = 'orig';
+            else zoomMode = 'fit';
+            updateZoomUI();
+        }
+        function updateZoomUI() {
+            elements.canvas.className = 'zoom-' + zoomMode;
+            const key = 'zoom' + zoomMode.charAt(0).toUpperCase() + zoomMode.slice(1);
+            elements.btnZoom.title = t(key);
+        }
         function showToast(msg) { elements.toast.textContent = msg; elements.toast.classList.add('show'); setTimeout(() => elements.toast.classList.remove('show'), 2000); }
         function updateLanguage(lang) {
             currentLang = lang; localStorage.setItem('editor-lang', lang);
