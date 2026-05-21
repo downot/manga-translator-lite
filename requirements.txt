@@ -43,4 +43,4 @@ pytest
 # pydensecrf is optional and requires a C++ compiler to build.
 # If you need high-quality mask refinement, install C++ Build Tools and run:
 # pip install pydensecrf@https://github.com/lucasb-eyer/pydensecrf/archive/refs/heads/master.zip
-# pydensecrf@https://github.com/lucasb-eyer/pydensecrf/archive/refs/heads/master.zip
+pydensecrf@https://github.com/lucasb-eyer/pydensecrf/archive/refs/heads/master.zip
