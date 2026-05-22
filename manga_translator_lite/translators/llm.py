@@ -38,13 +38,16 @@ SYSTEM_PROMPT = (
     "You are a professional manga / comic translator. Translate the provided "
     "lines into {to_lang}. Preserve the meaning, tone, and casual register of "
     "the original. Keep onomatopoeia recognisable in the target language. "
-    "Do not censor, omit, or add commentary."
+    "Do not censor, omit, or add commentary. "
+    "Ensure that you output ONLY the translations inside their respective tags (e.g., <|1|>translation, <|2|>translation, etc.). "
+    "Do NOT output conversational filler, greetings, or explanations."
 )
 
 USER_PROMPT_HEADER = (
     "Translate the following numbered lines into {to_lang}. "
-    "Reply with the translations only, in the same order, in the form "
-    "<|i|>translation, one per line. Do not add explanations."
+    "You MUST reply with the translations prefixed by their exact corresponding tags, e.g., <|1|>translation, <|2|>translation, etc., one per line. "
+    "Do NOT use the literal placeholder '<|i|>' or '<|index|>' as tags. "
+    "Do NOT add any introductory text, greetings, explanations, or notes. Output ONLY the tagged translations."
 )
 
 
@@ -110,24 +113,52 @@ def _build_prompt(
 
 
 def _parse_response(text: str, count: int) -> List[str]:
-    """Parse <|i|>... blocks from an LLM response."""
-    pieces = re.split(r"<\|(\d+)\|>", text)
-    # split returns [pre, idx1, content1, idx2, content2, ...]
+    """Parse <|i|>... blocks from an LLM response with high fault tolerance."""
+    # Robust regex matching tags like <|1|>, <|1>, <| 1 |>, <| 1 >, and spaces between < and | like < | 1 | >
+    tag_pattern = r"<\s*\|\s*(\d+)\s*\|?\s*>"
+    pieces = re.split(tag_pattern, text)
+    
     out: dict[int, str] = {}
     for i in range(1, len(pieces) - 1, 2):
         try:
             idx = int(pieces[i])
         except ValueError:
             continue
-        out[idx] = pieces[i + 1].strip().rstrip()
+        out[idx] = pieces[i + 1].strip()
+        
     if not out:
-        # The model may have returned plain lines; try one-per-line fallback.
-        lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+        # Fallback 1: The model may have returned literal <|i|> or similar prefix per line,
+        # or plain lines. Clean them up and check.
+        lines = []
+        for ln in text.strip().splitlines():
+            ln = ln.strip()
+            if not ln:
+                continue
+            # Strip literal placeholder tags like <|i|>, <|i>, <|index|>, <|idx|>, or numeric tags
+            ln = re.sub(r"^<\s*\|\s*(i|idx|index|\d+)\s*\|?\s*>\s*", "", ln, flags=re.IGNORECASE)
+            lines.append(ln)
+            
         if len(lines) == count:
+            logger.info("Successfully parsed translations using line-by-line fallback after stripping tags.")
             return lines
+            
+        # Log raw response for debugging purposes when parsing fails
+        logger.warning(
+            f"Failed parsing response. Expected {count} lines, got {len(lines)} lines via fallback. "
+            f"Raw LLM response was:\n{text}"
+        )
         raise InvalidServerResponse(
             f"Could not parse <|i|> entries from response (got {len(lines)} lines, expected {count})."
         )
+        
+    # Check for missing translation indices
+    missing_indices = [i for i in range(1, count + 1) if i not in out]
+    if missing_indices:
+        logger.warning(
+            f"Some translation indices were missing in LLM response: {missing_indices}. "
+            f"These will be rendered as empty strings. Raw response was:\n{text}"
+        )
+        
     return [out.get(i, "") for i in range(1, count + 1)]
 
 
