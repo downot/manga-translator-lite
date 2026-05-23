@@ -9,6 +9,7 @@ and translates each independently.
 from __future__ import annotations
 
 import os
+import json
 from typing import List, Optional
 
 from ..config import Config, LLMProvider
@@ -21,6 +22,115 @@ from .schema import (
 )
 
 logger = get_logger('translate')
+
+
+def _load_story_description(root_dir: str) -> Optional[str]:
+    """Search and load overall story description from text files or metadata."""
+    # Look for files: story.txt, script.txt, description.txt, overview.txt, synopsis.txt
+    candidates = ["story.txt", "script.txt", "description.txt", "overview.txt", "synopsis.txt"]
+    for c in candidates:
+        p = os.path.join(root_dir, c)
+        if os.path.isfile(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                if content:
+                    logger.info(f"Found story description in file: {c}")
+                    return content
+            except Exception as e:
+                logger.warning(f"Failed to read story description file {c}: {e}")
+
+    # Check pages.json as fallback
+    pages_json_path = os.path.join(root_dir, "pages.json")
+    if os.path.isfile(pages_json_path):
+        try:
+            with open(pages_json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            for k in ["story", "description", "story_description"]:
+                if k in data and data[k]:
+                    logger.info(f"Found story description in pages.json under key '{k}'")
+                    return str(data[k]).strip()
+        except Exception:
+            pass
+
+    return None
+
+
+async def _run_review_for_task(
+    workspace: Workspace,
+    translations: dict[str, Translation],
+    cfg: Config,
+    overwrite: bool = False,
+) -> None:
+    """Perform review and polish for translated text blocks in the task."""
+    reviewed_marker_path = os.path.join(workspace.root, "translations", f"{workspace.target_lang}.reviewed")
+
+    # Check if we should skip review
+    if not overwrite and os.path.exists(reviewed_marker_path):
+        logger.info(f"[task: {workspace.task_name}] Translation review already completed (marker file exists), skipping.")
+        return
+
+    # Check if there are any translations to review
+    has_translations = any(t.text for t in translations.values())
+    if not has_translations:
+        logger.info(f"[task: {workspace.task_name}] No translated content to review, skipping.")
+        return
+
+    if cfg.translator.provider == LLMProvider.none:
+        logger.warning(f"[task: {workspace.task_name}] Translator provider is 'none'; skipping review step.")
+        return
+
+    logger.info(f"[task: {workspace.task_name}] Starting translation review...")
+
+    # Load story description
+    story_description = _load_story_description(workspace.root)
+    if not story_description:
+        logger.warning(f"[task: {workspace.task_name}] No story description file (story.txt / script.txt / etc.) found in workspace. Polishing without specific story details.")
+
+    # Gather items to review in reading order
+    review_items = []
+    for page in workspace.pages:
+        if page.no_text:
+            continue
+        for block in page.blocks:
+            t = translations.get(block.id)
+            if t and t.text:
+                review_items.append((block.id, block.text, t.text))
+
+    if not review_items:
+        logger.info(f"[task: {workspace.task_name}] No items found for review.")
+        return
+
+    translator = build_translator(cfg.translator)
+    if not hasattr(translator, 'review'):
+        logger.warning(f"Translator {translator.__class__.__name__} does not support review. Skipping.")
+        return
+
+    # Run the review
+    polished_map = await translator.review(review_items, story_description or "")
+
+    # Update translations in place
+    updated_count = 0
+    for bid, polished_text in polished_map.items():
+        if bid in translations and translations[bid].text != polished_text:
+            translations[bid].text = polished_text
+            translations[bid].edited = False
+            updated_count += 1
+
+    if updated_count > 0:
+        save_translations(workspace.root, workspace.target_lang, translations)
+        logger.info(f"[task: {workspace.task_name}] {updated_count} translation(s) polished and updated.")
+    else:
+        logger.info(f"[task: {workspace.task_name}] Review complete. No translations changed.")
+
+    # Create the marker file to ensure idempotency
+    try:
+        os.makedirs(os.path.dirname(reviewed_marker_path), exist_ok=True)
+        with open(reviewed_marker_path, 'w', encoding='utf-8') as f:
+            f.write("reviewed")
+        logger.info(f"[task: {workspace.task_name}] Review marker created at {workspace.target_lang}.reviewed")
+    except Exception as e:
+        logger.warning(f"Failed to create review marker file: {e}")
 
 
 async def _translate_task(
@@ -80,27 +190,29 @@ async def _translate_task(
             all_items.append(TranslationItem(id=blk.id, text=blk.text))
             block_map[blk.id] = (page, blk)
 
-    if not all_items:
-        logger.info(f"[task: {workspace.task_name}] All blocks already translated, skipping.")
-        return workspace
+    if all_items:
+        total_blocks = sum(len(p.blocks) for p in workspace.pages)
+        no_text_pages = sum(1 for p in workspace.pages if p.no_text)
+        logger.info(f"[task: {workspace.task_name}] {len(workspace.pages)} page(s) "
+                    f"({no_text_pages} no-text), {total_blocks} total block(s)")
+        logger.info(f"[task: {workspace.task_name}] Queued for translation: "
+                    f"{len(all_items)} block(s) → {workspace.target_lang}")
 
-    total_blocks = sum(len(p.blocks) for p in workspace.pages)
-    no_text_pages = sum(1 for p in workspace.pages if p.no_text)
-    logger.info(f"[task: {workspace.task_name}] {len(workspace.pages)} page(s) "
-                f"({no_text_pages} no-text), {total_blocks} total block(s)")
-    logger.info(f"[task: {workspace.task_name}] Queued for translation: "
-                f"{len(all_items)} block(s) → {workspace.target_lang}")
+        # Perform translation
+        await translator.translate(all_items)
 
-    # Perform translation
-    await translator.translate(all_items)
+        # Write back translations
+        for item in all_items:
+            translations[item.id] = Translation(text=item.translation, edited=False)
 
-    # Write back translations
-    for item in all_items:
-        translations[item.id] = Translation(text=item.translation, edited=False)
+        # Final save
+        save_translations(workspace.root, workspace.target_lang, translations)
+        logger.info(f"[task: {workspace.task_name}] Translations written to {workspace.target_lang}.json")
+    else:
+        logger.info(f"[task: {workspace.task_name}] All blocks already translated, skipping translation phase.")
 
-    # Final save
-    save_translations(workspace.root, workspace.target_lang, translations)
-    logger.info(f"[task: {workspace.task_name}] Translations written to {workspace.target_lang}.json")
+    # Perform translation review
+    await _run_review_for_task(workspace, translations, cfg, overwrite=overwrite)
     return workspace
 
 

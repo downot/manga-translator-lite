@@ -100,11 +100,59 @@ A lightweight web-based visual editor `editor.html` is provided for a better man
 - **Real-time Preview**: See how the translated text looks on the actual page.
 - **Quick Edit**: Modify translations in a sidebar and see instant updates on canvas.
 - **Keyboard Shortcuts**: `←`/`→` for paging, `Z` for zoom, `R` for reload, `S` for save.
+- **Shortcut Focus Routing**: Intelligently routes Up/Down arrow keys based on active focus:
+  - **Tasks Sidebar**: Switch between different manga tasks.
+  - **Pages Sidebar**: Flip through page indexes.
+  - **Dialogue Editor**: Navigate text blocks while editing textareas.
+  - **Canvas Viewer**: Scroll the page vertically when zoomed in.
+- **Scrollable Sidebar**: Support long task lists gracefully with independent sidebar flex scrolling.
 
 ### How to Use:
-1. Start a local server: `python -m http.server 8000`
-2. Open `http://localhost:8000/editor.html` in Chrome/Edge.
-3. Click **"Open Work Dir"** and select your `work` folder.
+There are two ways to open the editor:
+1. **Serverless Local Mode**: Open `editor.html` directly in your browser. Click **"Open Work Dir"** to select your `work` folder. (Requires Chrome/Edge, uses the modern HTML5 File System Access API for local reads/writes).
+2. **Standalone Server Mode**: Run `python server.py -w ./work` and visit `http://localhost:8000/editor.html`.
+
+---
+
+## Standalone Backend Server (`server.py`)
+
+In addition to serving static files, this project includes a standalone backend server (`server.py`) to manage task data, synchronize story descriptions, and execute pipelines directly from your browser.
+
+### 1. Key Features
+* **Web-based Pipeline Runner**: Trigger `Extract`, `Translate`, `Render`, or the full sequential pipeline (`Run`) directly from the visual editor browser page, with live terminal logs streamed back via Server-Sent Events (SSE).
+* **Automated Data Syncing**: Save page data, manual translation edits, and story contexts (`story.txt`) directly to your disk, bypassing standard browser security sandboxing.
+* **Token-based Security**: Automatically generates robust access tokens for each task directory to prevent unauthorized data manipulation.
+
+### 2. Usage
+Run the server pointing to your active workspace:
+```bash
+python server.py -w ./work -p 8000
+```
+Then visit `http://localhost:8000/editor.html` in your browser. The console will display secure URLs for each task in your workspace.
+
+---
+
+## Translation Review & Story Context Management
+
+To address inconsistency in tone and lack of context when translating long or continuous manga chapters in batches, this project introduces the **Story-Context-Aware Translation Review and Polish (Review)** feature during the `translate` stage.
+
+### 1. Mechanism & Idempotency
+* **Review & Polish**: After completing the initial translation, the pipeline automatically compiles all translated blocks in chronological reading order, then invokes the LLM to polish them based on the **overall story description** for consistency and character voice.
+* **Idempotency**: A `<lang>.reviewed` marker file (e.g. `CHS.reviewed`) is created in the `translations/` folder upon a successful review. Subsequent `translate` runs will skip both translation and review.
+* **Incremental Run**: If a task is fully translated but not yet reviewed, running `translate` will skip the translation phase and **incrementally run the review step**; using the `--overwrite` flag forces both re-translation and re-review.
+
+### 2. Story Context File (`story.txt`)
+Simply place a text file named `story.txt` (or `script.txt`, `description.txt`) in your task folder (e.g. `work/task_a/`). The program will automatically search for it. You can also specify it in `pages.json` under the `"story"` key.
+Write character bios, relationship details, and style/tone notes in it. The LLM will leverage this outline to perform highly immersive, consistent translations.
+
+### 3. Visual Story Editor & Prompts
+Story context management has been fully integrated into the **Visual Editor (`editor.html`)**:
+* **New Story Tab**: A sidebar "Story" tab has been added to write, edit, and save `story.txt` on the fly.
+* **Genre-based Templates**: Built-in multi-lingual (EN/ZH/JA) genre templates (Daily Romance, Fantasy Adventure, Gag/Comedy, Mature/Adult 18+) to bootstrap context writing.
+* **Serverless Local Writing**: Utilizing the HTML5 File System Access API, it saves `story.txt` directly to your local workspace disk without needing any active backend server process. It also automatically synchronizes via API when running in `server.py` mode.
+
+### 4. Anti-Censorship Disclaimer
+To prevent LLMs (e.g. DeepSeek, Gemini) from rejecting adult or mature manga during translation, a standard English disclaimer ("All characters depicted in the work are entirely fictional and over 18 years old...") is embedded in the system-level prompts, ensuring a smooth translation pipeline.
 
 ## Editing translations
 

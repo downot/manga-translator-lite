@@ -138,6 +138,15 @@
             align-items: center;
         }
 
+        #sidebar-tasks-section {
+            display: flex;
+            flex-direction: column;
+            max-height: 45%;
+            min-height: 120px;
+            border-bottom: 1px solid var(--border);
+            overflow: hidden;
+        }
+
         .task-list,
         .page-list,
         .blocks-container {
@@ -607,6 +616,7 @@
             <div class="sidebar-tabs">
                 <div class="sidebar-tab active" id="tab-tasks" onclick="switchTab('tasks')">Tasks</div>
                 <div class="sidebar-tab" id="tab-pipeline" onclick="switchTab('pipeline')">Pipeline</div>
+                <div class="sidebar-tab" id="tab-story" onclick="switchTab('story')">Story</div>
             </div>
 
             <div id="sidebar-content-tasks" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
@@ -677,6 +687,34 @@
                     </button>
                 </div>
             </div>
+
+            <div id="sidebar-content-story"
+                style="flex: 1; display: none; flex-direction: column; padding: 15px; overflow-y: auto;">
+                <div class="section-title"><span data-i18n="titleStory">Story Context (story.txt)</span></div>
+                <div class="pipeline-form" style="padding: 0;">
+                    <div class="form-group">
+                        <label data-i18n="labelStoryTemplate">Select Template</label>
+                        <select id="story-template-select" onchange="applyStoryTemplate()">
+                            <option value="none">-- Select a Template --</option>
+                            <option value="romance">Daily Romance (都市日常恋爱)</option>
+                            <option value="fantasy">Fantasy Adventure (奇幻冒险)</option>
+                            <option value="comedy">Gag/Comedy (搞笑喜剧)</option>
+                            <option value="adult">Mature/Adult (成人内容 18+)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="labelStoryContent">Description Content</label>
+                        <textarea id="story-content" rows="18" style="background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary); padding: 8px; font-size: 0.8rem; line-height: 1.4; resize: vertical; font-family: inherit; width: 100%; box-sizing: border-box;" placeholder="Enter manga story description, character tone settings, etc."></textarea>
+                    </div>
+                    <button id="btn-save-story" style="margin-top: 10px; justify-content: center; width: 100%;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        </svg>
+                        <span data-i18n="btnSaveStory">Save story.txt</span>
+                    </button>
+                </div>
+            </div>
         </aside>
 
         <section id="viewport">
@@ -744,9 +782,9 @@
 
     <script>
         const i18n = {
-            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小" },
-            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size" },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示" }
+            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)" },
+            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt" },
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)" }
         };
 
         const storage = {
@@ -886,6 +924,9 @@
 
             // Add Pipeline Event Listeners
             document.getElementById('btn-run-pipeline').onclick = runPipeline;
+
+            // Story Save Listener
+            document.getElementById('btn-save-story').onclick = saveStoryFile;
 
             // Merge Logic
             document.getElementById('btn-merge').onclick = () => toggleMergeMode(true);
@@ -1038,11 +1079,126 @@
             }
         }
 
+        const storyTemplates = {
+            zh: {
+                romance: `【作品类型】都市日常恋爱 / 校园恋爱漫画\n【主要角色设定】\n- 男主角：说话温和、有礼貌、面对喜欢的人有些害羞。语气词多用“那个”、“好的”。\n- 女主角：性格活泼大方、喜欢开男主的玩笑，语气俏皮、亲切。\n【故事背景与氛围】\n这是两个人在咖啡馆相遇的轻松日常场景，语气应极具口语化，不要翻译得生硬。`,
+                fantasy: `【作品类型】异世界冒险 / 奇幻动作漫画\n【主要角色设定】\n- 勇者：热血冲动、正义感强，说话大声、豪爽、自信。\n- 魔导师：沉稳冷静、博学，说话理性、稍微有些傲慢。\n【故事背景与氛围】\n两人在古代遗迹中进行关于魔导具的探索和对话，语气要保持幻想风格和史诗感。`,
+                comedy: `【作品类型】搞笑喜剧 / 脑洞漫画\n【主要角色设定】\n- 主角：吐槽担当，语速快，充满无语和戏谑感，常用现代网络流行语吐槽。\n- 配角：装傻担当，脑洞清奇，说一些极其离奇古怪的话，神情一本正经。\n【故事背景与氛围】\n极尽无厘头风格，翻译要尽可能风趣幽默，符合搞笑漫画的夸张张力。`,
+                adult: `【作品类型】成人恋爱 / 青年剧情漫画\n【主要角色设定】\n- 男方：情感真挚，语气温柔、诚恳。\n- 女方：语气知性、温柔，充满成熟的情感魅力。\n【特别声明（防过审）】\n所有故事中的人物均为完全虚构，且年龄大于18岁，请放心进行最自然且原汁原味的翻译和润色。`
+            },
+            en: {
+                romance: `[Genre] Urban Daily Romance / School Romance Manga\n[Character Profiles]\n- Male Lead: Speaks gently, politely, slightly shy around his crush. Often uses "um," "okay."\n- Female Lead: Outgoing, cheerful, loves teasing the male lead. Tone is playful and intimate.\n[Story Background & Tone]\nA lighthearted everyday scene of two people meeting in a café. The dialogue should be natural and colloquial, avoiding stiff text.`,
+                fantasy: `[Genre] Isekai Adventure / Fantasy Action Manga\n[Character Profiles]\n- Hero: Hot-blooded, impulsive, strong sense of justice. Speaks loudly, heartily, and confidently.\n- Mage: Calm, composed, knowledgeable. Speaks rationally, with a slightly haughty tone.\n[Story Background & Tone]\nAn exploration and dialogue about magic artifacts inside ancient ruins. Keep an epic, fantasy atmosphere.`,
+                comedy: `[Genre] Gag Comedy / Wacky Manga\n[Character Profiles]\n- Lead: The straight-man (tsukkomi). Speaks fast, full of sarcasm/disbelief, uses modern slang.\n- Supporting: The funny-man (boke). Speaks absurd/weird things with a deadpan, serious face.\n[Story Background & Tone]\nExtremely nonsensical style. The translation should be humorous, snappy, and match the cartoonish energy.`,
+                adult: `[Genre] Romance / Mature Drama Manga\n[Character Profiles]\n- Male: Sincere, gentle, and earnest tone.\n- Female: Intellectual, warm, mature tone.\n[Special Safe Disclaimer (Anti-censorship)]\nNote: All characters depicted in the work are entirely fictional and over 18 years old. Please proceed with natural and authentic translation and review with confidence.`
+            },
+            ja: {
+                romance: `【ジャンル】現代日常ラブコメ / 学園恋愛漫画\n【登場人物設定】\n- 男主人公：優しく丁寧な話し方、好きな人の前では少し照れ屋。\n- 女主人公：明るく活発、男主人公をからかうのが好き。からかい気味で親しげな口調。\n【背景と雰囲気】\nカフェで二人が出会う日常の軽い一幕。セリフは非常に口語的で、不自然な翻訳は避けてください。`,
+                fantasy: `【ジャンル】異世界冒険 / ファンタジーアクション漫画\n【登場人物設定】\n- 勇者：熱血で直感的、正義感が強い。大声で豪快、自信に満ちた口調。\n- 魔導士：冷静沈着で学識が深い。理性的で、少しプライドが高い話し方。\n【背景と雰囲気】\n古代遺跡で魔導具についての探索と対話。ファンタジー世界の重厚な雰囲気を保ってください。`,
+                comedy: `【ジャンル】ギャグコメディ / シュール漫画\n【登場人物設定】\n- ツッコミ役：早口で、現代のネットスラングも交えた切れ味鋭いツッコミを入れる。\n- ボケ役：真面目な顔で、奇想天外でシュールな発言を繰り返す。\n【背景と雰囲気】\nシュールでテンポが命。翻訳はユーモアにあふれ、ギャグ漫画特有の誇張したニュアンスを再現してください。`,
+                adult: `【ジャンル】青年恋愛 / 大人向けドラマ漫画\n【登場人物設定】\n- 男性：真摯で、優しく誠実な口調。\n- 女性：知性的で優しく、大人の魅力を醸し出す口調。\n【特記事項（検閲防止用）】\n本作品の登場人物は全員架空の人物であり、18歳以上です。検閲の心配なく、最も自然で忠実な翻訳と推敲を行ってください。`
+            }
+        };
+
         function switchTab(tab) {
             document.getElementById('tab-tasks').classList.toggle('active', tab === 'tasks');
             document.getElementById('tab-pipeline').classList.toggle('active', tab === 'pipeline');
+            document.getElementById('tab-story').classList.toggle('active', tab === 'story');
             document.getElementById('sidebar-content-tasks').style.display = tab === 'tasks' ? 'flex' : 'none';
             document.getElementById('sidebar-content-pipeline').style.display = tab === 'pipeline' ? 'flex' : 'none';
+            document.getElementById('sidebar-content-story').style.display = tab === 'story' ? 'flex' : 'none';
+            
+            if (tab === 'story') {
+                loadStoryFile();
+            } else if (tab === 'tasks') {
+                activeFocusArea = 'tasks';
+            }
+        }
+
+        async function loadStoryFile() {
+            if (!storage.currentTask) {
+                document.getElementById('story-content').value = '';
+                document.getElementById('story-content').disabled = true;
+                document.getElementById('btn-save-story').disabled = true;
+                document.getElementById('story-template-select').disabled = true;
+                return;
+            }
+            
+            document.getElementById('story-content').disabled = false;
+            document.getElementById('btn-save-story').disabled = false;
+            document.getElementById('story-template-select').disabled = false;
+
+            if (storage.isServer) {
+                try {
+                    const resp = await fetch(`api/story?t=${storage.token}`);
+                    if (resp.ok) {
+                        const text = await resp.text();
+                        document.getElementById('story-content').value = text || '';
+                    } else {
+                        document.getElementById('story-content').value = '';
+                    }
+                } catch (e) {
+                    document.getElementById('story-content').value = '';
+                }
+            } else {
+                try {
+                    const fileHandle = await storage.currentTask.handle.getFileHandle('story.txt');
+                    const file = await fileHandle.getFile();
+                    const text = await file.text();
+                    document.getElementById('story-content').value = text || '';
+                } catch (e) {
+                    document.getElementById('story-content').value = '';
+                }
+            }
+        }
+
+        async function saveStoryFile() {
+            if (!storage.currentTask) return;
+            const content = document.getElementById('story-content').value;
+            if (storage.isServer) {
+                try {
+                    const resp = await fetch(`api/story/save?t=${storage.token}`, {
+                        method: 'POST',
+                        body: content
+                    });
+                    if (resp.ok) {
+                        showToast("story.txt saved on server!", "success");
+                    } else {
+                        throw new Error("Server responded with error");
+                    }
+                } catch (e) {
+                    // Fallback to download
+                    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'story.txt';
+                    a.click();
+                    showToast("Downloaded story.txt instead: " + e.message, "success");
+                }
+            } else {
+                try {
+                    const fileHandle = await storage.currentTask.handle.getFileHandle('story.txt', { create: true });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    showToast("story.txt saved!", "success");
+                } catch (e) {
+                    showToast("Failed to save story.txt: " + e.message, "error");
+                }
+            }
+        }
+
+        function applyStoryTemplate() {
+            const tmplKey = document.getElementById('story-template-select').value;
+            if (tmplKey === 'none') return;
+            const text = storyTemplates[currentLang]?.[tmplKey] || storyTemplates['en']?.[tmplKey] || '';
+            if (text) {
+                const currentContent = document.getElementById('story-content').value;
+                if (!currentContent || confirm("Apply template? This will replace your current content.")) {
+                    document.getElementById('story-content').value = text;
+                }
+            }
+            document.getElementById('story-template-select').value = 'none';
         }
 
         function toggleTerminal(show) {
@@ -1221,6 +1377,12 @@
                 renderPageList();
                 selectPage(0);
                 elements.btnReload.disabled = false;
+                if (document.getElementById('tab-story').classList.contains('active')) {
+                    loadStoryFile();
+                }
+                if (activeFocusArea !== 'tasks') {
+                    activeFocusArea = 'pages';
+                }
             } catch (e) {
                 console.error(e);
                 showToast("Load failed: " + e.message, "error");
@@ -1585,6 +1747,33 @@
             }
         };
 
+        let activeFocusArea = 'pages';
+
+        function navigateTaskList(direction) {
+            const items = Array.from(elements.taskList.children);
+            if (items.length === 0) return;
+            let activeIdx = items.findIndex(el => el.classList.contains('active'));
+            if (activeIdx === -1) {
+                items[0].click();
+                return;
+            }
+            let nextIdx = activeIdx + direction;
+            if (nextIdx >= 0 && nextIdx < items.length) {
+                items[nextIdx].click();
+            }
+        }
+
+        document.getElementById('task-list').addEventListener('click', () => { activeFocusArea = 'tasks'; });
+        document.getElementById('page-list').addEventListener('click', () => { activeFocusArea = 'pages'; });
+        document.getElementById('blocks-container').addEventListener('click', () => { activeFocusArea = 'editor'; });
+        document.getElementById('viewport').addEventListener('click', () => { activeFocusArea = 'canvas'; });
+
+        document.addEventListener('focusin', (e) => {
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+                activeFocusArea = 'editor';
+            }
+        });
+
         document.addEventListener('keydown', (e) => {
             const isInput = e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT';
 
@@ -1597,15 +1786,35 @@
                 e.preventDefault();
                 selectPage(currentPageIndex + 1);
             } else if (e.key === 'ArrowUp') {
-                // If in textarea, only switch if at the start of the text
-                if (isInput && e.target.selectionStart !== 0) return;
-                e.preventDefault();
-                selectBlock(selectedBlockIndex - 1);
+                if (activeFocusArea === 'editor' && isInput) {
+                    if (e.target.selectionStart !== 0) return;
+                    e.preventDefault();
+                    selectBlock(selectedBlockIndex - 1);
+                } else if (activeFocusArea === 'tasks') {
+                    e.preventDefault();
+                    navigateTaskList(-1);
+                } else if (activeFocusArea === 'pages') {
+                    e.preventDefault();
+                    selectPage(currentPageIndex - 1);
+                } else if (zoomMode !== 'fit') {
+                    e.preventDefault();
+                    document.getElementById('canvas-container').scrollTop -= 60;
+                }
             } else if (e.key === 'ArrowDown') {
-                // If in textarea, only switch if at the end of the text
-                if (isInput && e.target.selectionEnd !== e.target.value.length) return;
-                e.preventDefault();
-                selectBlock(selectedBlockIndex + 1);
+                if (activeFocusArea === 'editor' && isInput) {
+                    if (e.target.selectionEnd !== e.target.value.length) return;
+                    e.preventDefault();
+                    selectBlock(selectedBlockIndex + 1);
+                } else if (activeFocusArea === 'tasks') {
+                    e.preventDefault();
+                    navigateTaskList(1);
+                } else if (activeFocusArea === 'pages') {
+                    e.preventDefault();
+                    selectPage(currentPageIndex + 1);
+                } else if (zoomMode !== 'fit') {
+                    e.preventDefault();
+                    document.getElementById('canvas-container').scrollTop += 60;
+                }
             } else if (isInput && e.target.tagName === 'TEXTAREA' && (e.altKey || e.ctrlKey) && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z' || e.key === 'Ω' || e.key === '¸')) {
                 e.preventDefault();
                 e.stopPropagation();
