@@ -306,7 +306,6 @@ def get_char_border(cdpt: str, font_size: int, direction: int):
 
 def calc_vertical(font_size: int, text: str, max_height: int):
     line_text_list = []
-    # line_width_list = []
     line_height_list = []
 
     line_str = ""
@@ -314,6 +313,14 @@ def calc_vertical(font_size: int, text: str, max_height: int):
     line_width_left = 0
     line_width_right = 0
     for i, cdpt in enumerate(text):
+        if cdpt == '\n':
+            line_text_list.append(line_str)
+            line_height_list.append(line_height)
+            line_str = ""
+            line_height = 0
+            line_width_left = 0
+            line_width_right = 0
+            continue
         if line_height == 0 and cdpt == ' ':
             continue
         cdpt, rot_degree = CJK_Compatibility_Forms_translate(cdpt, 1)
@@ -329,7 +336,6 @@ def calc_vertical(font_size: int, text: str, max_height: int):
         if line_height + char_offset_y > max_height:
             line_text_list.append(line_str)
             line_height_list.append(line_height)
-            # line_width_list.append(line_width_left + line_width_right)
             line_str = ""
             line_height = 0
             line_width_left = 0
@@ -341,10 +347,7 @@ def calc_vertical(font_size: int, text: str, max_height: int):
     # last char
     line_text_list.append(line_str)
     line_height_list.append(line_height)
-    # line_width_list.append(line_width_left + line_width_right)
 
-    # box_calc_x = sum(line_width_list) + (len(line_width_list) - 1) * spacing_x
-    # box_calc_y = max(line_height_list)
     return line_text_list, line_height_list
 
 def put_char_vertical(font_size: int, cdpt: str, pen_l: Tuple[int, int], canvas_text: np.ndarray, canvas_border: np.ndarray, border_size: int):  
@@ -620,7 +623,7 @@ def get_char_offset_x(font_size: int, cdpt: str):
 def get_string_width(font_size: int, text: str):
     return sum([get_char_offset_x(font_size, c) for c in text])
 
-def calc_horizontal(font_size: int, text: str, max_width: int, max_height: int, language: str = 'en_US', hyphenate: bool = True) -> Tuple[List[str], List[int]]:
+def _calc_horizontal_segment(font_size: int, text: str, max_width: int, max_height: int, language: str = 'en_US', hyphenate: bool = True) -> Tuple[List[str], List[int]]:
     """
     Splits up a string of text into lines. Returns list of lines and their widths.
     Will go over max_height if too much text is present.
@@ -886,6 +889,21 @@ def calc_horizontal(font_size: int, text: str, max_width: int, max_height: int, 
         line_width_list[i] = get_string_width(font_size, line_text)
         line_text_list.append(line_text)
 
+    return line_text_list, line_width_list
+
+
+def calc_horizontal(font_size: int, text: str, max_width: int, max_height: int, language: str = 'en_US', hyphenate: bool = True) -> Tuple[List[str], List[int]]:
+    segments = text.split('\n')
+    line_text_list = []
+    line_width_list = []
+    for segment in segments:
+        if not segment:
+            line_text_list.append('')
+            line_width_list.append(0)
+            continue
+        seg_lines, seg_widths = _calc_horizontal_segment(font_size, segment, max_width, max_height, language, hyphenate)
+        line_text_list.extend(seg_lines)
+        line_width_list.extend(seg_widths)
     return line_text_list, line_width_list
 
 

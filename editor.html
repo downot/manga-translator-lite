@@ -787,6 +787,46 @@
             ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)" }
         };
 
+        function parseSimpleToml(text) {
+            const config = { render: {} };
+            let currentSection = null;
+            const lines = text.split('\n');
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('#') || line === '') continue;
+                if (line.startsWith('[') && line.endsWith(']')) {
+                    currentSection = line.substring(1, line.length - 1).trim();
+                    continue;
+                }
+                const parts = line.split('=');
+                if (parts.length >= 2) {
+                    const key = parts[0].trim();
+                    let val = parts.slice(1).join('=').trim();
+                    const commentIdx = val.indexOf('#');
+                    if (commentIdx !== -1) {
+                        val = val.substring(0, commentIdx).trim();
+                    }
+                    if (val.startsWith('"') && val.endsWith('"')) {
+                        val = val.substring(1, val.length - 1);
+                    } else if (val.startsWith("'") && val.endsWith("'")) {
+                        val = val.substring(1, val.length - 1);
+                    } else if (val === 'true') {
+                        val = true;
+                    } else if (val === 'false') {
+                        val = false;
+                    } else if (!isNaN(val)) {
+                        val = Number(val);
+                    }
+                    if (currentSection === 'render') {
+                        config.render[key] = val;
+                    } else if (!currentSection) {
+                        config[key] = val;
+                    }
+                }
+            }
+            return config;
+        }
+
         const storage = {
             isServer: new URLSearchParams(window.location.search).has('t'),
             token: new URLSearchParams(window.location.search).get('t'),
@@ -811,6 +851,7 @@
                     const targetLang = data.target_lang || "ENG";
                     elements.targetLangSelect.value = targetLang;
                     await this.loadTranslations(targetLang);
+                    await this.loadServerConfig();
                     renderPageList();
                     selectPage(0);
                 } catch (e) {
@@ -876,6 +917,58 @@
                     if (!handle) return null;
                     return URL.createObjectURL(await handle.getFile());
                 }
+            },
+
+            async loadServerConfig() {
+                try {
+                    const configInput = document.getElementById('pipeline-config');
+                    const configPath = configInput ? configInput.value : '';
+                    const resp = await fetch(`api/config?t=${this.token}&config=${encodeURIComponent(configPath)}`);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data && data.render) {
+                            globalConfig = data;
+                            console.log("Loaded config from server:", globalConfig);
+                            if (currentPageIndex !== -1) {
+                                renderPage();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to load config:", e);
+                }
+            },
+
+            async loadLocalConfig() {
+                try {
+                    if (!this.workDirHandle) return;
+                    let configText = "";
+                    try {
+                        const configHandle = await this.workDirHandle.getFileHandle('config.toml');
+                        const file = await configHandle.getFile();
+                        configText = await file.text();
+                    } catch (e) {
+                        try {
+                            const configHandle = await this.workDirHandle.getFileHandle('config.json');
+                            const file = await configHandle.getFile();
+                            configText = await file.text();
+                        } catch (err) {}
+                    }
+
+                    if (configText) {
+                        if (configText.trim().startsWith('{')) {
+                            globalConfig = JSON.parse(configText);
+                        } else {
+                            globalConfig = parseSimpleToml(configText);
+                        }
+                        console.log("Loaded local config:", globalConfig);
+                        if (currentPageIndex !== -1) {
+                            renderPage();
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to load local config:", e);
+                }
             }
         };
 
@@ -885,6 +978,7 @@
         let zoomMode = 'fit';
         let selectedBlockIndex = -1;
         let needsSort = false;
+        let globalConfig = { render: { font_size_minimum: -1 } };
 
         const elements = {
             btnSave: document.getElementById('btn-save'),
@@ -921,6 +1015,16 @@
             updateLanguage(currentLang);
             elements.langSelect.value = currentLang;
             await storage.init();
+
+            // Listen to configuration path changes to reload config preview settings
+            const configInput = document.getElementById('pipeline-config');
+            if (configInput) {
+                configInput.addEventListener('change', () => {
+                    if (storage.isServer) {
+                        storage.loadServerConfig();
+                    }
+                });
+            }
 
             // Add Pipeline Event Listeners
             document.getElementById('btn-run-pipeline').onclick = runPipeline;
@@ -1288,6 +1392,7 @@
             if (isDirty && !confirm(t('confirmSwitch'))) return;
             try {
                 storage.workDirHandle = await window.showDirectoryPicker();
+                await storage.loadLocalConfig();
                 // Reset state
                 storage.currentTask = null;
                 currentPageIndex = -1;
@@ -1317,48 +1422,75 @@
 
         async function renderTaskList() {
             elements.taskList.innerHTML = '';
+            
+            function addTaskItem(name, handle, pagesJsonHandle) {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+
+                if (isMergeMode) {
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.style.marginRight = '8px';
+                    checkbox.checked = selectedTasksForMerge.some(t => t.name === name);
+                    checkbox.onclick = (e) => e.stopPropagation();
+                    checkbox.onchange = () => {
+                        if (checkbox.checked) {
+                            if (!selectedTasksForMerge.some(t => t.name === name)) {
+                                selectedTasksForMerge.push({ name: name, handle: handle });
+                            }
+                        } else {
+                            selectedTasksForMerge = selectedTasksForMerge.filter(t => t.name !== name);
+                        }
+                    };
+                    item.appendChild(checkbox);
+                }
+
+                const label = document.createElement('span');
+                label.textContent = name;
+                item.appendChild(label);
+
+                item.onclick = async () => {
+                    if (isMergeMode) {
+                        const cb = item.querySelector('input');
+                        cb.checked = !cb.checked;
+                        cb.onchange();
+                    } else {
+                        await selectTask({ name: name, handle: handle, pagesJsonHandle: pagesJsonHandle }, item);
+                    }
+                };
+
+                elements.taskList.appendChild(item);
+            }
+
+            let directTasks = [];
             for await (const entry of storage.workDirHandle.values()) {
-                if (entry.kind === 'directory') {
+                if (entry.kind === 'directory' && entry.name !== 'work') {
                     try {
                         const pagesJsonHandle = await entry.getFileHandle('pages.json');
-                        const item = document.createElement('div');
-                        item.className = 'list-item';
-
-                        if (isMergeMode) {
-                            const checkbox = document.createElement('input');
-                            checkbox.type = 'checkbox';
-                            checkbox.style.marginRight = '8px';
-                            checkbox.checked = selectedTasksForMerge.some(t => t.name === entry.name);
-                            checkbox.onclick = (e) => e.stopPropagation();
-                            checkbox.onchange = () => {
-                                if (checkbox.checked) {
-                                    if (!selectedTasksForMerge.some(t => t.name === entry.name)) {
-                                        selectedTasksForMerge.push({ name: entry.name, handle: entry });
-                                    }
-                                } else {
-                                    selectedTasksForMerge = selectedTasksForMerge.filter(t => t.name !== entry.name);
-                                }
-                            };
-                            item.appendChild(checkbox);
-                        }
-
-                        const nameSpan = document.createElement('span');
-                        nameSpan.textContent = entry.name;
-                        item.appendChild(nameSpan);
-
-                        item.onclick = () => {
-                            if (isMergeMode) {
-                                const cb = item.querySelector('input');
-                                cb.checked = !cb.checked;
-                                cb.onchange();
-                            } else {
-                                selectTask({ name: entry.name, handle: entry, pagesJsonHandle }, item);
-                            }
-                        };
-                        elements.taskList.appendChild(item);
-                    } catch (e) { }
+                        directTasks.push({ name: entry.name, handle: entry, pagesJsonHandle: pagesJsonHandle });
+                    } catch (e) {}
                 }
             }
+
+            let workDirHandle = null;
+            try {
+                workDirHandle = await storage.workDirHandle.getDirectoryHandle('work');
+            } catch (e) {}
+
+            let workTasks = [];
+            if (workDirHandle) {
+                for await (const entry of workDirHandle.values()) {
+                    if (entry.kind === 'directory') {
+                        try {
+                            const pagesJsonHandle = await entry.getFileHandle('pages.json');
+                            workTasks.push({ name: entry.name, handle: entry, pagesJsonHandle: pagesJsonHandle });
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            const tasksToShow = workTasks.length > 0 ? workTasks : directTasks;
+            tasksToShow.forEach(t => addTaskItem(t.name, t.handle, t.pagesJsonHandle));
         }
 
         async function selectTask(task, itemEl) {
@@ -1481,44 +1613,60 @@
 
         function layoutHorizontal(text, maxWidth, fontSize) {
             ctx.font = `${fontSize}px "Noto Sans SC", "Inter", sans-serif`;
-            const words = text.split('');
+            const segments = text.split('\n');
             const lines = [];
-            let currentLine = '';
             let maxW = 0;
-            for (let i = 0; i < words.length; i++) {
-                const testLine = currentLine + words[i];
-                const metrics = ctx.measureText(testLine);
-                if (metrics.width > maxWidth && currentLine.length > 0) {
-                    lines.push(currentLine);
-                    currentLine = words[i];
-                } else {
-                    currentLine = testLine;
+            for (let segment of segments) {
+                if (segment === '') {
+                    lines.push('');
+                    continue;
                 }
-                maxW = Math.max(maxW, ctx.measureText(currentLine).width);
+                const words = segment.split('');
+                let currentLine = '';
+                for (let i = 0; i < words.length; i++) {
+                    const testLine = currentLine + words[i];
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && currentLine.length > 0) {
+                        lines.push(currentLine);
+                        currentLine = words[i];
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+                lines.push(currentLine);
             }
-            lines.push(currentLine);
+            for (let line of lines) {
+                maxW = Math.max(maxW, ctx.measureText(line).width);
+            }
             return { lines, width: maxW };
         }
 
         function layoutVertical(text, maxHeight, fontSize) {
+            const segments = text.split('\n');
             const cols = [];
-            let currentCol = [];
-            let currentH = 0;
             let maxH = 0;
-            for (let char of text) {
-                const displayChar = CJK_H2V[char] || char;
-                const charH = fontSize * 1.1;
-                if (currentH + charH > maxHeight && currentCol.length > 0) {
-                    cols.push(currentCol);
-                    currentCol = [displayChar];
-                    currentH = charH;
-                } else {
-                    currentCol.push(displayChar);
-                    currentH += charH;
+            for (let segment of segments) {
+                if (segment === '') {
+                    cols.push([]);
+                    continue;
                 }
-                maxH = Math.max(maxH, currentH);
+                let currentCol = [];
+                let currentH = 0;
+                for (let char of segment) {
+                    const displayChar = CJK_H2V[char] || char;
+                    const charH = fontSize * 1.1;
+                    if (currentH + charH > maxHeight && currentCol.length > 0) {
+                        cols.push(currentCol);
+                        currentCol = [displayChar];
+                        currentH = charH;
+                    } else {
+                        currentCol.push(displayChar);
+                        currentH += charH;
+                    }
+                    maxH = Math.max(maxH, currentH);
+                }
+                cols.push(currentCol);
             }
-            cols.push(currentCol);
             return { cols, height: maxH };
         }
 
@@ -1563,17 +1711,59 @@
                     // Use unrotated dimensions for layout to match Python's 'unrotated_size'
                     // For simplicity, we use the bounding box width/height here
                     let fs = block.font_size || 24;
-                    fs = getOptimalFontSize(text, w, h, isVertical, 8, Math.max(fs, 100));
+                    let minFs = 8; // Default fallback
+                    if (globalConfig && globalConfig.render) {
+                        const configMinFs = globalConfig.render.font_size_minimum;
+                        if (configMinFs === -1) {
+                            minFs = Math.max(1, Math.round((elements.canvas.width + elements.canvas.height) / 200));
+                        } else if (configMinFs !== undefined) {
+                            minFs = Math.max(1, configMinFs);
+                        }
+                    }
+
+                    fs = getOptimalFontSize(text, w, h, isVertical, minFs, Math.max(fs, 100, minFs));
+
+                    // Check if text fits in the original bounding box at the optimal font size
+                    const fits = checkTextFits(text, w, h, fs, isVertical);
+                    let scaleX = 1.0;
+                    let scaleY = 1.0;
+                    if (!fits) {
+                        if (isVertical) {
+                            const { cols, height } = layoutVertical(text, h, fs);
+                            const neededW = cols.length * fs * 1.1;
+                            const neededH = height;
+                            scaleX = w > 0 ? Math.max(neededW / w, 1.0) : 1.0;
+                            scaleY = h > 0 ? Math.max(neededH / h, 1.0) : 1.0;
+                        } else {
+                            const { lines, width } = layoutHorizontal(text, w, fs);
+                            const neededH = lines.length * fs * 1.1;
+                            const neededW = width;
+                            scaleX = w > 0 ? Math.max(neededW / w, 1.0) : 1.0;
+                            scaleY = h > 0 ? Math.max(neededH / h, 1.0) : 1.0;
+                        }
+                        // Cap expansion to avoid very ugly overflow, matching Python
+                        let expandLimit = 1.5;
+                        if (globalConfig && globalConfig.render && globalConfig.render.font_size_minimum_expand_limit !== undefined) {
+                            expandLimit = Math.max(1.0, globalConfig.render.font_size_minimum_expand_limit);
+                        }
+                        scaleX = Math.min(scaleX, expandLimit);
+                        scaleY = Math.min(scaleY, expandLimit);
+                    }
+
+                    const renderW = w * scaleX;
+                    const renderH = h * scaleY;
+                    const renderX = centerX - renderW / 2;
+                    const renderY = centerY - renderH / 2;
 
                     ctx.font = `${fs}px "Noto Sans SC", "Inter", sans-serif`;
                     ctx.textBaseline = 'top';
 
                     if (isVertical) {
-                        const { cols } = layoutVertical(text, h, fs);
+                        const { cols } = layoutVertical(text, renderH, fs);
                         const totalW = cols.length * fs * 1.1;
-                        let startX = x + (w + totalW) / 2 - fs;
+                        let startX = renderX + (renderW + totalW) / 2 - fs;
                         cols.forEach(col => {
-                            let startY = y + (h - col.length * fs * 1.1) / 2;
+                            let startY = renderY + (renderH - col.length * fs * 1.1) / 2;
                             col.forEach(char => {
                                 drawChar(char, startX, startY, fs, fg, bg);
                                 startY += fs * 1.1;
@@ -1581,12 +1771,12 @@
                             startX -= fs * 1.1;
                         });
                     } else {
-                        const { lines } = layoutHorizontal(text, w, fs);
+                        const { lines } = layoutHorizontal(text, renderW, fs);
                         const totalH = lines.length * fs * 1.1;
-                        let startY = y + (h - totalH) / 2;
+                        let startY = renderY + (renderH - totalH) / 2;
                         lines.forEach(line => {
                             const m = ctx.measureText(line);
-                            let startX = x + (w - m.width) / 2;
+                            let startX = renderX + (renderW - m.width) / 2;
                             drawTextLine(line, startX, startY, fs, fg, bg);
                             startY += fs * 1.1;
                         });
@@ -1661,8 +1851,13 @@
 
         elements.btnReload.onclick = async () => {
             if (isDirty && !confirm(t('confirmSwitch'))) return;
-            if (storage.isServer) await storage.loadServerTask();
-            else await selectTask(storage.currentTask);
+            if (storage.isServer) {
+                await storage.loadServerTask();
+                await storage.loadServerConfig();
+            } else {
+                await storage.loadLocalConfig();
+                await selectTask(storage.currentTask);
+            }
         };
 
         elements.targetLangSelect.onchange = async () => {

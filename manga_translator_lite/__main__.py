@@ -27,7 +27,10 @@ async def _dispatch(args) -> int:
 
     if args.cmd == 'render':
         from .pipeline.render import run_render
-        await run_render(args.work_dir, args.output, cfg)
+        await run_render(args.work_dir, args.output, cfg,
+                         check=getattr(args, 'check', False),
+                         no_check=getattr(args, 'no_check', False),
+                         yes=getattr(args, 'yes', False))
         return 0
 
     if args.cmd == 'run':
@@ -37,7 +40,10 @@ async def _dispatch(args) -> int:
         await run_extract(args.input, args.work_dir, cfg, verbose=args.verbose,
                           target_lang=args.target_lang, overwrite=args.overwrite)
         await run_translate(args.work_dir, cfg, target_lang=args.target_lang)
-        await run_render(args.work_dir, args.output, cfg)
+        await run_render(args.work_dir, args.output, cfg,
+                         check=getattr(args, 'check', False),
+                         no_check=getattr(args, 'no_check', False),
+                         yes=getattr(args, 'yes', False))
         return 0
 
     if args.cmd == 'config-help':

@@ -85,7 +85,7 @@ def _find_optimal_font_size(text: str, max_w: float, max_h: float,
 
 def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock'],
                                 font_size_fixed: int, font_size_offset: int,
-                                font_size_minimum: int):
+                                font_size_minimum: int, font_size_minimum_expand_limit: float = 1.5):
     """
     For each text region, find the optimal font size that fills the original
     detected area as completely as possible, then return the (possibly expanded)
@@ -106,6 +106,7 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
     if font_size_minimum == -1:
         font_size_minimum = round((img.shape[0] + img.shape[1]) / 200)
     font_size_minimum = max(1, font_size_minimum)
+    logger.debug(f"Page rendering: dimensions={img.shape[1]}x{img.shape[0]}, applied font_size_minimum={font_size_minimum}, expand_limit={font_size_minimum_expand_limit}x")
 
     dst_points_list = []
 
@@ -144,6 +145,8 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
         ) if max_w > 0 and max_h > 0 else True
 
         dst_points = None
+        scale_x = 1.0
+        scale_y = 1.0
 
         if fits:
             # Text fits → use the original bounding box (no expansion).
@@ -173,9 +176,9 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
                 scale_x = max(needed_w / max_w, 1.0) if max_w > 0 else 1.0
                 scale_y = max(needed_h / max_h, 1.0) if max_h > 0 else 1.0
 
-            # Cap expansion at 1.5× to avoid very ugly overflow
-            scale_x = min(scale_x, 1.5)
-            scale_y = min(scale_y, 1.5)
+            # Cap expansion to avoid very ugly overflow
+            scale_x = min(scale_x, font_size_minimum_expand_limit)
+            scale_y = min(scale_y, font_size_minimum_expand_limit)
 
             if scale_x > 1.001 or scale_y > 1.001:
                 try:
@@ -193,6 +196,8 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
         # --- 4. Store results ---------------------------------------------
         dst_points_list.append(dst_points)
         region.font_size = int(target_font_size)
+        block_id = getattr(region, "block_id", "unknown")
+        logger.debug(f"  - Block {block_id}: final_font_size={region.font_size} (min_limit={font_size_minimum}), box_scale=(x:{scale_x:.2f}, y:{scale_y:.2f}), text='{region.translation[:15]}...'")
 
     return dst_points_list
 
@@ -203,6 +208,7 @@ async def dispatch(
     font_size_fixed: int = None,
     font_size_offset: int = 0,
     font_size_minimum: int = 0,
+    font_size_minimum_expand_limit: float = 1.5,
     hyphenate: bool = True,
     render_mask: np.ndarray = None,
     line_spacing: int = None,
@@ -213,7 +219,9 @@ async def dispatch(
     text_regions = list(filter(lambda region: region.translation, text_regions))
 
     # Resize regions that are too small
-    dst_points_list = resize_regions_to_font_size(img, text_regions, font_size_fixed, font_size_offset, font_size_minimum)
+    dst_points_list = resize_regions_to_font_size(
+        img, text_regions, font_size_fixed, font_size_offset, font_size_minimum, font_size_minimum_expand_limit
+    )
 
     # TODO: Maybe remove intersections
 

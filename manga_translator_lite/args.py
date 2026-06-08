@@ -78,6 +78,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_render.add_argument('work_dir', help='Existing workspace directory.')
     p_render.add_argument('-o', '--output', required=True,
                           help='Output directory for final images.')
+    p_render.add_argument('--check', action='store_true',
+                          help='Force spelling and fluency proofreading check on translations.')
+    p_render.add_argument('--no-check', action='store_true',
+                          help='Skip spelling and fluency proofreading check.')
+    p_render.add_argument('-y', '--yes', action='store_true',
+                          help='Automatically accept and apply all proofreading suggestions (requires --check or interactive confirmation).')
     _add_common(p_render)
 
     p_run = sub.add_parser('run',
@@ -90,6 +96,12 @@ def build_parser() -> argparse.ArgumentParser:
                        help='Output directory for final images.')
     p_run.add_argument('--overwrite', action='store_true',
                        help='Re-extract and re-translate even if results already exist.')
+    p_run.add_argument('--check', action='store_true',
+                       help='Force spelling and fluency proofreading check on translations.')
+    p_run.add_argument('--no-check', action='store_true',
+                       help='Skip spelling and fluency proofreading check.')
+    p_run.add_argument('-y', '--yes', action='store_true',
+                       help='Automatically accept and apply all proofreading suggestions (requires --check or interactive confirmation).')
     _add_common(p_run)
 
     sub.add_parser('config-help',

@@ -8,6 +8,7 @@ Google Gemini.
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Sequence
@@ -73,6 +74,35 @@ REVIEW_USER_PROMPT_HEADER = (
     "Do NOT add any introductory text, greetings, explanations, or notes. Output ONLY the tagged polished translations.\n\n"
     "Dialogue blocks to review:\n"
 )
+
+
+PROOFREAD_SYSTEM_PROMPT = (
+    "You are a professional manga / comic editor. Your task is to proofread the translated dialogue blocks "
+    "in the target language ({to_lang}).\n"
+    "Crucial Guidelines:\n"
+    "- Only identify and correct blocks with actual typos (错别字), spelling errors, grammar mistakes, "
+    "unnatural/non-fluent phrasing in {to_lang} (不通顺、不通畅), or ambiguous/confusing sentences (语句不明确).\n"
+    "- DO NOT check, validate, or change any punctuation marks (e.g. exclamation marks, question marks, tildes, ellipsis, missing periods, full/half-width punctuation). Punctuation errors should be completely ignored.\n"
+    "- Manga text needs to be simple, straightforward, punchy, and direct. Polish any overly complex or confusing sentences.\n"
+    "- DO NOT suggest corrections if the text is already correct, natural, and clear.\n"
+    "- If a translation is correct and natural, do not include it in your output.\n"
+    "\n"
+    "You MUST return ONLY a JSON array of objects (no markdown blocks, no conversational filler, no explanations). "
+    "Each object in the array represents a block that needs correction, and must have the following keys:\n"
+    "- \"id\": the exact block ID (e.g., \"p0001_b001\").\n"
+    "- \"suggestion\": the corrected/polished translation.\n"
+    "- \"reason\": a brief explanation (in {to_lang}) of the issue found (e.g., typos, grammar, unnatural, ambiguous).\n"
+    "\n"
+    "If no corrections are needed under these rules, return an empty array: []."
+)
+
+PROOFREAD_USER_PROMPT_HEADER = (
+    "Proofread the following translated manga dialogues in {to_lang}.\n"
+    "Do NOT check or change punctuation marks. Only output suggestions for blocks that have typos, grammar errors, bad fluency, or ambiguous/confusing phrasing.\n"
+    "\n"
+    "Dialogue blocks:\n"
+)
+
 
 
 @dataclass
@@ -223,6 +253,24 @@ def _parse_review_response(text: str, expected_ids: List[str]) -> dict[str, str]
     return filtered_out
 
 
+def _parse_proofread_response(text: str) -> List[dict]:
+    """Parse JSON array of proofreading suggestions from LLM response."""
+    text_clean = text.strip()
+    start_idx = text_clean.find('[')
+    end_idx = text_clean.rfind(']')
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        json_str = text_clean[start_idx:end_idx + 1]
+    else:
+        json_str = text_clean
+    try:
+        data = json.loads(json_str)
+        if isinstance(data, list):
+            return data
+    except Exception as e:
+        logger.warning(f"Failed to parse proofread JSON: {e}. Raw response:\n{text}")
+    return []
+
+
 class LLMTranslator:
     """Drives an LLM endpoint to translate a list of TranslationItems."""
 
@@ -343,6 +391,78 @@ class LLMTranslator:
                 print()
 
         return polished_translations
+
+    async def proofread(self, items: List[tuple[str, str, str]]) -> List[dict]:
+        """Proofread translations.
+        
+        Args:
+            items: A list of tuples containing (block_id, original_text, current_translation)
+            
+        Returns:
+            A list of dictionaries containing proofreading suggestions:
+            [
+                {
+                    "id": "block_id",
+                    "suggestion": "corrected translation",
+                    "reason": "explanation of the change"
+                }
+            ]
+        """
+        if not items:
+            return []
+        
+        batch_size = 50
+        batches = [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
+        
+        suggestions: List[dict] = []
+        
+        logger.info(f"Proofreading {len(items)} translation blocks in {len(batches)} batch(es) to {self.target_human}")
+        
+        for batch_no, batch in enumerate(batches, 1):
+            logger.info(f"Proofread Batch {batch_no}/{len(batches)}: {len(batch)} blocks")
+            
+            # Construct prompt
+            user_prompt_lines = [PROOFREAD_USER_PROMPT_HEADER.format(to_lang=self.target_human)]
+            for bid, orig, trans in batch:
+                user_prompt_lines.append(f"<|{bid}|> {trans}")
+            
+            prompt = "\n".join(user_prompt_lines)
+            system_prompt = PROOFREAD_SYSTEM_PROMPT.format(to_lang=self.target_human)
+            
+            last_err = None
+            success = False
+            for attempt in range(1, self.cfg.max_retries + 1):
+                try:
+                    if self.cfg.provider == LLMProvider.openai:
+                        text = await self._request_openai(prompt, system_prompt=system_prompt)
+                    elif self.cfg.provider == LLMProvider.gemini:
+                        text = await self._request_gemini(prompt, system_prompt=system_prompt)
+                    else:
+                        raise ValueError(f"Unsupported provider: {self.cfg.provider}")
+                    
+                    parsed = _parse_proofread_response(text)
+                    if isinstance(parsed, list):
+                        valid_parsed = []
+                        batch_ids = {bid for bid, _, _ in batch}
+                        for item in parsed:
+                            if isinstance(item, dict) and "id" in item and "suggestion" in item:
+                                if item["id"] in batch_ids:
+                                    valid_parsed.append(item)
+                        suggestions.extend(valid_parsed)
+                        success = True
+                        break
+                    else:
+                        raise InvalidServerResponse("Parsed proofread response was not a list.")
+                except Exception as e:
+                    last_err = e
+                    logger.warning(f"Proofread attempt {attempt}/{self.cfg.max_retries} failed: {e}")
+                    if attempt < self.cfg.max_retries:
+                        await asyncio.sleep(min(2 ** attempt, 10))
+            
+            if not success:
+                logger.error(f"Proofread Batch {batch_no} failed after {self.cfg.max_retries} attempts: {last_err}. Skipping proofreading for this batch.")
+                
+        return suggestions
 
     # ---- Provider dispatch ----
 

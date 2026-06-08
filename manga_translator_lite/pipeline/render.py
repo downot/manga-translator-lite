@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 from typing import List, Optional
 
 import cv2
@@ -56,6 +57,7 @@ def _block_to_textblock(block: Block, translation_text: str, target_lang: str, r
         target_lang=target_lang,
         prob=block.prob,
     )
+    tb.block_id = block.id
     tb.text_raw = block.text
     if render_cfg.font_color_bg is not None:
         tb.adjust_bg_color = False
@@ -124,6 +126,7 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
             font_size_fixed=cfg.render.font_size,
             font_size_offset=cfg.render.font_size_offset,
             font_size_minimum=cfg.render.font_size_minimum,
+            font_size_minimum_expand_limit=cfg.render.font_size_minimum_expand_limit,
             hyphenate=not cfg.render.no_hyphenation,
             line_spacing=cfg.render.line_spacing,
             disable_font_border=cfg.render.disable_font_border,
@@ -184,7 +187,14 @@ async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cf
     return written
 
 
-async def run_render(work_dir: str, out_dir: str, cfg: Config) -> List[str]:
+async def run_render(
+    work_dir: str,
+    out_dir: str,
+    cfg: Config,
+    check: bool = False,
+    no_check: bool = False,
+    yes: bool = False,
+) -> List[str]:
     """Render all tasks under work_dir.
 
     Mirrors the subdirectory structure: work_dir/<task>/ → out_dir/<task>/.
@@ -199,10 +209,42 @@ async def run_render(work_dir: str, out_dir: str, cfg: Config) -> List[str]:
 
     logger.info(f"Found {len(tasks)} task(s) to render: {tasks}")
 
+    from rich.console import Console
+    console = Console()
+
     all_written: List[str] = []
     for task_name in tasks:
         task_work_dir = os.path.join(work_dir, task_name)
         task_out_dir = os.path.join(out_dir, task_name)
+        try:
+            workspace = load_workspace(task_work_dir)
+        except Exception as e:
+            logger.error(f"[task: {task_name}] Error loading workspace: {e}", exc_info=True)
+            continue
+
+        # Proofreading check before rendering
+        should_run_check = False
+        if check:
+            should_run_check = True
+        elif no_check:
+            should_run_check = False
+        elif sys.stdin.isatty():
+            try:
+                console.print(f"\n[bold cyan]Task: {task_name}[/bold cyan]")
+                ans = input("Would you like to run spelling/fluency proofreading checks on translations before rendering? [y/N]: ").strip().lower()
+                if ans in ("y", "yes"):
+                    should_run_check = True
+            except (KeyboardInterrupt, EOFError):
+                console.print("\n[yellow]Skipping proofreading check...[/yellow]")
+                should_run_check = False
+
+        if should_run_check:
+            from .check import run_proofread_check
+            proceed = await run_proofread_check(workspace, cfg, yes=yes)
+            if not proceed:
+                logger.info(f"[task: {task_name}] Rendering cancelled by user during proofreading check.")
+                raise KeyboardInterrupt("Cancelled by user during proofreading check")
+
         try:
             written = await _render_task(task_name, task_work_dir, task_out_dir, cfg)
             all_written.extend(written)

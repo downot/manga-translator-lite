@@ -14,6 +14,8 @@ This project is deeply indebted to **frederik-uni** and **zyddnys** and the orig
 4.  **Smart Rendering**: Features a binary-search font fitting algorithm that automatically maximizes font size to fill bubble areas while respecting the original detected boundaries.
 5.  **Multi-Task Support**: Automatically handles multiple manga folders as separate "tasks", keeping a clean workspace structure.
 6.  **Incremental Translation**: Supports resuming from a specific page and skipping already translated blocks to save time and API costs.
+7.  **Spelling & Fluency Proofreader**: Built-in copyediting stage using LLM before rendering to check and correct typos, bad grammar, and translation awkwardness.
+8.  **Preserved Newline Layout**: Fully supports explicit newlines (`\n`) for dialog formatting, ensuring preview rendering on browser matches Python typesetting perfectly.
 
 ---
 
@@ -40,7 +42,7 @@ Each subdirectory under `in/` is treated as a separate **task**. The directory s
 |---|---|---|
 | `extract` | text detection → OCR → mask refinement → inpainting | `work/<task>/clean/*.png`, `work/<task>/pages.json` |
 | `translate` | batches blocks (~1500 chars), calls LLM, fills `translation` fields. Supports incremental updates. | updated `pages.json` per task |
-| `render` | paints translations onto the inpainted images using smart typesetting | `out/<task>/*.png` (same count as input) |
+| `render` | paints translations onto the inpainted images using smart typesetting. Optional copyediting/proofreading check (--check) before rendering. | `out/<task>/*.png` (same count as input) |
 | `run` | extract → translate → render in one shot | Both workspace and final images |
 
 Each task's `pages.json` is the single source of truth. Open it between `translate` and `render` to revise any translation.
@@ -84,6 +86,8 @@ context_pages = 2            # number of past pages sent as tone context
 
 [render]
 font_size_offset = 0
+font_size_minimum = 18       # Minimum allowed font size to prevent tiny text
+font_size_minimum_expand_limit = 1.5  # Maximum scale ratio to expand the text box if text doesn't fit
 direction = "auto"           # Options: auto | horizontal | vertical
 alignment = "auto"
 ```
@@ -153,6 +157,25 @@ Story context management has been fully integrated into the **Visual Editor (`ed
 
 ### 4. Anti-Censorship Disclaimer
 To prevent LLMs (e.g. DeepSeek, Gemini) from rejecting adult or mature manga during translation, a standard English disclaimer ("All characters depicted in the work are entirely fictional and over 18 years old...") is embedded in the system-level prompts, ensuring a smooth translation pipeline.
+
+---
+
+## Translation Spelling & Fluency Proofreading Check
+
+To ensure translations are natural, direct, and free from awkward phrasing or typos, this project includes a **Spelling and Fluency Proofreading Check (Copyediting)** step before rendering.
+
+### 1. Mechanism
+* The proofreader sends translated text blocks to the LLM in batches for copyediting.
+* It strictly checks for typos, grammatical errors, and awkward phrasing, while completely ignoring punctuation differences to minimize unnecessary updates.
+* Changes are presented in a clean table format indicating the original text, current translation, suggestion, and the reason.
+
+### 2. Interaction Modes
+When rendering (`render` or `run` command), you can choose how to review recommendations:
+* **Interactive Mode (Default on TTY)**: Prompts you to review each recommendation one by one. You can accept, reject, or manually edit (`e`) the inline text.
+* **Auto-Apply (`--check -y` or `--check --yes`)**: Automatically accepts and applies all LLM copyediting recommendations without prompting.
+* **Force / Bypass**: Use `--check` to force proofreading, or `--no-check` to bypass the proofreading step entirely.
+
+---
 
 ## Editing translations
 

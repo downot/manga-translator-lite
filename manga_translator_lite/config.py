@@ -118,6 +118,7 @@ class RenderConfig(BaseModel):
     """Override font size for all blocks."""
     font_size_offset: int = 0
     font_size_minimum: int = -1
+    font_size_minimum_expand_limit: float = 1.5
     line_spacing: Optional[int] = None
     direction: Direction = Direction.auto
     alignment: Alignment = Alignment.auto
@@ -163,7 +164,16 @@ class Config(BaseModel):
     @classmethod
     def load(cls, path: Optional[str]) -> "Config":
         if not path:
-            return cls()
+            from pathlib import Path
+            pkg_root = Path(__file__).parent.parent.absolute()
+            toml_path = pkg_root / "config.toml"
+            json_path = pkg_root / "config.json"
+            if toml_path.is_file():
+                path = str(toml_path)
+            elif json_path.is_file():
+                path = str(json_path)
+            else:
+                return cls()
         import os
         ext = os.path.splitext(path)[1].lower()
         with open(path, 'r', encoding='utf-8') as f:
