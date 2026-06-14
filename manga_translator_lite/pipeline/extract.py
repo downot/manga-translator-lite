@@ -249,11 +249,10 @@ async def _process_image(
         
         try:
             if pil.format == 'JPEG' or ext in ['.jpg', '.jpeg']:
-                try:
-                    pil_img.info = pil.info
-                    pil_img.save(clean_abs, format='JPEG', quality='keep', subsampling='keep', optimize=True)
-                except Exception:
-                    pil_img.save(clean_abs, format='JPEG', quality=90, optimize=True)
+                # quality='keep' only works on images decoded from JPEG; this is a
+                # freshly created array, so save at high quality with 4:4:4
+                # subsampling to keep text edges crisp.
+                pil_img.save(clean_abs, format='JPEG', quality=95, subsampling=0, optimize=True)
             elif pil.format == 'WEBP' or ext == '.webp':
                 pil_img.save(clean_abs, format='WEBP', quality=85, method=6)
             elif pil.format == 'PNG' or ext == '.png':
@@ -338,6 +337,42 @@ def _merge_task_translations(workspace: Workspace, existing_pages: Dict[str, Pag
         
         save_translations(workspace.root, lang, new_trans)
 
+def _normalize_block_ids(workspace: Workspace) -> Dict[str, str]:
+    """Rewrite block ids so they match each page's final index/position.
+
+    On resume, reused pages keep their old ids (``p{old_idx}_b...``) while their
+    ``page.index`` is reassigned, leaving the id's embedded page number stale.
+    Regenerate ids deterministically and return the old→new map so callers can
+    keep translation files (which are keyed by block id) in sync.
+    """
+    id_map: Dict[str, str] = {}
+    for page in workspace.pages:
+        for j, blk in enumerate(page.blocks):
+            new_id = block_id(page.index, j)
+            if blk.id != new_id:
+                id_map[blk.id] = new_id
+                blk.id = new_id
+    return id_map
+
+
+def _remap_translation_keys(workspace: Workspace, id_map: Dict[str, str]) -> None:
+    """Apply an old→new block-id map to every translation file in the task."""
+    if not id_map:
+        return
+    trans_dir = get_translations_dir(workspace.root)
+    if not os.path.isdir(trans_dir):
+        return
+    for f in os.listdir(trans_dir):
+        if not f.endswith('.json'):
+            continue
+        lang = f[:-5]
+        trans = load_translations(workspace.root, lang)
+        if not trans:
+            continue
+        remapped = {id_map.get(k, k): v for k, v in trans.items()}
+        save_translations(workspace.root, lang, remapped)
+
+
 async def _extract_task(
     task_name: str,
     task_input_dir: str,
@@ -387,8 +422,10 @@ async def _extract_task(
         try:
             page = await _process_image(path, i, cfg, device, workspace, verbose)
             workspace.pages.append(page)
-            # Incremental save after each page for crash recovery
-            save_workspace(workspace)
+            # Periodic checkpoint for crash recovery (avoid an O(n^2) full
+            # rewrite of pages.json on every single page).
+            if (i + 1) % 10 == 0:
+                save_workspace(workspace)
         except Exception as e:
             logger.error(f"[task: {task_name}] Failed on {path}: {e}")
             if verbose:
@@ -396,6 +433,12 @@ async def _extract_task(
 
     if overwrite and existing_pages:
         _merge_task_translations(workspace, existing_pages)
+
+    # Keep block ids consistent with final page positions and carry translations along.
+    id_map = _normalize_block_ids(workspace)
+    if id_map:
+        logger.info(f"[task: {task_name}] Normalized {len(id_map)} block id(s) to match page order")
+        _remap_translation_keys(workspace, id_map)
 
     save_workspace(workspace)
     logger.info(f"[task: {workspace.task_name}] Workspace written: {workspace.pages_json_path}")

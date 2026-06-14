@@ -94,7 +94,8 @@ async def _run_review_for_task(
             continue
         for block in page.blocks:
             t = translations.get(block.id)
-            if t and t.text:
+            # Don't send hand-edited translations to the polisher — respect the user's edits.
+            if t and t.text and not t.edited:
                 review_items.append((block.id, block.text, t.text))
 
     if not review_items:
@@ -183,9 +184,10 @@ async def _translate_task(
 
         # 3. Otherwise, add blocks to the translation queue
         for blk in page.blocks:
-            # Skip if already translated and we are not overwriting
+            # Skip if already translated and we are not overwriting. Hand-edited
+            # translations (edited=True) are preserved even under overwrite.
             t = translations.get(blk.id)
-            if t and t.text and not overwrite:
+            if t and t.text and (not overwrite or t.edited):
                 continue
             all_items.append(TranslationItem(id=blk.id, text=blk.text))
             block_map[blk.id] = (page, blk)

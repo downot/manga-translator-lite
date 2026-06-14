@@ -64,14 +64,32 @@ def _block_to_textblock(block: Block, translation_text: str, target_lang: str, r
     return tb
 
 
-async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, translations: dict) -> Optional[str]:
+def _unique_out_name(name: str, used: set) -> str:
+    """Return an output filename that does not collide with ones already used.
+
+    ``page.name`` is the original basename and is **not** unique once tasks are
+    merged (two chapters can both contain ``01.jpg``). Disambiguate on collision
+    so every page produces its own output file instead of overwriting another.
+    """
+    if name not in used:
+        used.add(name)
+        return name
+    base, ext = os.path.splitext(name)
+    k = 1
+    while f"{base}_{k}{ext}" in used:
+        k += 1
+    new_name = f"{base}_{k}{ext}"
+    used.add(new_name)
+    return new_name
+
+
+async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, translations: dict, out_name: str) -> Optional[str]:
     """Render a single page.  Always produces an output file.
 
     - ``no_text`` pages → copy the original image directly.
     - Pages with blocks but no translations → copy the clean image.
     - Normal pages → render translated text onto the clean image.
     """
-    out_name = page.name
     out_path = os.path.join(out_dir, out_name)
 
     # no_text pages — copy clean directly (which is a copy of original)
@@ -135,23 +153,19 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
     pil_img = Image.fromarray(rendered_rgb)
     _, ext = os.path.splitext(out_path)
     ext_lower = ext.lower()
-    
+
     clean_format = None
-    clean_info = {}
     try:
         pil_clean = Image.open(clean_path)
         clean_format = pil_clean.format
-        clean_info = pil_clean.info
     except Exception:
         pass
 
     try:
         if clean_format == 'JPEG' or ext_lower in ['.jpg', '.jpeg']:
-            try:
-                pil_img.info = clean_info
-                pil_img.save(out_path, format='JPEG', quality='keep', subsampling='keep', optimize=True)
-            except Exception:
-                pil_img.save(out_path, format='JPEG', quality=90, optimize=True)
+            # Freshly rendered array: quality='keep' is not applicable. Save at
+            # high quality with 4:4:4 subsampling to keep rendered text crisp.
+            pil_img.save(out_path, format='JPEG', quality=95, subsampling=0, optimize=True)
         elif clean_format == 'WEBP' or ext_lower == '.webp':
             pil_img.save(out_path, format='WEBP', quality=85, method=6)
         elif clean_format == 'PNG' or ext_lower == '.png':
@@ -176,8 +190,10 @@ async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cf
     translations = load_translations(workspace.root, workspace.target_lang)
 
     written: List[str] = []
+    used_names: set = set()
     for page in workspace.pages:
-        path = await _render_page(page, workspace, cfg, task_out_dir, translations)
+        out_name = _unique_out_name(page.name, used_names)
+        path = await _render_page(page, workspace, cfg, task_out_dir, translations, out_name)
         if path:
             written.append(path)
 

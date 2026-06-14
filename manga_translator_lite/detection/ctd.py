@@ -133,12 +133,28 @@ class ComicTextDetector(OfflineDetector):
         # keep_undetected_mask = False
         # refine_mode = REFINEMASK_INPAINT
 
+        # Make the config-driven detector parameters take effect for CTD.
+        # text_threshold -> prob-map binarization, unclip_ratio -> box expansion.
+        # box_threshold is applied to the box scores further below.
+        self.seg_rep.thresh = text_threshold
+        self.seg_rep.unclip_ratio = unclip_ratio
+
+        # detection_size only applies to the torch backend: it is fully convolutional
+        # and accepts variable input. The ONNX/opencv backend bakes a fixed input size
+        # into the graph at load time, so we keep its original size there.
+        if self.backend == 'torch':
+            # CTD is a 64-stride network, so the input side must be a multiple of 64.
+            input_side = max(64, int(round(detect_size / 64)) * 64)
+            input_size = (input_side, input_side)
+        else:
+            input_size = self.input_size
+
         im_h, im_w = image.shape[:2]
-        lines_map, mask = det_rearrange_forward(image, self.det_batch_forward_ctd, self.input_size[0], 4, self.device, verbose)
+        lines_map, mask = det_rearrange_forward(image, self.det_batch_forward_ctd, input_size[0], 4, self.device, verbose)
         # blks = []
         # resize_ratio = [1, 1]
         if lines_map is None:
-            img_in, ratio, dw, dh = preprocess_img(image, input_size=self.input_size, device=self.device, half=self.half, to_tensor=self.backend=='torch')
+            img_in, ratio, dw, dh = preprocess_img(image, input_size=input_size, device=self.device, half=self.half, to_tensor=self.backend=='torch')
             blks, mask, lines_map = self.model(img_in)
 
             if self.backend == 'opencv':
@@ -154,8 +170,7 @@ class ComicTextDetector(OfflineDetector):
 
         mask = postprocess_mask(mask)
         lines, scores = self.seg_rep(None, lines_map, height=im_h, width=im_w)
-        box_thresh = 0.6
-        idx = np.where(scores[0] > box_thresh)
+        idx = np.where(scores[0] > box_threshold)
         lines, scores = lines[0][idx], scores[0][idx]
 
         # map output to input img

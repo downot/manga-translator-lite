@@ -171,6 +171,38 @@
             background-color: var(--bg-hover);
         }
 
+        .task-name {
+            vertical-align: middle;
+        }
+
+        .page-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        .page-item .page-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .page-del-btn {
+            flex: 0 0 auto;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--text-secondary, #888);
+            font-size: 0.8rem;
+            line-height: 1;
+            padding: 3px 5px;
+            border-radius: 4px;
+            opacity: 0.45;
+            transition: opacity 0.15s, background 0.15s, color 0.15s;
+        }
+        .page-item:hover .page-del-btn { opacity: 1; }
+        .page-del-btn:hover { background: rgba(255, 80, 80, 0.18); color: #ff5b5b; }
+
         .list-item.active {
             background-color: var(--accent);
             color: white;
@@ -782,9 +814,9 @@
 
     <script>
         const i18n = {
-            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)" },
-            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt" },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)" }
+            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: " },
+            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: " },
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: " }
         };
 
         function parseSimpleToml(text) {
@@ -1108,6 +1140,13 @@
                     const cleanDir = await taskHandle.getDirectoryHandle('clean');
                     const transDir = await taskHandle.getDirectoryHandle('translations').catch(() => null);
 
+                    // Block ids are formatted as p{page}_b{block}, but the page index
+                    // restarts at 0 in every task, so ids collide across tasks. Since
+                    // translations are keyed by block id, the colliding keys would
+                    // overwrite each other on merge -> scrambled translations. Re-key
+                    // every block to a globally-unique id and remap the translation keys.
+                    const idMap = {};
+
                     // Merge pages
                     for (const page of taskData.pages) {
                         const oldImgName = page.clean.split('/').pop();
@@ -1139,6 +1178,18 @@
                         newPage.clean = `clean/${newImgName}`;
                         // If there are other paths like 'in' or 'out', we might need to handle them,
                         // but usually 'clean' is what matters for the editor.
+
+                        // Re-key this page's block ids using its final (unique) position
+                        // in the merged task, recording old->new so translations follow.
+                        const newPageIdx = mergedPages.length;
+                        if (Array.isArray(newPage.blocks)) {
+                            newPage.blocks.forEach((block, bIdx) => {
+                                const oldId = block.id;
+                                const newId = `p${String(newPageIdx).padStart(4, '0')}_b${String(bIdx).padStart(3, '0')}`;
+                                if (oldId != null) idMap[oldId] = newId;
+                                block.id = newId;
+                            });
+                        }
                         mergedPages.push(newPage);
                     }
 
@@ -1151,7 +1202,12 @@
 
                                 const transFile = await entry.getFile();
                                 const transData = JSON.parse(await transFile.text());
-                                Object.assign(mergedTranslations[lang], transData);
+                                // Remap each translation onto the re-keyed block id so it
+                                // stays attached to the right page/block after merging.
+                                for (const [oldId, val] of Object.entries(transData)) {
+                                    const newId = idMap[oldId] || oldId;
+                                    mergedTranslations[lang][newId] = val;
+                                }
                             }
                         }
                     }
@@ -1426,6 +1482,7 @@
             function addTaskItem(name, handle, pagesJsonHandle) {
                 const item = document.createElement('div');
                 item.className = 'list-item';
+                item.dataset.taskName = name;
 
                 if (isMergeMode) {
                     const checkbox = document.createElement('input');
@@ -1441,12 +1498,26 @@
                         } else {
                             selectedTasksForMerge = selectedTasksForMerge.filter(t => t.name !== name);
                         }
+                        // The push order is the merge order; refresh badges so the
+                        // numbering reflects it (and renumbers after a deselect).
+                        refreshMergeOrderBadges();
                     };
                     item.appendChild(checkbox);
+
+                    // Badge showing this task's position in the merge order.
+                    const badge = document.createElement('span');
+                    badge.className = 'merge-order-badge';
+                    badge.title = t('mergeOrderTip');
+                    badge.style.cssText = 'display:none;align-items:center;justify-content:center;min-width:18px;height:18px;margin-right:6px;padding:0 5px;border-radius:9px;background:var(--accent, #4a90d9);color:#fff;font-size:0.7rem;font-weight:bold;';
+                    item.appendChild(badge);
                 }
 
                 const label = document.createElement('span');
-                label.textContent = name;
+                label.className = 'task-name';
+                // Truncate in the middle (keep head + tail) so both ends stay
+                // visible — important for picking tasks by name in merge mode.
+                label.textContent = middleTruncate(name);
+                label.title = name; // full name on hover
                 item.appendChild(label);
 
                 item.onclick = async () => {
@@ -1491,6 +1562,54 @@
 
             const tasksToShow = workTasks.length > 0 ? workTasks : directTasks;
             tasksToShow.forEach(t => addTaskItem(t.name, t.handle, t.pagesJsonHandle));
+            refreshMergeOrderBadges();
+        }
+
+        // Measure rendered text width so truncation works for full-width CJK too.
+        let _measureCtx = null;
+        function measureTextWidth(text, font) {
+            if (!_measureCtx) _measureCtx = document.createElement('canvas').getContext('2d');
+            _measureCtx.font = font;
+            return _measureCtx.measureText(text).width;
+        }
+
+        // Shorten a long name by keeping its head and tail and eliding the middle,
+        // fitting the actual available pixel width (accounts for CJK width and the
+        // checkbox/order-badge that appear in merge mode). e.g.
+        // "「田中くんが〜」番外編最終話_v2" -> "「田中くん…最終話_v2".
+        function middleTruncate(name) {
+            if (!name) return name;
+            const listW = (elements.taskList && elements.taskList.clientWidth) || 240;
+            // list-item padding (24) + safety margin + checkbox & badge in merge mode.
+            const reserved = 24 + 16 + (isMergeMode ? 54 : 0);
+            const avail = Math.max(48, listW - reserved);
+            const fam = getComputedStyle(document.body).fontFamily || 'sans-serif';
+            const font = `13.6px ${fam}`; // matches .list-item font-size (0.85rem)
+            if (measureTextWidth(name, font) <= avail) return name;
+            const ell = '…';
+            for (let keep = name.length - 1; keep >= 2; keep--) {
+                const head = Math.ceil(keep * 0.6);
+                const tail = keep - head;
+                const cand = name.slice(0, head) + ell + name.slice(name.length - tail);
+                if (measureTextWidth(cand, font) <= avail) return cand;
+            }
+            return name.charAt(0) + ell;
+        }
+
+        // Update the order badges in-place to reflect the current merge (click) order,
+        // without re-reading the directory.
+        function refreshMergeOrderBadges() {
+            elements.taskList.querySelectorAll('.list-item').forEach(item => {
+                const badge = item.querySelector('.merge-order-badge');
+                if (!badge) return;
+                const order = selectedTasksForMerge.findIndex(t => t.name === item.dataset.taskName);
+                if (order >= 0) {
+                    badge.textContent = order + 1;
+                    badge.style.display = 'inline-flex';
+                } else {
+                    badge.style.display = 'none';
+                }
+            });
         }
 
         async function selectTask(task, itemEl) {
@@ -1526,13 +1645,129 @@
             elements.pageList.innerHTML = '';
             storage.currentTask.data.pages.forEach((page, index) => {
                 const item = document.createElement('div');
-                item.className = 'list-item';
-                item.textContent = `P${index + 1}: ${page.name}`;
+                item.className = 'list-item page-item';
+
+                const label = document.createElement('span');
+                label.className = 'page-name';
+                label.textContent = `P${index + 1}: ${page.name}`;
+                label.title = page.name;
+                item.appendChild(label);
+
+                const del = document.createElement('button');
+                del.className = 'page-del-btn';
+                del.textContent = '🗑';
+                del.title = t('btnDeletePage');
+                del.onclick = (e) => { e.stopPropagation(); deletePage(index); };
+                item.appendChild(del);
+
                 item.onclick = () => selectPage(index);
                 elements.pageList.appendChild(item);
             });
             elements.totalPages.textContent = storage.currentTask.data.pages.length;
             elements.inputPage.max = storage.currentTask.data.pages.length;
+        }
+
+        async function savePagesJson() {
+            const data = storage.currentTask.data;
+            if (storage.isServer) {
+                const resp = await fetch(`api/save?t=${storage.token}`, { method: 'POST', body: JSON.stringify(data) });
+                if (!resp.ok) throw new Error('Failed to save pages.json');
+            } else {
+                if (!storage.currentTask.pagesJsonHandle) {
+                    storage.currentTask.pagesJsonHandle = await storage.currentTask.handle.getFileHandle('pages.json', { create: true });
+                }
+                const w = await storage.currentTask.pagesJsonHandle.createWritable();
+                await w.write(JSON.stringify(data, null, 2));
+                await w.close();
+            }
+        }
+
+        // Delete a page and clean up everything tied to it: its text blocks
+        // (in pages.json), translations for those blocks in every language file,
+        // and the corresponding clean image. Destructive → double confirmation.
+        async function deletePage(index) {
+            const pages = storage.currentTask.data.pages;
+            if (index < 0 || index >= pages.length) return;
+            const page = pages[index];
+            const label = `P${index + 1}: ${page.name}`;
+
+            if (!confirm(t('confirmDeletePage', { label }))) return;
+            if (!confirm(t('confirmDeletePage2', { label }))) return;
+
+            const idsToRemove = new Set((page.blocks || []).map(b => b.id).filter(Boolean));
+            const cleanName = page.clean ? page.clean.split('/').pop() : null;
+
+            try {
+                if (storage.isServer) {
+                    // Remove the page reference first so pages.json never points at
+                    // files the server is about to delete.
+                    pages.splice(index, 1);
+                    await savePagesJson();
+                    // Server-side full cleanup: clean image + every language file.
+                    const resp = await fetch(`api/page/delete?t=${storage.token}`, {
+                        method: 'POST',
+                        body: JSON.stringify({ clean: cleanName, block_ids: [...idsToRemove] })
+                    });
+                    if (!resp.ok) throw new Error('Server delete failed');
+                    // Keep the in-memory current-language translations consistent.
+                    idsToRemove.forEach(id => { delete storage.currentTask.translations[id]; });
+                    showToast(t('msgPageDeleted'));
+                } else {
+                    // Clean every language's translation file on disk.
+                    try {
+                        const transDir = await storage.currentTask.handle.getDirectoryHandle('translations');
+                        for await (const entry of transDir.values()) {
+                            if (entry.kind !== 'file' || !entry.name.endsWith('.json')) continue;
+                            let obj;
+                            try {
+                                const txt = await (await entry.getFile()).text();
+                                obj = txt ? JSON.parse(txt) : {};
+                            } catch (e) { continue; }
+                            let changed = false;
+                            idsToRemove.forEach(id => { if (id in obj) { delete obj[id]; changed = true; } });
+                            if (changed) {
+                                const w = await entry.createWritable();
+                                await w.write(JSON.stringify(obj, null, 2));
+                                await w.close();
+                            }
+                        }
+                    } catch (e) { /* no translations dir — nothing to clean */ }
+
+                    // Keep the in-memory current-language translations consistent.
+                    idsToRemove.forEach(id => { delete storage.currentTask.translations[id]; });
+
+                    // Delete the clean image file.
+                    if (cleanName) {
+                        try {
+                            const cleanDir = await storage.currentTask.handle.getDirectoryHandle('clean');
+                            await cleanDir.removeEntry(cleanName);
+                        } catch (e) { console.warn('Failed to remove clean image', cleanName, e); }
+                        delete storage.currentTask.imageHandles[cleanName];
+                    }
+
+                    pages.splice(index, 1);
+                    await savePagesJson();
+                    showToast(t('msgPageDeleted'));
+                }
+            } catch (e) {
+                console.error(e);
+                showToast(t('msgPageDeleteFailed') + e.message);
+                return;
+            }
+
+            // Refresh list and fix the current selection.
+            renderPageList();
+            if (pages.length === 0) {
+                currentPageIndex = -1;
+                selectedBlockIndex = -1;
+                ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+                elements.canvas.style.display = 'none';
+                elements.blocksContainer.innerHTML = '';
+                document.getElementById('initial-state').style.display = 'flex';
+                elements.totalPages.textContent = '0';
+            } else {
+                selectPage(Math.min(index, pages.length - 1));
+            }
         }
 
         async function selectPage(index) {
