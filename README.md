@@ -51,7 +51,8 @@ Each task's `pages.json` is the single source of truth. Open it between `transla
 
 ```bash
 pip install -r requirements.txt          # Python >= 3.10
-cp examples/Example.env .env             # Add OPENAI_API_KEY or GEMINI_API_KEY
+cp config.toml.sample config.toml        # Then fill in [translator] api_key (or use an env var)
+cp examples/Example.env .env             # Optional: OPENAI_API_KEY or GEMINI_API_KEY instead
 
 # Single command end-to-end
 python -m manga_translator_lite run -i ./in -w ./work -o ./out
@@ -62,37 +63,106 @@ python -m manga_translator_lite translate ./work
 python -m manga_translator_lite render ./work -o ./out
 ```
 
+## Command Reference
+
+All commands are invoked as `python -m manga_translator_lite <command> [options]`.
+
+**Common options** (available on `extract`, `translate`, `render`, `run`):
+
+| Option | Description |
+|---|---|
+| `-c, --config <path>` | Path to the `.toml`/`.json` config file. Defaults to `./config.toml` (or `config.json`) when present. |
+| `--target-lang <code>` | Override `translator.target_lang` (e.g. `CHS`, `ENG`, `JPN`, `KOR`). |
+| `-v, --verbose` | Verbose logging and intermediate diagnostics. |
+
+### `extract` — Step 1: detection / OCR / inpaint → workspace
+
+| Argument | Description |
+|---|---|
+| `-i, --input <path>` *(required)* | Input image file, or a directory of images / sub-task folders. |
+| `-w, --work-dir <path>` *(required)* | Workspace directory to create or update. |
+| `--overwrite` | Re-extract every image even if already present; existing translations are salvaged by spatial IoU matching. |
+
+### `translate` — Step 2: call the LLM and fill in translations
+
+| Argument | Description |
+|---|---|
+| `work_dir` *(positional, required)* | Existing workspace directory. |
+| `--overwrite` | Re-translate blocks that already have translations. Hand-edited blocks (`edited: true`) are preserved. |
+| `--start-index <n>` | Start (re)translating from this page index; earlier pages are used as context only. |
+
+### `render` — Step 3: paint translations onto clean images
+
+| Argument | Description |
+|---|---|
+| `work_dir` *(positional, required)* | Existing workspace directory. |
+| `-o, --output <path>` *(required)* | Output directory for final images. |
+| `--check` | Force the spelling/fluency proofreading check before rendering. |
+| `--no-check` | Skip the proofreading check entirely. |
+| `-y, --yes` | Auto-accept and apply all proofreading suggestions. |
+
+### `run` — extract + translate + render end-to-end
+
+Accepts the union of the options above: `-i/--input`, `-w/--work-dir`, `-o/--output` *(all required)*, plus `--overwrite`, `--check`, `--no-check`, `-y/--yes`.
+
+### `config-help` — print the JSON schema of the config file
+
+```bash
+python -m manga_translator_lite config-help
+```
+
+### Editor server (`server.py`)
+
+| Option | Default | Description |
+|---|---|---|
+| `-w, --work-dir <path>` | `work` | Workspace directory to serve. |
+| `-p, --port <n>` | `8000` | Port to listen on. |
+| `--host <addr>` | `0.0.0.0` | Bind address (use `127.0.0.1` to restrict to localhost). |
+| `--log-file <path>` | `server.log` | Path to the server log file. |
+
+---
+
 ## Configuration
 
-A single TOML or JSON file. All sections are optional; defaults are sensible.
+The pipeline reads a single TOML (or JSON) file. The easiest start is to copy the fully-annotated sample and edit it:
+
+```bash
+cp config.toml.sample config.toml   # then fill in [translator] api_key
+```
+
+`config.toml` is git-ignored, so your key never gets committed. See **[config.toml.sample](config.toml.sample)** for every option with inline comments. All sections are optional; defaults are sensible. A minimal example:
 
 ```toml
 use_gpu = true
 
 [detector]
-detector = "default"        # Options: default | dbconvnext | ctd | craft | paddle
+detector = "ctd"            # Options: default | dbconvnext | ctd | craft | paddle | none
 detection_size = 2048
 
 [ocr]
 ocr = "48px"                # Options: 32px | 48px | 48px_ctc | mocr
 
 [translator]
-provider = "openai"          # Options: openai | gemini
+provider = "openai"          # Options: openai | gemini | none
 model = "gpt-4o-mini"
-api_base = "https://api.openai.com/v1"
+api_base = ""                # Empty = provider default, or e.g. https://openrouter.ai/api/v1
+api_key = ""                 # Or leave empty and set the OPENAI_API_KEY env var
 target_lang = "ENG"
 batch_chars = 1500           # ~1000–2000 chars per LLM request
-context_pages = 2            # number of past pages sent as tone context
+context_pages = 1            # number of past pages sent as tone context
 
 [render]
 font_size_offset = 0
-font_size_minimum = 18       # Minimum allowed font size to prevent tiny text
-font_size_minimum_expand_limit = 1.5  # Maximum scale ratio to expand the text box if text doesn't fit
+font_size_minimum = 34       # Lower bound so small text stays legible
+font_size_minimum_expand_limit = 2.5  # Max box growth allowed to host the minimum font size
+line_spacing = 0             # Tighten line spacing so more text fits at a larger size
 direction = "auto"           # Options: auto | horizontal | vertical
 alignment = "auto"
+disable_font_border = false  # Keep the outline — key for legibility on any background
+# font_color = "000000:FFFFFF"  # Black text + white outline; good for pure B/W books only
 ```
 
-`provider = "openai"` covers any OpenAI-compatible HTTP endpoint, including DeepSeek, Groq and Ollama. API keys can live in `[translator] api_key` or in `.env` vars (`OPENAI_API_KEY` / `GEMINI_API_KEY`).
+`provider = "openai"` covers any OpenAI-compatible HTTP endpoint, including DeepSeek, OpenRouter, Groq and Ollama. API keys can live in `[translator] api_key` or in `.env` vars (`OPENAI_API_KEY` / `GEMINI_API_KEY`).
 
 ## Visual Editor (Experimental)
 
@@ -115,6 +185,21 @@ A lightweight web-based visual editor `editor.html` is provided for a better man
 There are two ways to open the editor:
 1. **Serverless Local Mode**: Open `editor.html` directly in your browser. Click **"Open Work Dir"** to select your `work` folder. (Requires Chrome/Edge, uses the modern HTML5 File System Access API for local reads/writes).
 2. **Standalone Server Mode**: Run `python server.py -w ./work` and visit `http://localhost:8000/editor.html`.
+
+### Editor tools (regions, pages, merge)
+
+The editor is more than a translation textbox — it can fix layout and geometry directly:
+
+- **Region editor** — click the ✎ (pencil) button next to zoom to unlock boundary editing. Then:
+  - **Resize** a region by dragging its handles, **move** it by dragging the body — the cursor shows which action you'll get.
+  - **Draw a new region** by dragging on an empty area (new regions get a white background by default).
+  - The **blue box** is the detected text region (where the translation is fitted); the **green dashed box** shows the actual rendered text extent, so you can size the box to control how big the text appears in the bubble.
+  - A hand-adjusted box is marked *fixed* — at render time the text is fitted into exactly that box and is **never auto-expanded**.
+- **Per-block background** — each block has a ⬜/▢ toggle: **white** paints a white rectangle behind the text (covers leftover/original content), **transparent** renders text only. A 🗑 deletes the block.
+- **Page management** — each page row has an ℹ️ (file-path & metadata popup) and a 🗑 (delete the page and clean up its blocks, translations in every language, and its clean image; double confirmation).
+- **Task merge** — click **Merge**, tick tasks in the order you want them joined (an order badge 1·2·3 appears), then **Confirm**. Pages are renamed sequentially so the merged output keeps one continuous reading order.
+
+Geometry edits save to `pages.json` immediately; translations save with the **Save** button. Re-run `render` to produce the final images.
 
 ---
 
@@ -174,6 +259,33 @@ When rendering (`render` or `run` command), you can choose how to review recomme
 * **Interactive Mode (Default on TTY)**: Prompts you to review each recommendation one by one. You can accept, reject, or manually edit (`e`) the inline text.
 * **Auto-Apply (`--check -y` or `--check --yes`)**: Automatically accepts and applies all LLM copyediting recommendations without prompting.
 * **Force / Bypass**: Use `--check` to force proofreading, or `--no-check` to bypass the proofreading step entirely.
+
+---
+
+## Fixing residual text (`reclean.py`)
+
+Sometimes inpainting leaves bits of the original text around a bubble (faint symbols or handwritten kana that OCR rejected). `reclean.py` re-erases those **without** re-running the whole pipeline — translations and their positions are untouched.
+
+```bash
+# Drift-free: re-detect residual text on the clean images and erase it.
+# Blocks and translations are NOT modified (no position drift).
+python reclean.py work/<task> --redetect
+
+# Then re-render
+python -m manga_translator_lite render work/<task> -o out
+```
+
+| Option | Description |
+|---|---|
+| `--redetect` | Re-detect residual text on the clean image and erase it; never touches blocks/translations. Best when your detector config changed since extraction. |
+| `--pages 3,7` | Only these pages (1-based, as shown in the editor). |
+| `--dilation <px>` | Geometry-mode mask growth (default 35). Ignored with `--redetect`. |
+| `--backup` / `--no-backup` | Snapshot each task's `clean/` to a versioned `clean.bak.NNN` before editing (default: on). |
+| `--max-backups <n>` | Keep at most N backup versions per task. |
+
+It reads the same `config.toml`, so tuning `[detector]` (e.g. lower `text_threshold`, enable `det_gamma_correct`) improves what it catches.
+
+> The `extract` step now erases **every detected region** — including symbols/handwriting that the translation rules reject — and records the rejected ones as `erase_regions` in `pages.json`. So a fresh `extract --overwrite` already cleans most residue; `reclean.py` is for touching up existing tasks.
 
 ---
 

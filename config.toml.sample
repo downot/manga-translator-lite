@@ -1,0 +1,61 @@
+# Manga Translator Lite — sample configuration
+#
+# Copy this file to `config.toml` and fill in your own values:
+#     cp config.toml.sample config.toml
+#
+# `config.toml` is git-ignored so your API key never gets committed.
+# You can also leave `api_key` empty here and export OPENAI_API_KEY /
+# GEMINI_API_KEY in your environment instead.
+
+use_gpu = true                 # use CUDA / Apple MPS if available (else CPU)
+kernel_size = 3                # text-mask edge cleanup kernel
+mask_dilation_offset = 30      # how much to grow the text mask before inpainting
+force_simple_sort = false      # true = skip panel-aware ordering (simpler top-to-bottom / RTL)
+
+[detector]
+detector = "ctd"               # default | dbconvnext | ctd | craft | paddle | none
+detection_size = 2048          # detection input size (larger = catches smaller text, slower)
+text_threshold = 0.25          # lower = catch fainter/thinner text (more recall)
+box_threshold = 0.6            # lower = keep lower-confidence boxes
+unclip_ratio = 1.5             # how much detected boxes expand outward
+
+[ocr]
+ocr = "48px"                   # 32px | 48px | 48px_ctc | mocr
+min_text_length = 0            # drop OCR results shorter than this many chars
+ignore_bubble = 0              # >0 ignores non-bubble text under this area threshold
+
+[inpainter]
+inpainter = "lama_large"       # default | lama_large | lama_mpe | none
+inpainting_size = 2048
+inpainting_precision = "bf16"  # fp32 | fp16 | bf16
+
+[translator]
+provider = "openai"            # openai (OpenAI-compatible) | gemini | none
+model = "gpt-4o-mini"          # e.g. gpt-4o-mini, deepseek/deepseek-chat, openrouter models...
+api_base = ""                  # leave empty for the provider default, or set a custom endpoint
+                               # e.g. "https://openrouter.ai/api/v1" or a local server
+api_key = ""                   # YOUR KEY HERE — or leave empty and use the OPENAI_API_KEY env var
+target_lang = "CHS"            # CHS, CHT, ENG, JPN, KOR, ...
+source_lang = "auto"
+batch_chars = 1500             # approx chars per LLM request (1000–2000 recommended)
+context_pages = 1              # how many previously translated pages to send as context
+timeout = 120                  # per-request timeout (seconds)
+max_retries = 3
+
+[render]
+font_path = "fonts/GenEiAntiqueNv5-M.ttf"   # path to a font that covers your target language
+font_size_offset = 0                  # global font-size nudge (+/- pixels)
+font_size_minimum = 34                # lower bound so small text stays legible
+font_size_minimum_expand_limit = 2.5  # max box growth allowed to host the minimum font size
+line_spacing = 0                      # tighten line spacing so more text fits at a larger size
+direction = "auto"                    # auto | horizontal | vertical
+alignment = "auto"                    # auto | left | center | right
+uppercase = false
+lowercase = false
+disable_font_border = false           # keep the outline — key for legibility on any background
+no_hyphenation = false
+rtl = true                            # right-to-left reading order (typical for JP/CN manga)
+# Force a fixed text color. Good for pure black-and-white books (standardizes contrast),
+# but it overrides per-block detected colors — leave it commented out if your book has
+# color pages. Format: "FG" or "FG:STROKE" as hex.
+# font_color = "000000:FFFFFF"        # black text + white outline

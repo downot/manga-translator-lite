@@ -203,6 +203,59 @@
         .page-item:hover .page-del-btn { opacity: 1; }
         .page-del-btn:hover { background: rgba(255, 80, 80, 0.18); color: #ff5b5b; }
 
+        .page-info-btn {
+            flex: 0 0 auto;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            line-height: 1;
+            padding: 3px 5px;
+            border-radius: 4px;
+            opacity: 0.45;
+            transition: opacity 0.15s, background 0.15s, color 0.15s;
+        }
+        .page-item:hover .page-info-btn { opacity: 1; }
+        .page-info-btn:hover { background: rgba(59, 130, 246, 0.18); color: var(--accent); }
+
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-panel {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 10px; padding: 18px 20px;
+            min-width: 320px; max-width: 90vw; max-height: 85vh; overflow: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        .modal-panel h3 { margin: 0 0 12px; color: var(--accent); font-size: 1rem; }
+        .modal-row {
+            display: flex; gap: 12px; padding: 6px 0;
+            border-bottom: 1px solid var(--border); font-size: 0.82rem;
+        }
+        .modal-row:last-of-type { border-bottom: none; }
+        .modal-key { color: var(--text-secondary); flex: 0 0 92px; }
+        .modal-val { color: var(--text-primary); flex: 1; word-break: break-all; user-select: text; }
+        .modal-actions { margin-top: 14px; text-align: right; }
+        .modal-actions button {
+            padding: 6px 14px; border: none; border-radius: 6px;
+            background: var(--accent); color: #fff; cursor: pointer; font-size: 0.8rem;
+        }
+        .modal-actions button:hover { background: var(--accent-hover); }
+
+        #btn-edit-region.active { background: var(--accent); color: #fff; }
+        .block-actions { display: inline-flex; align-items: center; gap: 4px; }
+        .blk-size { color: var(--text-secondary); font-size: 0.7rem; }
+        .blk-bg-btn, .blk-del-btn {
+            border: none; background: transparent; cursor: pointer;
+            font-size: 0.8rem; line-height: 1; padding: 1px 4px; border-radius: 4px;
+            color: var(--text-secondary);
+        }
+        .blk-bg-btn:hover { background: var(--bg-hover); }
+        .blk-del-btn:hover { background: rgba(255, 80, 80, 0.18); color: #ff5b5b; }
+
         .list-item.active {
             background-color: var(--accent);
             color: white;
@@ -767,6 +820,12 @@
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </button>
+                <button id="btn-edit-region" class="secondary" data-i18n-title="btnEditRegion" title="Edit regions">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                    </svg>
+                </button>
             </div>
         </section>
 
@@ -814,9 +873,9 @@
 
     <script>
         const i18n = {
-            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: " },
-            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: " },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: " }
+            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）" },
+            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)" },
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）" }
         };
 
         function parseSimpleToml(text) {
@@ -1019,6 +1078,7 @@
             btnOpen: document.getElementById('btn-open'),
             btnReload: document.getElementById('btn-reload'),
             btnZoom: document.getElementById('btn-zoom'),
+            btnEditRegion: document.getElementById('btn-edit-region'),
             taskList: document.getElementById('task-list'),
             pageList: document.getElementById('page-list'),
             blocksContainer: document.getElementById('blocks-container'),
@@ -1129,8 +1189,6 @@
                 const mergedPages = [];
                 const mergedTranslations = {}; // lang -> { id: {text, edited} }
 
-                const usedFilenames = new Set();
-
                 for (const task of selectedTasksForMerge) {
                     const taskHandle = task.handle;
                     const pagesJsonHandle = await taskHandle.getFileHandle('pages.json');
@@ -1150,17 +1208,15 @@
                     // Merge pages
                     for (const page of taskData.pages) {
                         const oldImgName = page.clean.split('/').pop();
-                        let newImgName = oldImgName;
+                        const newPageIdx = mergedPages.length; // 0-based global position
 
-                        // Handle name conflict in clean folder
-                        if (usedFilenames.has(newImgName)) {
-                            const ext = oldImgName.split('.').pop();
-                            const base = oldImgName.substring(0, oldImgName.length - ext.length - 1);
-                            let i = 1;
-                            while (usedFilenames.has(`${base}_${i}.${ext}`)) i++;
-                            newImgName = `${base}_${i}.${ext}`;
-                        }
-                        usedFilenames.add(newImgName);
+                        // Unified sequential naming: every merged page is renamed
+                        // 0001.ext, 0002.ext, ... in reading order. This keeps a single
+                        // continuous ordering after render instead of per-chapter names
+                        // (001, 002 ...) that collide and interleave when sorted.
+                        const dot = oldImgName.lastIndexOf('.');
+                        const ext = dot >= 0 ? oldImgName.slice(dot) : '.png';
+                        const newImgName = `${String(newPageIdx + 1).padStart(4, '0')}${ext}`;
 
                         // Copy image
                         try {
@@ -1173,15 +1229,14 @@
                             console.warn(`Failed to copy image ${oldImgName} from task ${taskHandle.name}`, e);
                         }
 
-                        // Add to merged pages
+                        // Add to merged pages with the unified name / index.
                         const newPage = JSON.parse(JSON.stringify(page));
                         newPage.clean = `clean/${newImgName}`;
-                        // If there are other paths like 'in' or 'out', we might need to handle them,
-                        // but usually 'clean' is what matters for the editor.
+                        newPage.name = newImgName;
+                        newPage.index = newPageIdx;
 
                         // Re-key this page's block ids using its final (unique) position
                         // in the merged task, recording old->new so translations follow.
-                        const newPageIdx = mergedPages.length;
                         if (Array.isArray(newPage.blocks)) {
                             newPage.blocks.forEach((block, bIdx) => {
                                 const oldId = block.id;
@@ -1653,6 +1708,13 @@
                 label.title = page.name;
                 item.appendChild(label);
 
+                const info = document.createElement('button');
+                info.className = 'page-info-btn';
+                info.textContent = 'ℹ️';
+                info.title = t('btnPageInfo');
+                info.onclick = (e) => { e.stopPropagation(); showPageInfo(index); };
+                item.appendChild(info);
+
                 const del = document.createElement('button');
                 del.className = 'page-del-btn';
                 del.textContent = '🗑';
@@ -1665,6 +1727,58 @@
             });
             elements.totalPages.textContent = storage.currentTask.data.pages.length;
             elements.inputPage.max = storage.currentTask.data.pages.length;
+        }
+
+        // Show a popup with this page's file paths and metadata.
+        function showPageInfo(index) {
+            const page = storage.currentTask.data.pages[index];
+            const data = storage.currentTask.data;
+            const taskName = (storage.currentTask.handle && storage.currentTask.handle.name)
+                || data.task_name || storage.currentTask.name || '-';
+            const workName = (storage.workDirHandle && storage.workDirHandle.name) || '';
+            const cleanRel = page.clean || '-';
+            const fullPath = storage.isServer
+                ? `${taskName}/${cleanRel}`
+                : [workName, taskName, cleanRel].filter(Boolean).join('/');
+
+            const rows = [
+                [t('infoPage'), `P${index + 1} / ${data.pages.length}`],
+                [t('infoTask'), taskName],
+                [t('infoOriginal'), page.original || page.name || '-'],
+                [t('infoClean'), cleanRel],
+                [t('infoFullPath'), fullPath],
+                [t('infoSize'), page.size ? `${page.size[0]} × ${page.size[1]}` : '-'],
+                [t('infoBlocks'), String((page.blocks || []).length)],
+            ];
+            if (page.erase_regions && page.erase_regions.length)
+                rows.push([t('infoErase'), String(page.erase_regions.length)]);
+            if (page.no_text)
+                rows.push([t('infoNoText'), '✓']);
+
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            const panel = document.createElement('div');
+            panel.className = 'modal-panel';
+            const title = document.createElement('h3');
+            title.textContent = `${t('infoTitle')} — P${index + 1}`;
+            panel.appendChild(title);
+            rows.forEach(([k, v]) => {
+                const r = document.createElement('div'); r.className = 'modal-row';
+                const kk = document.createElement('div'); kk.className = 'modal-key'; kk.textContent = k;
+                const vv = document.createElement('div'); vv.className = 'modal-val'; vv.textContent = v;
+                r.appendChild(kk); r.appendChild(vv); panel.appendChild(r);
+            });
+            const actions = document.createElement('div'); actions.className = 'modal-actions';
+            const closeBtn = document.createElement('button'); closeBtn.textContent = t('infoClose');
+            actions.appendChild(closeBtn); panel.appendChild(actions);
+            overlay.appendChild(panel);
+
+            const onKey = (e) => { if (e.key === 'Escape') close(); };
+            function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+            closeBtn.onclick = close;
+            overlay.onclick = (e) => { if (e.target === overlay) close(); };
+            document.addEventListener('keydown', onKey);
+            document.body.appendChild(overlay);
         }
 
         async function savePagesJson() {
@@ -1796,6 +1910,7 @@
             document.getElementById('initial-state').style.display = 'none';
             const img = new Image();
             img.onload = () => {
+                currentImageEl = img;   // cache for lightweight redraw() during region edits
                 elements.canvas.width = img.width;
                 elements.canvas.height = img.height;
                 ctx.clearRect(0, 0, img.width, img.height);
@@ -1806,6 +1921,16 @@
                 if (!storage.isServer) URL.revokeObjectURL(url);
             };
             img.src = url;
+        }
+
+        // Lightweight repaint using the cached image (no reload) — used while dragging regions.
+        function redraw() {
+            if (!currentImageEl) return;
+            const page = storage.currentTask.data.pages[currentPageIndex];
+            if (!page) return;
+            ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+            ctx.drawImage(currentImageEl, 0, 0);
+            renderOverlays(page);
         }
 
 
@@ -1922,18 +2047,30 @@
                 ctx.rotate(angle);
                 ctx.translate(-centerX, -centerY);
 
-                // 2. Draw selection highlight (rotated)
-                if (bIndex === selectedBlockIndex) {
-                    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 4; ctx.setLineDash([8, 4]);
-                    ctx.strokeRect(x - 2, y - 2, w + 4, h + 4); ctx.setLineDash([]);
-                } else {
-                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)'; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
+                // 1b. White background preview (matches render's bg_fill="white").
+                if (block.bg_fill === 'white') {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(x, y, w, h);
                 }
 
-                // 3. Draw block index tag (reset rotation for text tag if desired, or keep it)
-                ctx.fillStyle = 'rgba(59, 130, 246, 0.8)'; ctx.fillRect(x, y - 22, 30, 20);
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif'; ctx.textBaseline = 'alphabetic';
-                ctx.fillText(`${bIndex + 1}`, x + 5, y - 7);
+                // 2. Draw region boundary (solid). Scale line width with the display so
+                // it stays clearly visible regardless of image size / zoom.
+                const s = _dispScale();
+                if (bIndex === selectedBlockIndex) {
+                    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = Math.max(2, 3 * s);
+                    ctx.strokeRect(x - 1, y - 1, w + 2, h + 2);
+                } else {
+                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.85)'; ctx.lineWidth = Math.max(1.5, 1.5 * s);
+                    ctx.strokeRect(x, y, w, h);
+                }
+
+                // 3. Draw block index tag (scaled with display so it stays legible).
+                const tagH = 22 * s, tagW = (12 + String(bIndex + 1).length * 9) * s, fz = 14 * s;
+                ctx.fillStyle = '#3b82f6'; ctx.fillRect(x, y - tagH, tagW, tagH);
+                ctx.fillStyle = '#fff'; ctx.font = `bold ${fz}px sans-serif`;
+                ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+                ctx.fillText(`${bIndex + 1}`, x + 6 * s, y - tagH / 2);
+                ctx.textBaseline = 'alphabetic';
 
                 // 4. Draw high-fidelity translated text
                 const rawText = storage.currentTask.translations[block.id]?.text;
@@ -2016,6 +2153,24 @@
                             startY += fs * 1.1;
                         });
                     }
+
+                    // Real text extent (what actually gets rendered) — helps you size the box.
+                    if (bIndex === selectedBlockIndex) {
+                        ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+                        ctx.strokeRect(renderX, renderY, renderW, renderH); ctx.setLineDash([]);
+                    }
+                }
+
+                // Resize handles for the selected block while editing boundaries.
+                if (editMode && bIndex === selectedBlockIndex) {
+                    const hh = 6 * _dispScale();
+                    const gxs = [x, x + w / 2, x + w], gys = [y, y + h / 2, y + h];
+                    ctx.fillStyle = '#3b82f6'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+                    gxs.forEach(gx => gys.forEach(gy => {
+                        if (gx === x + w / 2 && gy === y + h / 2) return; // skip center
+                        ctx.fillRect(gx - hh, gy - hh, hh * 2, hh * 2);
+                        ctx.strokeRect(gx - hh, gy - hh, hh * 2, hh * 2);
+                    }));
                 }
                 ctx.restore();
             });
@@ -2048,7 +2203,19 @@
                 const card = document.createElement('div');
                 card.className = 'block-card' + (bIndex === selectedBlockIndex ? ' selected' : '');
                 const transText = storage.currentTask.translations[block.id]?.text || "";
-                card.innerHTML = `<div class="block-info"><span>Block #${bIndex + 1}</span><span>${block.font_size}px</span></div><div class="original-text">${block.text || ''}</div><textarea placeholder="Translation...">${transText}</textarea>`;
+                const isWhite = block.bg_fill === 'white';
+                const bw = block.bbox ? block.bbox[2] : 0, bh = block.bbox ? block.bbox[3] : 0;
+                card.innerHTML = `<div class="block-info">`
+                    + `<span>Block #${bIndex + 1}${block.user_added ? ' ✎' : ''} · ${block.font_size}px</span>`
+                    + `<span class="block-actions">`
+                    + `<span class="blk-size">${bw}×${bh}</span>`
+                    + `<button class="blk-bg-btn" title="${isWhite ? t('tipBgWhite') : t('tipBgNone')}">${isWhite ? '⬜' : '▢'}</button>`
+                    + `<button class="blk-del-btn" title="${t('btnDeleteBlock')}">🗑</button>`
+                    + `</span></div>`
+                    + `<div class="original-text">${block.text || ''}</div>`
+                    + `<textarea placeholder="Translation...">${transText}</textarea>`;
+                card.querySelector('.blk-bg-btn').onclick = (ev) => { ev.stopPropagation(); toggleBlockBg(bIndex); };
+                card.querySelector('.blk-del-btn').onclick = (ev) => { ev.stopPropagation(); deleteBlockAt(bIndex); };
                 const textarea = card.querySelector('textarea');
                 textarea.oninput = () => {
                     storage.currentTask.translations[block.id] = { text: textarea.value, edited: true };
@@ -2124,6 +2291,7 @@
         function updateLanguage(lang) {
             currentLang = lang; localStorage.setItem('editor-lang', lang);
             document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (i18n[lang][k]) el.textContent = i18n[lang][k]; });
+            document.querySelectorAll('[data-i18n-title]').forEach(el => { const k = el.getAttribute('data-i18n-title'); if (i18n[lang][k]) el.title = i18n[lang][k]; });
         }
         function t(key, vars = {}) {
             let str = i18n[currentLang][key] || key;
@@ -2162,20 +2330,169 @@
             }
         }
 
-        elements.canvas.onclick = (e) => {
-            const rect = elements.canvas.getBoundingClientRect();
-            const x = (e.clientX - rect.left) * (elements.canvas.width / rect.width);
-            const y = (e.clientY - rect.top) * (elements.canvas.height / rect.height);
-            const blocks = storage.currentTask.data.pages[currentPageIndex].blocks || [];
-            let found = -1;
+        // ===== Region editing: draw / move / resize block boxes =====
+        let editMode = false;
+        let currentImageEl = null;   // cached page image, set by renderPage()
+        let drag = null;             // active drag operation
+
+        function _dispScale() {
+            const r = elements.canvas.getBoundingClientRect();
+            return r.width ? (elements.canvas.width / r.width) : 1;
+        }
+        function canvasToImg(e) {
+            const r = elements.canvas.getBoundingClientRect();
+            const scale = r.width ? (elements.canvas.width / r.width) : 1;
+            return { x: (e.clientX - r.left) * scale, y: (e.clientY - r.top) * (elements.canvas.height / r.height), scale };
+        }
+        function hitHandle(rect, x, y, tol) {
+            const { minX, minY, maxX, maxY } = rect, cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+            const H = { nw: [minX, minY], n: [cx, minY], ne: [maxX, minY], w: [minX, cy], e: [maxX, cy], sw: [minX, maxY], s: [cx, maxY], se: [maxX, maxY] };
+            for (const k in H) if (Math.abs(x - H[k][0]) <= tol && Math.abs(y - H[k][1]) <= tol) return k;
+            return null;
+        }
+        function hitTestBlock(blocks, x, y) {
             for (let i = blocks.length - 1; i >= 0; i--) {
                 const r = getRect(blocks[i].polygon);
-                if (x >= r.minX && x <= r.maxX && y >= r.minY && y <= r.maxY) { found = i; break; }
+                if (x >= r.minX && x <= r.maxX && y >= r.minY && y <= r.maxY) return i;
             }
-            if (found !== -1) {
-                selectBlock(found);
+            return -1;
+        }
+        function setBlockRect(b, minX, minY, maxX, maxY) {
+            minX = Math.max(0, Math.round(minX)); minY = Math.max(0, Math.round(minY));
+            maxX = Math.min(elements.canvas.width, Math.round(maxX)); maxY = Math.min(elements.canvas.height, Math.round(maxY));
+            if (maxX - minX < 2) maxX = minX + 2;
+            if (maxY - minY < 2) maxY = minY + 2;
+            const poly = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
+            b.polygon = poly; b.lines = [poly]; b.bbox = [minX, minY, maxX - minX, maxY - minY];
+        }
+        function createUserBlock(r) {
+            const id = 'u' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+            const b = { id, text: '', ocr_text: '', font_size: Math.max(12, Math.round((r.maxY - r.minY) * 0.6)),
+                angle: 0, fg_color: [0, 0, 0], bg_color: [255, 255, 255], direction: 'auto', alignment: 'auto',
+                prob: 1.0, bg_fill: 'white', user_added: true, fixed_region: true, polygon: [], lines: [], bbox: [0, 0, 0, 0] };
+            setBlockRect(b, r.minX, r.minY, r.maxX, r.maxY);
+            return b;
+        }
+        function persistGeometry() {
+            savePagesJson().catch(e => showToast('Save failed: ' + e.message));
+        }
+        function toggleBlockBg(bIndex) {
+            const b = storage.currentTask.data.pages[currentPageIndex].blocks[bIndex]; if (!b) return;
+            b.bg_fill = (b.bg_fill === 'white') ? 'none' : 'white';
+            persistGeometry(); renderBlockEditors(); renderPage();
+        }
+        function deleteBlockAt(bIndex) {
+            const page = storage.currentTask.data.pages[currentPageIndex];
+            const b = page.blocks[bIndex]; if (!b) return;
+            if (!confirm(t('confirmDeleteBlock'))) return;
+            delete storage.currentTask.translations[b.id];
+            page.blocks.splice(bIndex, 1);
+            if (selectedBlockIndex >= page.blocks.length) selectedBlockIndex = page.blocks.length - 1;
+            persistGeometry(); storage.saveTranslations().catch(() => {});
+            renderBlockEditors(); renderPage();
+        }
+        function toggleEditMode() {
+            editMode = !editMode;
+            elements.btnEditRegion.classList.toggle('active', editMode);
+            elements.canvas.style.cursor = editMode ? 'crosshair' : 'default';
+            showToast(t(editMode ? 'editModeOn' : 'editModeOff'));
+            renderPage();
+        }
+        elements.btnEditRegion.onclick = toggleEditMode;
+
+        const HANDLE_CURSOR = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize',
+            n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' };
+
+        // Hover feedback: show resize cursors over the selected block's handles and a
+        // move cursor over a block body, so small regions are easy to grab.
+        function updateHoverCursor(e) {
+            if (!editMode || drag || !storage.currentTask || currentPageIndex < 0) return;
+            const { x, y, scale } = canvasToImg(e);
+            const blocks = storage.currentTask.data.pages[currentPageIndex].blocks || [];
+            let cur = 'crosshair';
+            if (selectedBlockIndex >= 0 && blocks[selectedBlockIndex]) {
+                const h = hitHandle(getRect(blocks[selectedBlockIndex].polygon), x, y, 8 * scale);
+                if (h) cur = HANDLE_CURSOR[h];
             }
-        };
+            if (cur === 'crosshair' && hitTestBlock(blocks, x, y) !== -1) cur = 'move';
+            elements.canvas.style.cursor = cur;
+        }
+        elements.canvas.addEventListener('mousemove', updateHoverCursor);
+
+        elements.canvas.addEventListener('mousedown', (e) => {
+            if (!storage.currentTask || currentPageIndex < 0) return;
+            const { x, y, scale } = canvasToImg(e);
+            const blocks = storage.currentTask.data.pages[currentPageIndex].blocks || [];
+            if (!editMode) {
+                const f = hitTestBlock(blocks, x, y);
+                if (f !== -1) selectBlock(f);
+                return;
+            }
+            const tol = 8 * scale;
+            if (selectedBlockIndex >= 0 && blocks[selectedBlockIndex]) {
+                const r = getRect(blocks[selectedBlockIndex].polygon);
+                const h = hitHandle(r, x, y, tol);
+                if (h) { drag = { type: 'resize', handle: h, blockIndex: selectedBlockIndex, orig: r }; elements.canvas.style.cursor = HANDLE_CURSOR[h]; e.preventDefault(); return; }
+            }
+            const f = hitTestBlock(blocks, x, y);
+            if (f !== -1) {
+                selectBlock(f);
+                drag = { type: 'move', blockIndex: f, startX: x, startY: y, orig: getRect(blocks[f].polygon) };
+                elements.canvas.style.cursor = 'move';
+                e.preventDefault(); return;
+            }
+            drag = { type: 'new', startX: x, startY: y, cur: { minX: x, minY: y, maxX: x, maxY: y } };
+            elements.canvas.style.cursor = 'crosshair';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!drag) return;
+            const { x, y } = canvasToImg(e);
+            const blocks = storage.currentTask.data.pages[currentPageIndex].blocks;
+            if (drag.type === 'resize') {
+                let { minX, minY, maxX, maxY } = drag.orig;
+                if (drag.handle.includes('w')) minX = x;
+                if (drag.handle.includes('e')) maxX = x;
+                if (drag.handle.includes('n')) minY = y;
+                if (drag.handle.includes('s')) maxY = y;
+                setBlockRect(blocks[drag.blockIndex], Math.min(minX, maxX), Math.min(minY, maxY), Math.max(minX, maxX), Math.max(minY, maxY));
+                redraw();
+            } else if (drag.type === 'move') {
+                const dx = x - drag.startX, dy = y - drag.startY;
+                setBlockRect(blocks[drag.blockIndex], drag.orig.minX + dx, drag.orig.minY + dy, drag.orig.maxX + dx, drag.orig.maxY + dy);
+                redraw();
+            } else if (drag.type === 'new') {
+                drag.cur = { minX: Math.min(drag.startX, x), minY: Math.min(drag.startY, y), maxX: Math.max(drag.startX, x), maxY: Math.max(drag.startY, y) };
+                redraw();
+                ctx.save(); ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+                ctx.strokeRect(drag.cur.minX, drag.cur.minY, drag.cur.maxX - drag.cur.minX, drag.cur.maxY - drag.cur.minY);
+                ctx.restore();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!drag) return;
+            const page = storage.currentTask.data.pages[currentPageIndex];
+            if (drag.type === 'new') {
+                const r = drag.cur;
+                if ((r.maxX - r.minX) > 5 && (r.maxY - r.minY) > 5) {
+                    page.blocks.push(createUserBlock(r));
+                    selectedBlockIndex = page.blocks.length - 1;
+                    persistGeometry(); renderBlockEditors(); renderPage();
+                } else {
+                    // Click (no real drag) on empty space → deselect, so the bold
+                    // selection border clears and you can see the result cleanly.
+                    selectedBlockIndex = -1;
+                    renderBlockEditors(); renderPage();
+                }
+            } else if (drag.type === 'resize' || drag.type === 'move') {
+                const b = page.blocks[drag.blockIndex];
+                if (b) { b.fixed_region = true; persistGeometry(); renderBlockEditors(); }
+            }
+            drag = null;
+            if (editMode) elements.canvas.style.cursor = 'crosshair';
+        });
 
         let activeFocusArea = 'pages';
 

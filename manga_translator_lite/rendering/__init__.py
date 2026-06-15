@@ -111,14 +111,19 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
     dst_points_list = []
 
     for region in text_regions:
+        # User-sized boxes must not be auto-expanded; shrink the font instead, down
+        # to a small hard floor, so the text always fits the box the user drew.
+        fixed = getattr(region, 'fixed_region', False)
+        region_min = 4 if fixed else font_size_minimum
+
         # --- 1. Determine the font-size search range -----------------------
-        original_fs = region.font_size if region.font_size > 0 else font_size_minimum
+        original_fs = region.font_size if region.font_size > 0 else region_min
 
         if font_size_fixed is not None:
             fs_upper = font_size_fixed
         else:
             fs_upper = original_fs + font_size_offset
-        fs_upper = max(fs_upper, font_size_minimum, 1)
+        fs_upper = max(fs_upper, region_min, 1)
 
         # Region dimensions (unrotated)
         max_w, max_h = region.unrotated_size
@@ -133,7 +138,7 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
             search_upper = int(fs_upper * 1.2)
             target_font_size = _find_optimal_font_size(
                 region.translation, max_w, max_h,
-                is_horiz, font_size_minimum, search_upper, lang, line_sp or 0.01
+                is_horiz, region_min, search_upper, lang, line_sp or 0.01
             )
         else:
             target_font_size = fs_upper
@@ -148,8 +153,8 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
         scale_x = 1.0
         scale_y = 1.0
 
-        if fits:
-            # Text fits → use the original bounding box (no expansion).
+        if fits or fixed:
+            # Text fits, or this is a user-fixed box we must never expand → keep the box.
             dst_points = region.min_rect
         else:
             # Text does NOT fit even at font_size_minimum.

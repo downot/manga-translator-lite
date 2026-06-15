@@ -51,7 +51,8 @@
 
 ```bash
 pip install -r requirements.txt          # Python >= 3.10 推奨
-cp examples/Example.env .env             # OPENAI_API_KEY または GEMINI_API_KEY を追加
+cp config.toml.sample config.toml        # その後 [translator] api_key を記入（環境変数でも可）
+cp examples/Example.env .env             # 任意: 代わりに .env の OPENAI_API_KEY / GEMINI_API_KEY を使用
 
 # エンドツーエンド実行
 python -m manga_translator_lite run -i ./in -w ./work -o ./out
@@ -62,37 +63,106 @@ python -m manga_translator_lite translate ./work
 python -m manga_translator_lite render ./work -o ./out
 ```
 
+## コマンドリファレンス
+
+すべてのコマンドは `python -m manga_translator_lite <コマンド> [オプション]` で実行します。
+
+**共通オプション**（`extract`・`translate`・`render`・`run` で利用可能）：
+
+| オプション | 説明 |
+|---|---|
+| `-c, --config <パス>` | 設定ファイル（`.toml`/`.json`）のパス。省略時は `./config.toml`（または `config.json`）を自動使用。 |
+| `--target-lang <コード>` | `translator.target_lang` を上書き（例: `CHS`、`ENG`、`JPN`、`KOR`）。 |
+| `-v, --verbose` | 詳細ログと中間診断情報。 |
+
+### `extract` — ステップ1：検出 / OCR / インペイント → ワークスペース
+
+| 引数 | 説明 |
+|---|---|
+| `-i, --input <パス>` *(必須)* | 入力画像ファイル、または画像 / サブタスクフォルダを含むディレクトリ。 |
+| `-w, --work-dir <パス>` *(必須)* | 作成または更新するワークスペースディレクトリ。 |
+| `--overwrite` | 既存でも全画像を再抽出。既存の翻訳は空間 IoU マッチングで引き継ぎ保持。 |
+
+### `translate` — ステップ2：LLM を呼び出して翻訳を埋める
+
+| 引数 | 説明 |
+|---|---|
+| `work_dir` *(位置引数・必須)* | 既存のワークスペースディレクトリ。 |
+| `--overwrite` | 既訳のブロックも再翻訳。**手動編集されたブロック（`edited: true`）は保持されます**。 |
+| `--start-index <n>` | このページインデックスから（再）翻訳を開始。それ以前のページは文脈としてのみ使用。 |
+
+### `render` — ステップ3：翻訳をクリーン画像に描画
+
+| 引数 | 説明 |
+|---|---|
+| `work_dir` *(位置引数・必須)* | 既存のワークスペースディレクトリ。 |
+| `-o, --output <パス>` *(必須)* | 最終画像の出力ディレクトリ。 |
+| `--check` | 描画前にスペル / 流暢さ校正チェックを強制実行。 |
+| `--no-check` | 校正チェックを完全にスキップ。 |
+| `-y, --yes` | すべての校正提案を自動承認・適用。 |
+
+### `run` — 抽出 + 翻訳 + 描画 を一括実行
+
+上記オプションの和集合を受け付けます：`-i/--input`、`-w/--work-dir`、`-o/--output` *(すべて必須)*、および `--overwrite`、`--check`、`--no-check`、`-y/--yes`。
+
+### `config-help` — 設定ファイルの JSON スキーマを出力
+
+```bash
+python -m manga_translator_lite config-help
+```
+
+### エディタサーバー (`server.py`)
+
+| オプション | 既定値 | 説明 |
+|---|---|---|
+| `-w, --work-dir <パス>` | `work` | 提供するワークスペースディレクトリ。 |
+| `-p, --port <n>` | `8000` | リッスンするポート。 |
+| `--host <アドレス>` | `0.0.0.0` | バインドアドレス（`127.0.0.1` でローカルのみに制限）。 |
+| `--log-file <パス>` | `server.log` | サーバーログファイルのパス。 |
+
+---
+
 ## 設定
 
-単一の TOML または JSON ファイルを使用します。すべてのセクションはオプションです。
+パイプラインは単一の TOML（または JSON）ファイルを読み込みます。最も簡単なのは、注釈付きのサンプルをコピーして編集する方法です：
+
+```bash
+cp config.toml.sample config.toml   # その後 [translator] api_key を記入
+```
+
+`config.toml` は git 管理対象外（gitignore 済み）なので、キーがコミットされることはありません。全オプションの注釈付き説明は **[config.toml.sample](config.toml.sample)** を参照してください。すべてのセクションはオプションです。最小例：
 
 ```toml
 use_gpu = true
 
 [detector]
-detector = "default"        # オプション: default | dbconvnext | ctd | craft | paddle
+detector = "ctd"            # オプション: default | dbconvnext | ctd | craft | paddle | none
 detection_size = 2048
 
 [ocr]
 ocr = "48px"                # オプション: 32px | 48px | 48px_ctc | mocr
 
 [translator]
-provider = "openai"          # オプション: openai | gemini
+provider = "openai"          # オプション: openai | gemini | none
 model = "gpt-4o-mini"
-api_base = "https://api.openai.com/v1"
+api_base = ""                # 空でプロバイダ既定値、または例: https://openrouter.ai/api/v1
+api_key = ""                 # 空のままにして環境変数 OPENAI_API_KEY を使うことも可能
 target_lang = "JPN"
-batch_chars = 1500           # 1リクエストあたりの文字数
-context_pages = 2            # 文脈として送信する過去のページ数
+batch_chars = 1500           # 1リクエストあたり約 1000–2000 文字
+context_pages = 1            # 文脈として送信する過去のページ数
 
 [render]
 font_size_offset = 0
-font_size_minimum = 18       # テキストが小さくなりすぎるのを防ぐための最小許容フォントサイズ
-font_size_minimum_expand_limit = 1.5  # テキストが収まらない場合にテキストボックスを拡大する最大スケール比率
+font_size_minimum = 34       # 小さい文字も読めるようにする最小フォントサイズ
+font_size_minimum_expand_limit = 2.5  # 最小フォントを収めるためにボックスを拡大できる最大倍率
+line_spacing = 0             # 行間を詰めて、同じ領域により大きな文字を収める
 direction = "auto"           # オプション: auto | horizontal | vertical
 alignment = "auto"
+disable_font_border = false  # 縁取りを維持——あらゆる背景での可読性の鍵
+# font_color = "000000:FFFFFF"  # 黒文字+白縁取り。完全な白黒作品のみ推奨
 ```
 
-`provider = "openai"` は、DeepSeek、Groq、Ollama など、OpenAI 互換のすべてのエンドポイントをサポートします。API キーは `[translator] api_key` または `.env` (`OPENAI_API_KEY` / `GEMINI_API_KEY`) で設定できます。
+`provider = "openai"` は、DeepSeek、OpenRouter、Groq、Ollama など、OpenAI 互換のすべてのエンドポイントをサポートします。API キーは `[translator] api_key` または `.env` (`OPENAI_API_KEY` / `GEMINI_API_KEY`) で設定できます。
 
 ## ビジュアルエディタ (実験的)
 
@@ -115,6 +185,21 @@ alignment = "auto"
 エディタを開くには以下の2つの方法があります：
 1. **サーバーレス・ローカルモード**: ブラウザで `editor.html` を直接開きます。**「Workディレクトリを開く」** をクリックし、`work` フォルダを選択します。（最新の HTML5 File System Access API を使用しており、ローカル環境のみで安全に直接ディスク上のファイルを読み書きできます。Chrome/Edge 推奨）。
 2. **スタンドアロン・サーバーモード**: コマンドラインから `python server.py -w ./work` を実行し、ブラウザで `http://localhost:8000/editor.html` を開きます。
+
+### エディタのツール（領域 / ページ / 合併）
+
+エディタは翻訳入力欄だけでなく、レイアウトや座標も直接修正できます：
+
+- **領域編集**：zoom の隣の ✎ ボタンで境界編集をロック解除。その後：
+  - **ハンドル**をドラッグでサイズ変更、**本体**をドラッグで移動（カーソルで操作が分かります）；
+  - **空白をドラッグ**で新規領域を作成（既定で白背景）；
+  - **青枠** = 検出されたテキスト領域（翻訳を収める枠）、**緑の破線** = 実際に描画される文字範囲。これを見て枠を調整すれば吹き出し内の文字サイズを制御できます；
+  - 手動調整した枠は *fixed* となり、描画時に文字はその枠に収められ **自動拡大されません**。
+- **ブロックごとの背景**：各ブロックに ⬜/▢ トグル。**白**は文字の下に白い矩形を敷く（残留/元の内容を隠す）、**透明**は文字のみ描画。🗑 でブロック削除。
+- **ページ管理**：各ページ行に ℹ️（パス・メタデータのポップアップ）と 🗑（そのページとブロック・全言語の翻訳・clean 画像を削除。二重確認）。
+- **タスク合併**：**合併**をクリックし、繋げたい順にタスクを選択（順序バッジ 1·2·3 が表示）、**確認**。ページは連番にリネームされ、合併出力は単一の連続した読み順を保ちます。
+
+座標の変更は即時 `pages.json` に保存され、翻訳は **保存** ボタンで保存します。完了後 `render` を再実行して最終画像を生成します。
 
 ---
 
@@ -174,6 +259,32 @@ python server.py -w ./work -p 8000
 * **対話モード (TTY接続時のデフォルト)**: 提案内容を1つずつ確認するように求められます。承認（`y`）、却下（`n`）、手動編集（`e`）、またはレビューの終了（`q`）を選択できます。
 * **自動適用 (`--check -y` または `--check --yes`)**: ユーザー確認なしで、すべての LLM 校正提案を自动的に承認して適用します。
 * **強制 / スキップ**: `--check` オプションを指定して校正プロセスを強制的に実行するか、`--no-check` オプションで校正を完全にスキップします。
+
+---
+
+## 残留した原文の修正（`reclean.py`）
+
+インペイント後、吹き出し周辺に元のテキストの断片（OCR が非テキストと判定した記号や手書き仮名）が残ることがあります。`reclean.py` はパイプライン全体を再実行せずにそれらを再消去します——翻訳とその位置はそのままです。
+
+```bash
+# ドリフトなし：clean 画像上で残留を再検出して消去。blocks/翻訳は変更しない（位置ずれなし）
+python reclean.py work/<タスク> --redetect
+
+# その後に再レンダリング
+python -m manga_translator_lite render work/<タスク> -o out
+```
+
+| オプション | 説明 |
+|---|---|
+| `--redetect` | clean 画像上で残留を再検出して消去。blocks/翻訳には触れない。**抽出後に設定を変えた場合に最適** |
+| `--pages 3,7` | これらのページのみ（1 始まり、エディタ表示と一致） |
+| `--dilation <px>` | ジオメトリモードのマスク拡張（既定 35）。`--redetect` では無視 |
+| `--backup` / `--no-backup` | 編集前にタスクの `clean/` をバージョン付き `clean.bak.NNN` にスナップショット（既定オン） |
+| `--max-backups <n>` | タスクごとに保持する最大バックアップ数 |
+
+同じ `config.toml` を読むため、`[detector]` の調整（`text_threshold` を下げる、`det_gamma_correct` を有効化など）で消去精度が上がります。
+
+> `extract` は今や**検出された全領域**（翻訳ルールが弾いた記号/手書きを含む）を消去し、弾いた領域を `pages.json` の `erase_regions` に記録します。よって新規の `extract --overwrite` で残留の大半は消えます。`reclean.py` は既存タスクの手直し用です。
 
 ---
 

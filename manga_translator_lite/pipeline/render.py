@@ -59,28 +59,10 @@ def _block_to_textblock(block: Block, translation_text: str, target_lang: str, r
     )
     tb.block_id = block.id
     tb.text_raw = block.text
+    tb.fixed_region = block.fixed_region  # user-sized box → renderer must not auto-expand it
     if render_cfg.font_color_bg is not None:
         tb.adjust_bg_color = False
     return tb
-
-
-def _unique_out_name(name: str, used: set) -> str:
-    """Return an output filename that does not collide with ones already used.
-
-    ``page.name`` is the original basename and is **not** unique once tasks are
-    merged (two chapters can both contain ``01.jpg``). Disambiguate on collision
-    so every page produces its own output file instead of overwriting another.
-    """
-    if name not in used:
-        used.add(name)
-        return name
-    base, ext = os.path.splitext(name)
-    k = 1
-    while f"{base}_{k}{ext}" in used:
-        k += 1
-    new_name = f"{base}_{k}{ext}"
-    used.add(new_name)
-    return new_name
 
 
 async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, translations: dict, out_name: str) -> Optional[str]:
@@ -114,6 +96,15 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
         return None
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
+    # White-fill pass: paint white behind blocks flagged bg_fill="white" (covers
+    # residual/original content). Done before drawing text so the text sits on top.
+    white_blocks = [b for b in page.blocks
+                    if getattr(b, 'bg_fill', 'none') == 'white' and b.polygon]
+    for b in white_blocks:
+        pts = np.array(b.polygon, dtype=np.int32).reshape(-1, 2)
+        if len(pts) >= 3:
+            cv2.fillPoly(img_rgb, [pts], (255, 255, 255))
+
     blocks_to_render: List[tuple[Block, str]] = []
     for b in page.blocks:
         t = translations.get(b.id)
@@ -121,10 +112,14 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
             blocks_to_render.append((b, t.text))
 
     if not blocks_to_render:
-        logger.info(f"[page {page.index}] no translated blocks, copying clean image as-is")
-        shutil.copy2(clean_path, out_path)
-        logger.info(f"[page {page.index}] → {out_path}")
-        return out_path
+        if not white_blocks:
+            logger.info(f"[page {page.index}] no translated blocks, copying clean image as-is")
+            shutil.copy2(clean_path, out_path)
+            logger.info(f"[page {page.index}] → {out_path}")
+            return out_path
+        # White fills changed the image but there is no text to draw → save the filled image.
+        logger.info(f"[page {page.index}] white-fill only ({len(white_blocks)} region(s)), no text")
+        rendered_rgb = img_rgb
     else:
         text_regions: List[TextBlock] = [
             _block_to_textblock(b, text, ws.target_lang, cfg.render) for b, text in blocks_to_render
@@ -189,10 +184,17 @@ async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cf
     # Load translations for the target language
     translations = load_translations(workspace.root, workspace.target_lang)
 
+    # If basenames are not unique (e.g. merged chapters that each contain 01.jpg),
+    # naming outputs by basename would either overwrite pages or, with a numeric
+    # suffix, interleave them when the folder is sorted by name. In that case
+    # prefix every output with its reading-order index so the directory always
+    # sorts in page order. Unique names are left untouched.
+    names = [p.name for p in workspace.pages]
+    has_dupes = len(set(names)) != len(names)
+
     written: List[str] = []
-    used_names: set = set()
-    for page in workspace.pages:
-        out_name = _unique_out_name(page.name, used_names)
+    for i, page in enumerate(workspace.pages):
+        out_name = f"{i + 1:04d}_{page.name}" if has_dupes else page.name
         path = await _render_page(page, workspace, cfg, task_out_dir, translations, out_name)
         if path:
             written.append(path)

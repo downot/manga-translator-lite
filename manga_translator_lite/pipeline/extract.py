@@ -109,6 +109,12 @@ def _bbox_xywh(region: TextBlock) -> List[int]:
     return [int(x), int(y), int(w), int(h)]
 
 
+def _quad_from_textline(textline) -> List[List[int]]:
+    """4-point polygon of a detected text line (for erase-only region records)."""
+    pts = np.array(textline.pts).reshape(-1, 2)
+    return [[int(p[0]), int(p[1])] for p in pts[:4]]
+
+
 def _serialise_block(region: TextBlock, page_idx: int, block_idx: int) -> Block:
     fg, bg = region.get_font_colors()
     lines = [
@@ -183,46 +189,51 @@ async def _process_image(
             no_text=True,
         )
 
-    # 2. OCR
-    textlines = await dispatch_ocr(cfg.ocr.ocr, img_rgb, textlines, cfg.ocr, device, verbose)
-    textlines = [tl for tl in textlines if tl.text and tl.text.strip()]
+    # 2. OCR — keep every detected line. OCR text may be empty for handwriting/symbols;
+    # those lines are still erased below (just not translated).
+    ocr_textlines = await dispatch_ocr(cfg.ocr.ocr, img_rgb, textlines, cfg.ocr, device, verbose)
 
-    if not textlines:
-        logger.info(f"[page {page_idx}] OCR empty — marked as no_text, copying original")
-        shutil.copy2(img_path, clean_abs)
-        return Page(
-            index=page_idx,
-            name=os.path.basename(img_path),
-            size=(w, h),
-            original=os.path.basename(img_path),
-            clean=clean_rel,
-            blocks=[],
-            no_text=True,
-        )
+    min_len = cfg.ocr.min_text_length
 
-    # 3. textline merge → regions
-    text_regions = await dispatch_textline_merge(textlines, w, h, verbose=verbose)
-    text_regions = [r for r in text_regions if r.text and is_valuable_text(r.text)
-                    and len(r.text) >= cfg.ocr.min_text_length]
-    text_regions = sort_regions(
-        text_regions,
-        right_to_left=cfg.render.rtl,
-        img=img_rgb,
-        force_simple_sort=cfg.force_simple_sort,
-    )
+    def _is_translatable(tl) -> bool:
+        return bool(tl.text and tl.text.strip() and is_valuable_text(tl.text)
+                    and len(tl.text) >= min_len)
 
-    # 4. mask refinement
-    if mask is None and text_regions:
-        mask = await dispatch_mask_refinement(
+    # 3a. Translation set (rules unchanged): valuable OCR → merge → valuable filter → sort.
+    valuable_textlines = [tl for tl in ocr_textlines if tl.text and tl.text.strip()]
+    if valuable_textlines:
+        text_regions = await dispatch_textline_merge(valuable_textlines, w, h, verbose=verbose)
+        text_regions = [r for r in text_regions if r.text and is_valuable_text(r.text)
+                        and len(r.text) >= min_len]
+        text_regions = sort_regions(
             text_regions,
-            img_rgb,
-            mask_raw if mask_raw is not None else np.zeros((h, w), dtype=np.uint8),
-            'fit_text',
-            cfg.mask_dilation_offset,
-            cfg.ocr.ignore_bubble,
-            verbose,
-            cfg.kernel_size,
+            right_to_left=cfg.render.rtl,
+            img=img_rgb,
+            force_simple_sort=cfg.force_simple_sort,
         )
+    else:
+        text_regions = []
+
+    # 3b. Erase-only regions = detected lines rejected by the translation rules
+    # (empty OCR, symbols, handwritten kana). Recorded for reclean; still erased below.
+    erase_only_quads = [_quad_from_textline(tl) for tl in ocr_textlines if not _is_translatable(tl)]
+
+    # 4. mask refinement — build the erase mask from ALL detected lines (translate set ∪
+    # erase-only set), so residual non-translated text gets inpainted too. mask_refinement
+    # needs merged TextBlocks (it reads .lines), so merge every detected line first.
+    if mask is None and ocr_textlines:
+        erase_blocks = await dispatch_textline_merge(ocr_textlines, w, h, verbose=verbose)
+        if erase_blocks:
+            mask = await dispatch_mask_refinement(
+                erase_blocks,
+                img_rgb,
+                mask_raw if mask_raw is not None else np.zeros((h, w), dtype=np.uint8),
+                'fit_text',
+                cfg.mask_dilation_offset,
+                cfg.ocr.ignore_bubble,
+                verbose,
+                cfg.kernel_size,
+            )
 
     # 5. inpainting
     inpaint_done = False
@@ -263,21 +274,11 @@ async def _process_image(
             logger.warning(f"[page {page_idx}] PIL save failed for {clean_abs}, fallback to cv2: {e}")
             cv2_imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
 
-    logger.info(f"[page {page_idx}] saved clean → {clean_rel} ({len(text_regions)} blocks)")
-
-    # If textline merge + filtering produced no valuable blocks, mark as no_text
-    if not text_regions:
-        return Page(
-            index=page_idx,
-            name=os.path.basename(img_path),
-            size=(w, h),
-            original=os.path.basename(img_path),
-            clean=clean_rel,
-            blocks=[],
-            no_text=True,
-        )
+    logger.info(f"[page {page_idx}] saved clean → {clean_rel} "
+                f"({len(text_regions)} blocks, {len(erase_only_quads)} erase-only)")
 
     blocks = [_serialise_block(r, page_idx, i) for i, r in enumerate(text_regions)]
+    # no_text only when there is nothing to translate AND nothing was erased.
     return Page(
         index=page_idx,
         name=os.path.basename(img_path),
@@ -285,6 +286,8 @@ async def _process_image(
         original=os.path.basename(img_path),
         clean=clean_rel,
         blocks=blocks,
+        erase_regions=erase_only_quads,
+        no_text=(not blocks and not erase_only_quads),
     )
 
 
@@ -324,6 +327,11 @@ def _merge_task_translations(workspace: Workspace, existing_pages: Dict[str, Pag
             if fname in existing_pages:
                 old_p = existing_pages[fname]
                 for new_b in new_p.blocks:
+                    # Manually added blocks keep their stable id → carry translation by id.
+                    if getattr(new_b, 'user_added', False):
+                        if new_b.id in old_trans:
+                            new_trans[new_b.id] = old_trans[new_b.id]
+                        continue
                     best_iou = 0.0
                     best_old_b_id = None
                     for old_b in old_p.blocks:
@@ -331,11 +339,28 @@ def _merge_task_translations(workspace: Workspace, existing_pages: Dict[str, Pag
                         if iou > best_iou:
                             best_iou = iou
                             best_old_b_id = old_b.id
-                    
+
                     if best_iou > 0.3 and best_old_b_id in old_trans:
                         new_trans[new_b.id] = old_trans[best_old_b_id]
-        
+
         save_translations(workspace.root, lang, new_trans)
+
+
+def _reinsert_user_blocks(workspace: Workspace, existing_pages: Dict[str, Page]) -> int:
+    """Carry manually-added (user_added) blocks from the old workspace into the
+    freshly re-extracted pages, matched by original filename. Re-detection never
+    produces these, so without this they would be lost on ``--overwrite``."""
+    restored = 0
+    for new_p in workspace.pages:
+        fname = os.path.basename(new_p.original)
+        old_p = existing_pages.get(fname)
+        if not old_p:
+            continue
+        for ob in old_p.blocks:
+            if getattr(ob, 'user_added', False):
+                new_p.blocks.append(ob)
+                restored += 1
+    return restored
 
 def _normalize_block_ids(workspace: Workspace) -> Dict[str, str]:
     """Rewrite block ids so they match each page's final index/position.
@@ -347,8 +372,12 @@ def _normalize_block_ids(workspace: Workspace) -> Dict[str, str]:
     """
     id_map: Dict[str, str] = {}
     for page in workspace.pages:
-        for j, blk in enumerate(page.blocks):
-            new_id = block_id(page.index, j)
+        det_idx = 0  # count detected blocks only; user_added blocks keep their stable id
+        for blk in page.blocks:
+            if getattr(blk, 'user_added', False):
+                continue
+            new_id = block_id(page.index, det_idx)
+            det_idx += 1
             if blk.id != new_id:
                 id_map[blk.id] = new_id
                 blk.id = new_id
@@ -432,6 +461,10 @@ async def _extract_task(
                 raise
 
     if overwrite and existing_pages:
+        # Preserve manually-added blocks across the re-extraction, then migrate translations.
+        restored = _reinsert_user_blocks(workspace, existing_pages)
+        if restored:
+            logger.info(f"[task: {task_name}] Preserved {restored} manually-added block(s) across re-extract")
         _merge_task_translations(workspace, existing_pages)
 
     # Keep block ids consistent with final page positions and carry translations along.

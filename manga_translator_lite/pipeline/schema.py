@@ -65,6 +65,9 @@ class Block:
     direction: str = "auto"               # auto | h | v | hr | vr
     alignment: str = "auto"               # auto | left | center | right
     prob: float = 1.0
+    bg_fill: str = "none"                  # "none" (transparent, text only) | "white" (paint white behind text)
+    user_added: bool = False               # manually drawn in the editor; preserved across re-extract
+    fixed_region: bool = False             # box is user-controlled → render fits text into it, never auto-expands
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -85,6 +88,9 @@ class Block:
             direction=str(data.get("direction", "auto")),
             alignment=str(data.get("alignment", "auto")),
             prob=float(data.get("prob", 1.0)),
+            bg_fill=str(data.get("bg_fill", "none")),
+            user_added=bool(data.get("user_added", False)),
+            fixed_region=bool(data.get("fixed_region", False)),
         )
 
 
@@ -97,6 +103,10 @@ class Page:
     clean: str                            # path to text-removed image, relative to workspace root
     blocks: List[Block] = field(default_factory=list)
     no_text: bool = False                 # True if no text was detected (OCR-empty page)
+    # Regions detected as text but rejected by the translation rules (empty OCR,
+    # symbols, handwritten kana, too-short). They are still erased during extract;
+    # stored here as 4-point polygons so reclean can rebuild the full erase mask.
+    erase_regions: List[List[List[int]]] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         d = {
@@ -109,6 +119,8 @@ class Page:
         }
         if self.no_text:
             d["no_text"] = True
+        if self.erase_regions:
+            d["erase_regions"] = self.erase_regions
         return d
 
     @classmethod
@@ -121,6 +133,8 @@ class Page:
             clean=str(data.get("clean", "")).replace("\\", "/"),
             blocks=[Block.from_dict(b) for b in data.get("blocks", [])],
             no_text=bool(data.get("no_text", False)),
+            erase_regions=[[[int(p[0]), int(p[1])] for p in poly]
+                           for poly in data.get("erase_regions", [])],
         )
 
 
