@@ -100,6 +100,16 @@
             border: 1px solid var(--border);
         }
 
+        /* Unsaved-changes indicator: a small dot on the enabled Save button. */
+        #btn-save.unsaved::after {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #fff;
+            display: inline-block;
+        }
+
         /* Main Layout */
         main {
             flex: 1;
@@ -187,6 +197,17 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        /* Lazy-loaded page thumbnail; bg-dark box acts as the pre-load placeholder. */
+        .page-thumb {
+            flex: 0 0 auto;
+            width: 38px;
+            height: 52px;
+            border-radius: 4px;
+            object-fit: cover;
+            object-position: top center;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+        }
         .page-del-btn {
             flex: 0 0 auto;
             border: none;
@@ -219,6 +240,20 @@
         .page-item:hover .page-info-btn { opacity: 1; }
         .page-info-btn:hover { background: rgba(59, 130, 246, 0.18); color: var(--accent); }
 
+        /* Per-page translation progress badge (translated / total blocks). */
+        .page-prog {
+            flex: 0 0 auto;
+            font-size: 0.66rem;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+        .page-prog.done { color: var(--success); background: rgba(16, 185, 129, 0.14); }
+        .page-prog.partial { color: #f59e0b; background: rgba(245, 158, 11, 0.14); }
+        /* On the active (accent) row, keep the badge readable. */
+        .list-item.active .page-prog { background: rgba(255, 255, 255, 0.18); color: #fff; }
+
         .modal-overlay {
             position: fixed; inset: 0; z-index: 1000;
             background: rgba(0, 0, 0, 0.6);
@@ -246,8 +281,37 @@
         .modal-actions button:hover { background: var(--accent-hover); }
 
         #btn-edit-region.active { background: var(--accent); color: #fff; }
-        #box-scale-wrap, #task-minfont-wrap, #task-expand-wrap { display: inline-flex; align-items: center; gap: 3px; font-size: 0.78rem; color: var(--text-secondary); }
-        #box-scale, #task-min-font, #task-expand { width: 48px; padding: 3px 4px; background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.78rem; }
+        /* Render-settings popover (anchored above the gear button in the toolbar). */
+        .render-settings-wrap { position: relative; display: inline-flex; }
+        #btn-render-settings.active { background: var(--accent); color: #fff; }
+        .render-settings-panel {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            right: 0;
+            width: 220px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .render-settings-panel .rs-title {
+            font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-secondary);
+        }
+        .rs-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; font-size: 0.8rem; color: var(--text-primary); cursor: default;
+        }
+        .rs-row input {
+            width: 72px; padding: 4px 6px; text-align: center;
+            background: var(--bg-hover); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem;
+        }
         .block-actions { display: inline-flex; align-items: center; gap: 4px; }
         .blk-size { color: var(--text-secondary); font-size: 0.7rem; }
         .blk-bg-btn, .blk-del-btn {
@@ -329,6 +393,17 @@
         .block-card.selected {
             border-color: var(--accent);
             background-color: var(--bg-hover);
+        }
+
+        /* Amber dot marking a block whose translation is still empty. */
+        .blk-untrans-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #f59e0b;
+            margin-right: 6px;
+            vertical-align: middle;
         }
 
         .block-info {
@@ -488,6 +563,24 @@
             opacity: 1;
         }
 
+        /* Persistent legend shown while region-edit mode is active. */
+        #edit-mode-legend {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(59, 130, 246, 0.92);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 0.78rem;
+            z-index: 50;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+            max-width: 90%;
+            text-align: center;
+        }
+
         .loader {
             width: 18px;
             height: 18px;
@@ -540,6 +633,11 @@
             color: var(--accent);
             border-bottom: 2px solid var(--accent);
             background: rgba(59, 130, 246, 0.05);
+        }
+
+        .sidebar-tab.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
 
         /* Pipeline Form */
@@ -650,6 +748,14 @@
         <div class="controls">
             <div id="status-loader" class="loader"></div>
             <span id="status-text" style="font-size: 0.8rem; color: var(--text-secondary); display: none;"></span>
+
+            <button id="btn-help" class="secondary" data-i18n-title="titleShortcuts" title="Keyboard shortcuts" style="padding: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </button>
 
             <!-- UI Language -->
             <div style="display: flex; align-items: center; background: var(--bg-hover); padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); height: 36px;"
@@ -824,6 +930,7 @@
         </aside>
 
         <section id="viewport">
+            <div id="edit-mode-legend" style="display:none;"></div>
             <div id="canvas-container">
                 <canvas id="preview-canvas" style="display: none;"></canvas>
                 <div class="empty-state" id="initial-state" data-i18n="emptySelectPage">Select a page to start</div>
@@ -840,6 +947,7 @@
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
+                    <span id="zoom-label" style="font-size: 0.78rem;">Fit</span>
                 </button>
                 <button id="btn-edit-region" class="secondary" data-i18n-title="btnEditRegion" title="Edit regions">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -847,18 +955,31 @@
                         <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
                     </svg>
                 </button>
-                <label id="box-scale-wrap" data-i18n-title="tipBoxScale" title="Box scale">
-                    <span>⬚×</span>
-                    <input type="number" id="box-scale" min="0.5" max="5" step="0.1" value="1">
-                </label>
-                <label id="task-minfont-wrap" data-i18n-title="tipMinFont" title="Min font (task)">
-                    <span>min</span>
-                    <input type="number" id="task-min-font" min="1" step="1">
-                </label>
-                <label id="task-expand-wrap" data-i18n-title="tipExpandLimit" title="Expand limit (task)">
-                    <span>exp</span>
-                    <input type="number" id="task-expand" min="1" step="0.1">
-                </label>
+                <div class="render-settings-wrap">
+                    <button id="btn-render-settings" class="secondary" data-i18n-title="titleRenderSettings" title="Render settings">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>
+                            <line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>
+                            <line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
+                        </svg>
+                    </button>
+                    <div id="render-settings-panel" class="render-settings-panel" style="display:none;">
+                        <div class="rs-title" data-i18n="titleRenderSettings">Render Settings</div>
+                        <label class="rs-row" data-i18n-title="tipBoxScale" title="Box scale">
+                            <span data-i18n="labelBoxScale">Box scale</span>
+                            <input type="number" id="box-scale" min="0.5" max="5" step="0.1" value="1">
+                        </label>
+                        <label class="rs-row" data-i18n-title="tipMinFont" title="Min font (task)">
+                            <span data-i18n="labelMinFont">Min font</span>
+                            <input type="number" id="task-min-font" min="1" step="1">
+                        </label>
+                        <label class="rs-row" data-i18n-title="tipExpandLimit" title="Expand limit (task)">
+                            <span data-i18n="labelExpand">Expand limit</span>
+                            <input type="number" id="task-expand" min="1" step="0.1">
+                        </label>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -910,6 +1031,26 @@
             en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)" },
             ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）" }
         };
+        // Tooltip shown when the Pipeline tab is disabled (local mode).
+        i18n.zh.pipelineLocalOnly = 'Pipeline 仅在服务端模式可用';
+        i18n.en.pipelineLocalOnly = 'Pipeline is available in server mode only';
+        i18n.ja.pipelineLocalOnly = 'パイプラインはサーバーモードでのみ利用可能';
+        // Render-settings popover labels.
+        i18n.zh.titleRenderSettings = '渲染设置'; i18n.zh.labelBoxScale = '文本框缩放'; i18n.zh.labelMinFont = '最小字号'; i18n.zh.labelExpand = '扩框上限';
+        i18n.en.titleRenderSettings = 'Render Settings'; i18n.en.labelBoxScale = 'Box scale'; i18n.en.labelMinFont = 'Min font'; i18n.en.labelExpand = 'Expand limit';
+        i18n.ja.titleRenderSettings = '描画設定'; i18n.ja.labelBoxScale = 'ボックス倍率'; i18n.ja.labelMinFont = '最小フォント'; i18n.ja.labelExpand = '枠拡張上限';
+        // Translation-progress hints.
+        i18n.zh.tipUntranslated = '未翻译'; i18n.zh.tipPageProgress = '本页已翻译 / 文字块总数';
+        i18n.en.tipUntranslated = 'Untranslated'; i18n.en.tipPageProgress = 'Translated / total blocks on this page';
+        i18n.ja.tipUntranslated = '未翻訳'; i18n.ja.tipPageProgress = 'このページの翻訳済み / ブロック総数';
+        // Compact zoom-mode labels shown on the zoom button.
+        i18n.zh.zoomFitShort = '适应'; i18n.zh.zoomWidthShort = '宽度'; i18n.zh.zoomOrigShort = '100%';
+        i18n.en.zoomFitShort = 'Fit'; i18n.en.zoomWidthShort = 'Width'; i18n.en.zoomOrigShort = '100%';
+        i18n.ja.zoomFitShort = '全体'; i18n.ja.zoomWidthShort = '幅'; i18n.ja.zoomOrigShort = '100%';
+        // Keyboard-shortcut help overlay.
+        i18n.zh.titleShortcuts = '快捷键'; i18n.zh.scPageNav = '上一页 / 下一页'; i18n.zh.scUpDown = '切换文字块 / 任务 / 页面（随当前焦点区域）'; i18n.zh.scAltArrow = '编辑译文时也能翻页'; i18n.zh.scClear = '清空当前译文'; i18n.zh.scHelp = '显示本快捷键帮助';
+        i18n.en.titleShortcuts = 'Keyboard Shortcuts'; i18n.en.scPageNav = 'Previous / next page'; i18n.en.scUpDown = 'Move between blocks / tasks / pages (by focus area)'; i18n.en.scAltArrow = 'Page nav even while editing text'; i18n.en.scClear = 'Clear the current translation'; i18n.en.scHelp = 'Show this shortcut help';
+        i18n.ja.titleShortcuts = 'キーボードショートカット'; i18n.ja.scPageNav = '前 / 次のページ'; i18n.ja.scUpDown = 'ブロック / タスク / ページ移動（フォーカス領域による）'; i18n.ja.scAltArrow = 'テキスト編集中でもページ移動'; i18n.ja.scClear = '現在の翻訳をクリア'; i18n.ja.scHelp = 'このショートカットヘルプを表示';
 
         function parseSimpleToml(text) {
             const config = { render: {} };
@@ -1013,8 +1154,7 @@
                         this.currentTask.transHandle = handle;
                     } catch (e) { this.currentTask.translations = {}; }
                 }
-                isDirty = false;
-                elements.btnSave.disabled = true;
+                setDirty(false);
             },
 
             async saveTranslations() {
@@ -1135,6 +1275,32 @@
 
         const ctx = elements.canvas.getContext('2d');
 
+        // Inline SVG icons (feather style, matching the header) so the UI uses one
+        // consistent icon language instead of emoji that render differently per OS.
+        const ICONS = {
+            trash: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>',
+            info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
+            square: '<rect x="4" y="4" width="16" height="16" rx="2"></rect>',
+            squareFilled: '<rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"></rect>',
+            edit: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>'
+        };
+        // Build an <svg> element from trusted static markup. The markup constants in
+        // ICONS are not user data, so innerHTML here is safe.
+        function svgIcon(markup, size = 16) {
+            const tmp = document.createElement('span');
+            tmp.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle">${markup}</svg>`;
+            return tmp.firstChild;
+        }
+
+        // Single source of truth for the unsaved-changes state: keeps isDirty, the
+        // Save button's enabled/indicator state, and the title marker in sync.
+        function setDirty(d) {
+            isDirty = d;
+            elements.btnSave.disabled = !d;
+            elements.btnSave.classList.toggle('unsaved', d);
+            document.title = (d ? '• ' : '') + 'Manga Translator Lite Editor';
+        }
+
         async function init() {
             // Load saved editor width
             const savedWidth = localStorage.getItem('editor-width');
@@ -1145,6 +1311,13 @@
             updateLanguage(currentLang);
             elements.langSelect.value = currentLang;
             await storage.init();
+
+            // Pipeline runs through the backend, so grey out its tab in local mode.
+            if (!storage.isServer) {
+                const pipeTab = document.getElementById('tab-pipeline');
+                pipeTab.classList.add('disabled');
+                pipeTab.title = t('pipelineLocalOnly');
+            }
 
             // Listen to configuration path changes to reload config preview settings
             const configInput = document.getElementById('pipeline-config');
@@ -1161,6 +1334,8 @@
 
             // Story Save Listener
             document.getElementById('btn-save-story').onclick = saveStoryFile;
+            // Story textarea grows with its content.
+            document.getElementById('story-content').addEventListener('input', autoGrowStory);
 
             // Merge Logic
             document.getElementById('btn-merge').onclick = () => toggleMergeMode(true);
@@ -1354,6 +1529,11 @@
         };
 
         function switchTab(tab) {
+            // Pipeline needs the backend; it's disabled (and inert) in local mode.
+            if (tab === 'pipeline' && !storage.isServer) {
+                showToast(t('pipelineLocalOnly'), 'error');
+                return;
+            }
             document.getElementById('tab-tasks').classList.toggle('active', tab === 'tasks');
             document.getElementById('tab-pipeline').classList.toggle('active', tab === 'pipeline');
             document.getElementById('tab-story').classList.toggle('active', tab === 'story');
@@ -1366,6 +1546,15 @@
             } else if (tab === 'tasks') {
                 activeFocusArea = 'tasks';
             }
+        }
+
+        // Grow the story textarea to fit its content (with a sensible minimum) so
+        // long descriptions don't sit in a tiny scrollbox.
+        function autoGrowStory() {
+            const ta = document.getElementById('story-content');
+            if (!ta) return;
+            ta.style.height = 'auto';
+            ta.style.height = Math.max(120, ta.scrollHeight + 2) + 'px';
         }
 
         async function loadStoryFile() {
@@ -1403,6 +1592,7 @@
                     document.getElementById('story-content').value = '';
                 }
             }
+            autoGrowStory();
         }
 
         async function saveStoryFile() {
@@ -1449,6 +1639,7 @@
                 const currentContent = document.getElementById('story-content').value;
                 if (!currentContent || confirm("Apply template? This will replace your current content.")) {
                     document.getElementById('story-content').value = text;
+                    autoGrowStory();
                 }
             }
             document.getElementById('story-template-select').value = 'none';
@@ -1546,14 +1737,13 @@
                 storage.currentTask = null;
                 currentPageIndex = -1;
                 selectedBlockIndex = -1;
-                isDirty = false;
+                setDirty(false);
 
                 elements.taskList.innerHTML = '';
                 elements.pageList.innerHTML = '';
                 elements.blocksContainer.innerHTML = '';
                 elements.totalPages.textContent = '0';
                 elements.inputPage.value = '1';
-                elements.btnSave.disabled = true;
                 elements.btnReload.disabled = true;
                 elements.btnPrev.disabled = true;
                 elements.btnNext.disabled = true;
@@ -1734,6 +1924,56 @@
             finally { elements.statusLoader.style.display = 'none'; }
         }
 
+        // ---- Per-page translation progress ----
+        // Fill a badge with "done/total" and color it (green = complete, amber =
+        // partial); hide it entirely for no-text pages.
+        function setPageProgress(badge, page) {
+            const blocks = page.blocks || [];
+            const total = blocks.length;
+            if (total === 0) { badge.style.display = 'none'; return; }
+            const tr = storage.currentTask.translations || {};
+            let done = 0;
+            blocks.forEach(b => { const tx = tr[b.id]?.text; if (tx && tx.trim()) done++; });
+            badge.style.display = '';
+            badge.textContent = `${done}/${total}`;
+            badge.className = 'page-prog ' + (done >= total ? 'done' : 'partial');
+        }
+        // Update just the current page's badge (cheap, used while typing).
+        function updateCurrentPageProgress() {
+            const item = elements.pageList.children[currentPageIndex];
+            const page = storage.currentTask?.data.pages[currentPageIndex];
+            if (!item || !page) return;
+            const badge = item.querySelector('.page-prog');
+            if (badge) setPageProgress(badge, page);
+        }
+        // Refresh every page badge in place (used after a language switch / import,
+        // which change many blocks at once but keep the current selection).
+        function refreshAllPageProgress() {
+            if (!storage.currentTask) return;
+            const pages = storage.currentTask.data.pages;
+            Array.from(elements.pageList.children).forEach((item, i) => {
+                const badge = item.querySelector('.page-prog');
+                if (badge && pages[i]) setPageProgress(badge, pages[i]);
+            });
+        }
+
+        // ---- Lazy page thumbnails (works in both local and server modes) ----
+        // storage.getImageUrl() already abstracts the two backends: server mode
+        // returns an api/image URL, local mode a blob: URL from the file handle.
+        let pageThumbObserver = null;
+        function loadPageThumb(imgEl, page) {
+            if (!imgEl || imgEl.dataset.loaded || !page) return;
+            imgEl.dataset.loaded = '1';
+            storage.getImageUrl(page).then(url => {
+                if (!url) return;
+                // Once the <img> has decoded a blob: URL we can revoke it immediately
+                // (the picture stays) so local mode doesn't leak object URLs per page.
+                imgEl.onload = () => { if (!storage.isServer) URL.revokeObjectURL(url); };
+                imgEl.onerror = () => { if (!storage.isServer) URL.revokeObjectURL(url); };
+                imgEl.src = url;
+            }).catch(() => {});
+        }
+
         function renderPageList() {
             if (elements.boxScale && storage.currentTask) {
                 const d = storage.currentTask.data;
@@ -1747,9 +1987,28 @@
                 }
             }
             elements.pageList.innerHTML = '';
+
+            // (Re)build the lazy-load observer so only thumbnails scrolled into view
+            // fetch their image — a 200-page task won't pull 200 full images at once.
+            if (pageThumbObserver) pageThumbObserver.disconnect();
+            pageThumbObserver = new IntersectionObserver((entries) => {
+                entries.forEach(en => {
+                    if (!en.isIntersecting) return;
+                    const el = en.target;
+                    loadPageThumb(el, storage.currentTask.data.pages[+el.dataset.pageIdx]);
+                    pageThumbObserver.unobserve(el);
+                });
+            }, { root: elements.pageList, rootMargin: '300px 0px' });
+
             storage.currentTask.data.pages.forEach((page, index) => {
                 const item = document.createElement('div');
                 item.className = 'list-item page-item';
+
+                const thumb = document.createElement('img');
+                thumb.className = 'page-thumb';
+                thumb.alt = '';
+                thumb.dataset.pageIdx = index;
+                item.appendChild(thumb);
 
                 const label = document.createElement('span');
                 label.className = 'page-name';
@@ -1757,22 +2016,31 @@
                 label.title = page.name;
                 item.appendChild(label);
 
+                const prog = document.createElement('span');
+                prog.className = 'page-prog';
+                prog.title = t('tipPageProgress');
+                setPageProgress(prog, page);
+                item.appendChild(prog);
+
                 const info = document.createElement('button');
                 info.className = 'page-info-btn';
-                info.textContent = 'ℹ️';
+                info.appendChild(svgIcon(ICONS.info, 14));
                 info.title = t('btnPageInfo');
+                info.setAttribute('aria-label', t('btnPageInfo'));
                 info.onclick = (e) => { e.stopPropagation(); showPageInfo(index); };
                 item.appendChild(info);
 
                 const del = document.createElement('button');
                 del.className = 'page-del-btn';
-                del.textContent = '🗑';
+                del.appendChild(svgIcon(ICONS.trash, 14));
                 del.title = t('btnDeletePage');
+                del.setAttribute('aria-label', t('btnDeletePage'));
                 del.onclick = (e) => { e.stopPropagation(); deletePage(index); };
                 item.appendChild(del);
 
                 item.onclick = () => selectPage(index);
                 elements.pageList.appendChild(item);
+                pageThumbObserver.observe(thumb);
             });
             elements.totalPages.textContent = storage.currentTask.data.pages.length;
             elements.inputPage.max = storage.currentTask.data.pages.length;
@@ -1940,10 +2208,10 @@
                 const sel = diffs.filter((d, i) => checks[i].checked);
                 if (!sel.length) { close(); return; }
                 sel.forEach(d => { storage.currentTask.translations[d.id] = { text: d.imp, edited: true }; });
-                try { await storage.saveTranslations(); isDirty = false; elements.btnSave.disabled = true; }
+                try { await storage.saveTranslations(); setDirty(false); }
                 catch (err) { showToast('Save failed: ' + err.message, 'error'); }
-                renderBlockEditors(); renderPage();
-                showToast(t('importApplied', { n: sel.length }));
+                renderBlockEditors(); renderPage(); refreshAllPageProgress();
+                showToast(t('importApplied', { n: sel.length }), 'success');
                 close();
             };
             document.body.appendChild(overlay);
@@ -2204,6 +2472,7 @@
                 const rect = effRect(block);
                 const x = rect.minX, y = rect.minY, w = rect.maxX - rect.minX, h = rect.maxY - rect.minY;
                 const angle = (block.angle || 0) * Math.PI / 180;
+                const blockTranslated = !!(storage.currentTask.translations[block.id]?.text || '').trim();
 
                 ctx.save();
 
@@ -2233,7 +2502,7 @@
 
                 // 3. Draw block index tag (scaled with display so it stays legible).
                 const tagH = 22 * s, tagW = (12 + String(bIndex + 1).length * 9) * s, fz = 14 * s;
-                ctx.fillStyle = '#3b82f6'; ctx.fillRect(x, y - tagH, tagW, tagH);
+                ctx.fillStyle = blockTranslated ? '#3b82f6' : '#f59e0b'; ctx.fillRect(x, y - tagH, tagW, tagH);
                 ctx.fillStyle = '#fff'; ctx.font = `bold ${fz}px sans-serif`;
                 ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
                 ctx.fillText(`${bIndex + 1}`, x + 6 * s, y - tagH / 2);
@@ -2363,31 +2632,86 @@
         function renderBlockEditors() {
             elements.blocksContainer.innerHTML = '';
             const page = storage.currentTask.data.pages[currentPageIndex];
-            if (!page.blocks?.length) { elements.blocksContainer.innerHTML = `<div class="empty-state">No text blocks</div>`; return; }
+            if (!page.blocks?.length) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = 'No text blocks';
+                elements.blocksContainer.appendChild(empty);
+                return;
+            }
             page.blocks.forEach((block, bIndex) => {
                 const card = document.createElement('div');
                 card.className = 'block-card' + (bIndex === selectedBlockIndex ? ' selected' : '');
                 const transText = storage.currentTask.translations[block.id]?.text || "";
+                const translated = !!transText.trim();
                 const isWhite = block.bg_fill === 'white';
                 const bw = block.bbox ? block.bbox[2] : 0, bh = block.bbox ? block.bbox[3] : 0;
-                card.innerHTML = `<div class="block-info">`
-                    + `<span>Block #${bIndex + 1}${block.user_added ? ' ✎' : ''} · ${block.font_size}px</span>`
-                    + `<span class="block-actions">`
-                    + `<span class="blk-size">${bw}×${bh}</span>`
-                    + `<button class="blk-bg-btn" title="${isWhite ? t('tipBgWhite') : t('tipBgNone')}">${isWhite ? '⬜' : '▢'}</button>`
-                    + `<button class="blk-del-btn" title="${t('btnDeleteBlock')}">🗑</button>`
-                    + `</span></div>`
-                    + `<div class="original-text">${block.text || ''}</div>`
-                    + `<textarea placeholder="Translation...">${transText}</textarea>`;
-                card.querySelector('.blk-bg-btn').onclick = (ev) => { ev.stopPropagation(); toggleBlockBg(bIndex); };
-                card.querySelector('.blk-del-btn').onclick = (ev) => { ev.stopPropagation(); deleteBlockAt(bIndex); };
-                const textarea = card.querySelector('textarea');
+
+                // --- Info row: "Block #N [✎] · {font}px"  +  size / bg / delete ---
+                const infoRow = document.createElement('div');
+                infoRow.className = 'block-info';
+
+                const titleSpan = document.createElement('span');
+                if (!translated) {
+                    const dot = document.createElement('span');
+                    dot.className = 'blk-untrans-dot';
+                    dot.title = t('tipUntranslated');
+                    titleSpan.appendChild(dot);
+                }
+                titleSpan.appendChild(document.createTextNode(`Block #${bIndex + 1}`));
+                if (block.user_added) {
+                    titleSpan.appendChild(document.createTextNode(' '));
+                    titleSpan.appendChild(svgIcon(ICONS.edit, 11));
+                }
+                titleSpan.appendChild(document.createTextNode(` · ${block.font_size}px`));
+                infoRow.appendChild(titleSpan);
+
+                const actions = document.createElement('span');
+                actions.className = 'block-actions';
+
+                const sizeSpan = document.createElement('span');
+                sizeSpan.className = 'blk-size';
+                sizeSpan.textContent = `${bw}×${bh}`;
+                actions.appendChild(sizeSpan);
+
+                const bgBtn = document.createElement('button');
+                bgBtn.className = 'blk-bg-btn';
+                bgBtn.title = isWhite ? t('tipBgWhite') : t('tipBgNone');
+                bgBtn.setAttribute('aria-label', bgBtn.title);
+                bgBtn.appendChild(svgIcon(isWhite ? ICONS.squareFilled : ICONS.square, 15));
+                bgBtn.onclick = (ev) => { ev.stopPropagation(); toggleBlockBg(bIndex); };
+                actions.appendChild(bgBtn);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'blk-del-btn';
+                delBtn.title = t('btnDeleteBlock');
+                delBtn.setAttribute('aria-label', t('btnDeleteBlock'));
+                delBtn.appendChild(svgIcon(ICONS.trash, 15));
+                delBtn.onclick = (ev) => { ev.stopPropagation(); deleteBlockAt(bIndex); };
+                actions.appendChild(delBtn);
+
+                infoRow.appendChild(actions);
+                card.appendChild(infoRow);
+
+                // --- Original (OCR) text: untrusted → textContent, never innerHTML ---
+                const orig = document.createElement('div');
+                orig.className = 'original-text';
+                orig.textContent = block.text || '';
+                card.appendChild(orig);
+
+                // --- Translation textarea: value set as property, immune to markup ---
+                const textarea = document.createElement('textarea');
+                textarea.placeholder = 'Translation...';
+                textarea.value = transText;
                 textarea.oninput = () => {
                     storage.currentTask.translations[block.id] = { text: textarea.value, edited: true };
-                    isDirty = true; elements.btnSave.disabled = false;
+                    setDirty(true);
+                    updateCurrentPageProgress();
                     clearTimeout(textarea.t); textarea.t = setTimeout(renderPage, 300);
                 };
                 textarea.onfocus = () => { selectedBlockIndex = bIndex; renderPage(); Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex)); };
+                card.appendChild(textarea);
+
                 elements.blocksContainer.appendChild(card);
             });
         }
@@ -2410,8 +2734,8 @@
             elements.statusLoader.style.display = 'block';
             try {
                 await storage.saveTranslations();
-                isDirty = false; elements.btnSave.disabled = true;
-                showToast(t('saveSuccess'));
+                setDirty(false);
+                showToast(t('saveSuccess'), 'success');
             } catch (e) { showToast(e.message, 'error'); }
             finally { elements.statusLoader.style.display = 'none'; }
         };
@@ -2438,6 +2762,7 @@
             await storage.loadTranslations(newLang);
             renderPage();
             renderBlockEditors();
+            refreshAllPageProgress();
             elements.statusLoader.style.display = 'none';
         };
 
@@ -2451,12 +2776,28 @@
             elements.canvas.className = 'zoom-' + zoomMode;
             const key = 'zoom' + zoomMode.charAt(0).toUpperCase() + zoomMode.slice(1);
             elements.btnZoom.title = t(key);
+            elements.btnZoom.setAttribute('aria-label', t(key));
+            const lbl = document.getElementById('zoom-label');
+            if (lbl) lbl.textContent = t(key + 'Short');
         }
-        function showToast(msg) { elements.toast.textContent = msg; elements.toast.classList.add('show'); setTimeout(() => elements.toast.classList.remove('show'), 2000); }
+        function showToast(msg, type) {
+            elements.toast.textContent = msg;
+            elements.toast.style.backgroundColor =
+                type === 'error' ? 'var(--danger)' :
+                type === 'success' ? 'var(--success)' : 'var(--accent)';
+            elements.toast.classList.add('show');
+            clearTimeout(showToast._t);
+            showToast._t = setTimeout(() => elements.toast.classList.remove('show'), 2000);
+        }
         function updateLanguage(lang) {
             currentLang = lang; localStorage.setItem('editor-lang', lang);
             document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (i18n[lang][k]) el.textContent = i18n[lang][k]; });
-            document.querySelectorAll('[data-i18n-title]').forEach(el => { const k = el.getAttribute('data-i18n-title'); if (i18n[lang][k]) el.title = i18n[lang][k]; });
+            // Icon-only buttons get both a tooltip and an aria-label for screen readers.
+            document.querySelectorAll('[data-i18n-title]').forEach(el => {
+                const k = el.getAttribute('data-i18n-title');
+                if (i18n[lang][k]) { el.title = i18n[lang][k]; el.setAttribute('aria-label', i18n[lang][k]); }
+            });
+            updateZoomUI();
         }
         function t(key, vars = {}) {
             let str = i18n[currentLang][key] || key;
@@ -2473,6 +2814,24 @@
         elements.inputPage.onchange = () => selectPage(parseInt(elements.inputPage.value) - 1);
         elements.btnZoom.onclick = toggleZoom;
         elements.langSelect.onchange = (e) => updateLanguage(e.target.value);
+
+        // Render-settings popover: toggle on the gear button, close on outside click.
+        const btnRenderSettings = document.getElementById('btn-render-settings');
+        const renderSettingsPanel = document.getElementById('render-settings-panel');
+        function setRenderSettingsOpen(open) {
+            renderSettingsPanel.style.display = open ? 'flex' : 'none';
+            btnRenderSettings.classList.toggle('active', open);
+        }
+        btnRenderSettings.onclick = (e) => {
+            e.stopPropagation();
+            setRenderSettingsOpen(renderSettingsPanel.style.display === 'none');
+        };
+        document.addEventListener('click', (e) => {
+            if (renderSettingsPanel.style.display === 'none') return;
+            if (!renderSettingsPanel.contains(e.target) && !btnRenderSettings.contains(e.target)) {
+                setRenderSettingsOpen(false);
+            }
+        });
 
         function selectBlock(index) {
             const page = storage.currentTask?.data.pages[currentPageIndex];
@@ -2580,16 +2939,56 @@
             page.blocks.splice(bIndex, 1);
             if (selectedBlockIndex >= page.blocks.length) selectedBlockIndex = page.blocks.length - 1;
             persistGeometry(); storage.saveTranslations().catch(() => {});
-            renderBlockEditors(); renderPage();
+            renderBlockEditors(); renderPage(); updateCurrentPageProgress();
         }
         function toggleEditMode() {
             editMode = !editMode;
             elements.btnEditRegion.classList.toggle('active', editMode);
             elements.canvas.style.cursor = editMode ? 'crosshair' : 'default';
+            const legend = document.getElementById('edit-mode-legend');
+            legend.textContent = t('editModeOn');
+            legend.style.display = editMode ? 'block' : 'none';
             showToast(t(editMode ? 'editModeOn' : 'editModeOff'));
             renderPage();
         }
         elements.btnEditRegion.onclick = toggleEditMode;
+
+        // Keyboard-shortcut help overlay (reuses the modal-overlay/modal-panel styles).
+        function showShortcutsHelp() {
+            if (document.getElementById('shortcuts-overlay')) return; // avoid stacking
+            const rows = [
+                ['← / →', t('scPageNav')],
+                ['↑ / ↓', t('scUpDown')],
+                ['Alt + ← / →', t('scAltArrow')],
+                ['Alt / Ctrl + Z', t('scClear')],
+                ['?', t('scHelp')],
+            ];
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.id = 'shortcuts-overlay';
+            const panel = document.createElement('div');
+            panel.className = 'modal-panel';
+            const title = document.createElement('h3');
+            title.textContent = t('titleShortcuts');
+            panel.appendChild(title);
+            rows.forEach(([k, v]) => {
+                const r = document.createElement('div'); r.className = 'modal-row';
+                const kk = document.createElement('div'); kk.className = 'modal-key'; kk.textContent = k; kk.style.flex = '0 0 130px';
+                const vv = document.createElement('div'); vv.className = 'modal-val'; vv.textContent = v;
+                r.appendChild(kk); r.appendChild(vv); panel.appendChild(r);
+            });
+            const actions = document.createElement('div'); actions.className = 'modal-actions';
+            const closeBtn = document.createElement('button'); closeBtn.textContent = t('infoClose');
+            actions.appendChild(closeBtn); panel.appendChild(actions);
+            overlay.appendChild(panel);
+            const onKey = (e) => { if (e.key === 'Escape') close(); };
+            function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+            closeBtn.onclick = close;
+            overlay.onclick = (e) => { if (e.target === overlay) close(); };
+            document.addEventListener('keydown', onKey);
+            document.body.appendChild(overlay);
+        }
+        document.getElementById('btn-help').onclick = showShortcutsHelp;
 
         elements.boxScale.onchange = () => {
             if (!storage.currentTask) return;
@@ -2710,7 +3109,7 @@
                 if ((r.maxX - r.minX) > 5 && (r.maxY - r.minY) > 5) {
                     page.blocks.push(createUserBlock(r));
                     selectedBlockIndex = page.blocks.length - 1;
-                    persistGeometry(); renderBlockEditors(); renderPage();
+                    persistGeometry(); renderBlockEditors(); renderPage(); updateCurrentPageProgress();
                 } else {
                     // Click (no real drag) on empty space → deselect, so the bold
                     // selection border clears and you can see the result cleanly.
@@ -2754,6 +3153,12 @@
 
         document.addEventListener('keydown', (e) => {
             const isInput = e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT';
+
+            if (e.key === '?' && !isInput) {
+                e.preventDefault();
+                showShortcutsHelp();
+                return;
+            }
 
             if (e.key === 'ArrowLeft') {
                 if (isInput && !e.altKey) return;
