@@ -12,19 +12,45 @@
         rel="stylesheet">
     <style>
         :root {
+            /* Dark theme (default) */
             --bg-dark: #0f1115;
             --bg-card: #1a1d23;
             --bg-hover: #2a2e37;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
             --text-primary: #e5e7eb;
             --text-secondary: #9ca3af;
             --border: #374151;
             --danger: #ef4444;
             --success: #10b981;
+            --warning: #f59e0b;
+            /* Work area: neutral mid-gray backdrop so white / black-and-white manga
+               pages don't sit on harsh near-black, reducing eye fatigue. */
+            --canvas-bg: #34373d;
+            --canvas-page-bg: #3a3d44;
+            --shadow: rgba(0, 0, 0, 0.55);
             --sidebar-width: 280px;
-            --editor-width: 350px;
+            --editor-width: 460px;
             --terminal-height: 180px;
+        }
+
+        /* Light theme: low-glare neutrals; canvas keeps a mid-gray backdrop for the
+           same reason — framing white/B&W pages comfortably. */
+        :root[data-theme="light"] {
+            --bg-dark: #eceef2;
+            --bg-card: #ffffff;
+            --bg-hover: #e6e9ef;
+            --accent: #4f46e5;
+            --accent-hover: #4338ca;
+            --text-primary: #1e2430;
+            --text-secondary: #5c6573;
+            --border: #d2d8e0;
+            --danger: #dc2626;
+            --success: #059669;
+            --warning: #d97706;
+            --canvas-bg: #a9afb8;
+            --canvas-page-bg: #c3c8d0;
+            --shadow: rgba(15, 23, 42, 0.18);
         }
 
         * {
@@ -65,6 +91,14 @@
             gap: 8px;
         }
 
+        /* Left header group: brand + interface-language picker, kept away from the
+           high-frequency translation controls on the right. */
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
         .controls {
             display: flex;
             gap: 8px;
@@ -98,6 +132,7 @@
         button.secondary {
             background-color: var(--bg-hover);
             border: 1px solid var(--border);
+            color: var(--text-primary);
         }
 
         /* Unsaved-changes indicator: a small dot on the enabled Save button. */
@@ -146,6 +181,10 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            /* Subtle header band + accent rule to demarcate each operation zone. */
+            background-color: var(--bg-hover);
+            border-bottom: 1px solid var(--border);
+            box-shadow: inset 3px 0 0 var(--accent);
         }
 
         #sidebar-tasks-section {
@@ -238,7 +277,7 @@
             transition: opacity 0.15s, background 0.15s, color 0.15s;
         }
         .page-item:hover .page-info-btn { opacity: 1; }
-        .page-info-btn:hover { background: rgba(59, 130, 246, 0.18); color: var(--accent); }
+        .page-info-btn:hover { background: rgba(99, 102, 241, 0.18); color: var(--accent); }
 
         /* Per-page translation progress badge (translated / total blocks). */
         .page-prog {
@@ -250,7 +289,7 @@
             line-height: 1.5;
         }
         .page-prog.done { color: var(--success); background: rgba(16, 185, 129, 0.14); }
-        .page-prog.partial { color: #f59e0b; background: rgba(245, 158, 11, 0.14); }
+        .page-prog.partial { color: var(--warning); background: rgba(245, 158, 11, 0.14); }
         /* On the active (accent) row, keep the badge readable. */
         .list-item.active .page-prog { background: rgba(255, 255, 255, 0.18); color: #fff; }
 
@@ -342,7 +381,7 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            background-color: #000;
+            background-color: var(--canvas-bg);
             position: relative;
             overflow: hidden;
         }
@@ -352,14 +391,14 @@
             display: flex;
             overflow: auto;
             padding: 20px;
-            background-color: #0a0a0a;
+            background-color: var(--canvas-bg);
             position: relative;
         }
 
         canvas {
             margin: auto;
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
-            background-color: #333;
+            box-shadow: 0 0 36px var(--shadow);
+            background-color: var(--canvas-page-bg);
             transition: transform 0.2s;
             flex-shrink: 0;
             touch-action: none;
@@ -401,7 +440,7 @@
             width: 7px;
             height: 7px;
             border-radius: 50%;
-            background: #f59e0b;
+            background: var(--warning);
             margin-right: 6px;
             vertical-align: middle;
         }
@@ -414,15 +453,23 @@
             color: var(--text-secondary);
         }
 
-        .original-text {
-            font-size: 0.75rem;
+        /* Side-by-side original / translation columns inside a block card, so long
+           source text is easy to compare against the translation. */
+        .block-body { display: flex; gap: 8px; align-items: stretch; }
+        .block-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+        .col-label {
+            font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;
             color: var(--text-secondary);
-            margin-bottom: 8px;
-            font-style: italic;
-            background: rgba(255, 255, 255, 0.03);
-            padding: 6px;
-            border-radius: 4px;
         }
+        .orig-text {
+            flex: 1; min-height: 80px; max-height: 220px; overflow: auto;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border); border-radius: 4px;
+            padding: 8px; font-size: 0.85rem; line-height: 1.45;
+            color: var(--text-secondary);
+            white-space: pre-wrap; word-break: break-word; user-select: text;
+        }
+        .block-col textarea { flex: 1; margin: 0; }
 
         textarea {
             width: 100%;
@@ -460,7 +507,7 @@
             background-color: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 4px;
-            color: white;
+            color: var(--text-primary);
             padding: 4px;
             text-align: center;
         }
@@ -569,7 +616,7 @@
             top: 10px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(59, 130, 246, 0.92);
+            background: rgba(99, 102, 241, 0.92);
             color: #fff;
             padding: 6px 14px;
             border-radius: 16px;
@@ -632,12 +679,38 @@
         .sidebar-tab.active {
             color: var(--accent);
             border-bottom: 2px solid var(--accent);
-            background: rgba(59, 130, 246, 0.05);
+            background: rgba(99, 102, 241, 0.05);
         }
 
         .sidebar-tab.disabled {
             opacity: 0.4;
             cursor: not-allowed;
+        }
+
+        /* Read-only (view-only) mode: hide every mutating control. The server still
+           enforces this independently — this is purely so view users aren't offered
+           actions that would 403. */
+        body.view-only #btn-save,
+        body.view-only #btn-import-trans,
+        body.view-only #btn-edit-region,
+        body.view-only #btn-render-settings,
+        body.view-only #tab-pipeline,
+        body.view-only #btn-save-story,
+        body.view-only .page-del-btn,
+        body.view-only .blk-bg-btn,
+        body.view-only .blk-del-btn {
+            display: none !important;
+        }
+        #view-badge {
+            display: none;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--warning);
+            background: rgba(245, 158, 11, 0.16);
+            padding: 2px 8px;
+            border-radius: 10px;
         }
 
         /* Pipeline Form */
@@ -737,27 +810,17 @@
 
 <body>
     <header>
-        <div class="logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
-                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
-                <circle cx="11" cy="11" r="2"></circle>
-            </svg>
-            <span>Manga Translator</span>
-        </div>
-        <div class="controls">
-            <div id="status-loader" class="loader"></div>
-            <span id="status-text" style="font-size: 0.8rem; color: var(--text-secondary); display: none;"></span>
-
-            <button id="btn-help" class="secondary" data-i18n-title="titleShortcuts" title="Keyboard shortcuts" style="padding: 8px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        <div class="header-left">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
                 </svg>
-            </button>
+                <span>Manga Translator</span>
+            </div>
 
-            <!-- UI Language -->
+            <!-- UI Language: interface chrome, set-once — lives on the left, separated
+                 from the high-frequency translation-target selector on the right. -->
             <div style="display: flex; align-items: center; background: var(--bg-hover); padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); height: 36px;"
                 title="Interface Language">
                 <select id="lang-select"
@@ -767,6 +830,21 @@
                     <option value="zh">🇨🇳</option>
                 </select>
             </div>
+
+            <button id="btn-theme" class="secondary" data-i18n-title="toggleTheme" title="Toggle light/dark" style="padding: 8px;"></button>
+        </div>
+        <div class="controls">
+            <div id="status-loader" class="loader"></div>
+            <span id="status-text" style="font-size: 0.8rem; color: var(--text-secondary); display: none;"></span>
+            <span id="view-badge" data-i18n="viewBadge">Read-only</span>
+
+            <button id="btn-help" class="secondary" data-i18n-title="titleShortcuts" title="Keyboard shortcuts" style="padding: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </button>
 
             <button id="btn-open" class="secondary" title="Open local work directory">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -809,6 +887,16 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+            </button>
+
+            <!-- Export current-language translations (server mode only; in local mode
+                 the files are already on disk). Shown by storage.init() when isServer. -->
+            <button id="btn-export-trans" class="secondary" data-i18n-title="btnExportTrans" title="Export translations JSON" style="display:none">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
             </button>
@@ -988,6 +1076,12 @@
         <aside id="editor">
             <div class="section-title">
                 <span data-i18n="titleEditor">Editor</span>
+                <button id="btn-search" class="secondary" data-i18n-title="titleSearch" title="Search & replace" style="padding: 3px 7px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
             </div>
             <div id="blocks-container" class="blocks-container"></div>
         </aside>
@@ -1035,6 +1129,9 @@
         i18n.zh.pipelineLocalOnly = 'Pipeline 仅在服务端模式可用';
         i18n.en.pipelineLocalOnly = 'Pipeline is available in server mode only';
         i18n.ja.pipelineLocalOnly = 'パイプラインはサーバーモードでのみ利用可能';
+        i18n.zh.pipelineUnavailable = 'Pipeline 不可用：服务端未安装 manga_translator_lite';
+        i18n.en.pipelineUnavailable = 'Pipeline unavailable: manga_translator_lite is not installed on the server';
+        i18n.ja.pipelineUnavailable = 'パイプライン利用不可：サーバーに manga_translator_lite が未インストール';
         // Render-settings popover labels.
         i18n.zh.titleRenderSettings = '渲染设置'; i18n.zh.labelBoxScale = '文本框缩放'; i18n.zh.labelMinFont = '最小字号'; i18n.zh.labelExpand = '扩框上限';
         i18n.en.titleRenderSettings = 'Render Settings'; i18n.en.labelBoxScale = 'Box scale'; i18n.en.labelMinFont = 'Min font'; i18n.en.labelExpand = 'Expand limit';
@@ -1051,6 +1148,18 @@
         i18n.zh.titleShortcuts = '快捷键'; i18n.zh.scPageNav = '上一页 / 下一页'; i18n.zh.scUpDown = '切换文字块 / 任务 / 页面（随当前焦点区域）'; i18n.zh.scAltArrow = '编辑译文时也能翻页'; i18n.zh.scClear = '清空当前译文'; i18n.zh.scHelp = '显示本快捷键帮助';
         i18n.en.titleShortcuts = 'Keyboard Shortcuts'; i18n.en.scPageNav = 'Previous / next page'; i18n.en.scUpDown = 'Move between blocks / tasks / pages (by focus area)'; i18n.en.scAltArrow = 'Page nav even while editing text'; i18n.en.scClear = 'Clear the current translation'; i18n.en.scHelp = 'Show this shortcut help';
         i18n.ja.titleShortcuts = 'キーボードショートカット'; i18n.ja.scPageNav = '前 / 次のページ'; i18n.ja.scUpDown = 'ブロック / タスク / ページ移動（フォーカス領域による）'; i18n.ja.scAltArrow = 'テキスト編集中でもページ移動'; i18n.ja.scClear = '現在の翻訳をクリア'; i18n.ja.scHelp = 'このショートカットヘルプを表示';
+        // Side-by-side block-card column labels.
+        i18n.zh.labelOrig = '原文'; i18n.zh.labelTrans = '译文';
+        i18n.en.labelOrig = 'Original'; i18n.en.labelTrans = 'Translation';
+        i18n.ja.labelOrig = '原文'; i18n.ja.labelTrans = '訳文';
+        // Cross-page search & replace.
+        i18n.zh.titleSearch = '搜索 / 替换'; i18n.zh.searchFindPh = '查找译文…'; i18n.zh.searchReplacePh = '替换为…（留空=删除）'; i18n.zh.searchInOrig = '同时搜索原文'; i18n.zh.searchReplaceSel = '替换所选'; i18n.zh.searchReplaceAll = '全部替换'; i18n.zh.searchNoMatch = '无匹配'; i18n.zh.searchDone = '已替换 {n} 处并保存';
+        i18n.en.titleSearch = 'Search / Replace'; i18n.en.searchFindPh = 'Find in translations…'; i18n.en.searchReplacePh = 'Replace with… (blank = delete)'; i18n.en.searchInOrig = 'Search originals too'; i18n.en.searchReplaceSel = 'Replace selected'; i18n.en.searchReplaceAll = 'Replace all'; i18n.en.searchNoMatch = 'No matches'; i18n.en.searchDone = 'Replaced {n} and saved';
+        i18n.zh.toggleTheme = '切换浅色 / 深色'; i18n.en.toggleTheme = 'Toggle light / dark'; i18n.ja.toggleTheme = 'ライト / ダーク切替';
+        i18n.zh.btnExportTrans = '导出当前语言译文 JSON'; i18n.en.btnExportTrans = 'Export current-language translations JSON'; i18n.ja.btnExportTrans = '現在の言語の翻訳JSONをエクスポート';
+        i18n.zh.exportDone = '已导出 {name}'; i18n.en.exportDone = 'Exported {name}'; i18n.ja.exportDone = '{name} をエクスポートしました';
+        i18n.zh.viewBadge = '只读'; i18n.en.viewBadge = 'Read-only'; i18n.ja.viewBadge = '閲覧のみ';
+        i18n.ja.titleSearch = '検索 / 置換'; i18n.ja.searchFindPh = '訳文を検索…'; i18n.ja.searchReplacePh = '置換後…（空=削除）'; i18n.ja.searchInOrig = '原文も検索'; i18n.ja.searchReplaceSel = '選択を置換'; i18n.ja.searchReplaceAll = 'すべて置換'; i18n.ja.searchNoMatch = '一致なし'; i18n.ja.searchDone = '{n} 件を置換して保存';
 
         function parseSimpleToml(text) {
             const config = { render: {} };
@@ -1095,6 +1204,9 @@
         const storage = {
             isServer: new URLSearchParams(window.location.search).has('t'),
             token: new URLSearchParams(window.location.search).get('t'),
+            pipelineAvailable: false,   // set true only if the server reports the pipeline is usable
+            permission: 'edit',         // 'edit' | 'view' (server-reported in server mode)
+            viewOnly: false,            // true when the logged-in user may only view this task
             workDirHandle: null,
             currentTask: null, // { name, handle, data, translations, pagesJsonHandle, transHandle, imageHandles: {} }
 
@@ -1102,7 +1214,29 @@
                 if (this.isServer) {
                     document.getElementById('btn-open').style.display = 'none';
                     document.getElementById('sidebar-tasks-section').style.display = 'none';
+                    // Export translations is server-only (local mode has the files on disk).
+                    document.getElementById('btn-export-trans').style.display = '';
+                    await this.loadServerCapabilities();
                     await this.loadServerTask();
+                }
+            },
+
+            // Ask the server whether the pipeline (extract/translate/render) can run;
+            // it can't if the server is running standalone without manga_translator_lite.
+            async loadServerCapabilities() {
+                try {
+                    const resp = await fetch(`api/capabilities?t=${this.token}`);
+                    if (resp.ok) {
+                        const caps = await resp.json();
+                        this.pipelineAvailable = !!caps.pipeline;
+                        // Server-authoritative permission: 'view' users get a read-only
+                        // editor. URL tampering can't change this — the server also
+                        // rejects every write with 403.
+                        this.permission = caps.permission || 'edit';
+                        this.viewOnly = this.permission !== 'edit';
+                    }
+                } catch (e) {
+                    this.pipelineAvailable = false;
                 }
             },
 
@@ -1181,6 +1315,16 @@
                     if (!handle) return null;
                     return URL.createObjectURL(await handle.getFile());
                 }
+            },
+
+            // Thumbnail URL for the page list. Server mode hits api/thumb (scaled +
+            // cached server-side → far less bandwidth); local mode reuses the full
+            // image (browser downscales) since there's no server to resize.
+            async getThumbUrl(page) {
+                if (this.isServer) {
+                    return `api/thumb?t=${this.token}&name=${encodeURIComponent(page.clean.split('/').pop())}`;
+                }
+                return this.getImageUrl(page);
             },
 
             async loadServerConfig() {
@@ -1290,7 +1434,9 @@
             info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
             square: '<rect x="4" y="4" width="16" height="16" rx="2"></rect>',
             squareFilled: '<rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"></rect>',
-            edit: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>'
+            edit: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>',
+            sun: '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>',
+            moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>'
         };
         // Build an <svg> element from trusted static markup. The markup constants in
         // ICONS are not user data, so innerHTML here is safe.
@@ -1309,6 +1455,16 @@
             document.title = (d ? '• ' : '') + 'Manga Translator Lite Editor';
         }
 
+        // Light/dark theme: sets the data-theme attribute (CSS variables do the rest),
+        // persists the choice, and shows the icon of the mode you'd switch to.
+        function applyTheme(theme) {
+            const t2 = theme === 'light' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', t2);
+            localStorage.setItem('editor-theme', t2);
+            const btn = document.getElementById('btn-theme');
+            if (btn) { btn.innerHTML = ''; btn.appendChild(svgIcon(t2 === 'light' ? ICONS.moon : ICONS.sun, 18)); }
+        }
+
         async function init() {
             // Load saved editor width
             const savedWidth = localStorage.getItem('editor-width');
@@ -1316,16 +1472,21 @@
                 document.documentElement.style.setProperty('--editor-width', savedWidth);
             }
 
+            // Theme (light/dark): apply saved choice and wire the toggle.
+            applyTheme(localStorage.getItem('editor-theme') || 'dark');
+            document.getElementById('btn-theme').onclick = () => {
+                const cur = document.documentElement.getAttribute('data-theme');
+                applyTheme(cur === 'light' ? 'dark' : 'light');
+            };
+
             updateLanguage(currentLang);
             elements.langSelect.value = currentLang;
             await storage.init();
 
-            // Pipeline runs through the backend, so grey out its tab in local mode.
-            if (!storage.isServer) {
-                const pipeTab = document.getElementById('tab-pipeline');
-                pipeTab.classList.add('disabled');
-                pipeTab.title = t('pipelineLocalOnly');
-            }
+            // Pipeline needs the backend AND manga_translator_lite installed there;
+            // reflect availability on the tab (storage.init resolved it by now).
+            updatePipelineTab();
+            applyViewOnly();
 
             // Listen to configuration path changes to reload config preview settings
             const configInput = document.getElementById('pipeline-config');
@@ -1536,10 +1697,32 @@
             }
         };
 
+        // Pipeline is usable only in server mode AND when the server reports
+        // manga_translator_lite is installed. Reason picks the right explanation.
+        function pipelineEnabled() { return storage.isServer && storage.pipelineAvailable; }
+        function pipelineDisabledReason() { return storage.isServer ? 'pipelineUnavailable' : 'pipelineLocalOnly'; }
+        function updatePipelineTab() {
+            const pipeTab = document.getElementById('tab-pipeline');
+            const ok = pipelineEnabled();
+            pipeTab.classList.toggle('disabled', !ok);
+            pipeTab.title = ok ? '' : t(pipelineDisabledReason());
+        }
+
+        // Read-only mode: a view-only user. CSS (body.view-only) hides mutating
+        // controls; here we make any already-rendered text fields read-only and show
+        // a badge. The server is the real guard (it 403s every write regardless).
+        function applyViewOnly() {
+            if (!storage.viewOnly) return;
+            document.body.classList.add('view-only');
+            document.querySelectorAll('#blocks-container textarea, #story-content').forEach(el => el.readOnly = true);
+            const badge = document.getElementById('view-badge');
+            if (badge) badge.style.display = '';
+        }
+
         function switchTab(tab) {
-            // Pipeline needs the backend; it's disabled (and inert) in local mode.
-            if (tab === 'pipeline' && !storage.isServer) {
-                showToast(t('pipelineLocalOnly'), 'error');
+            // Pipeline needs the backend AND the package installed there.
+            if (tab === 'pipeline' && !pipelineEnabled()) {
+                showToast(t(pipelineDisabledReason()), 'error');
                 return;
             }
             document.getElementById('tab-tasks').classList.toggle('active', tab === 'tasks');
@@ -1665,8 +1848,8 @@
         }
 
         async function runPipeline() {
-            if (!storage.isServer) {
-                showToast("Pipeline only available in Server mode", "error");
+            if (!pipelineEnabled()) {
+                showToast(t(pipelineDisabledReason()), "error");
                 return;
             }
 
@@ -1966,13 +2149,13 @@
         }
 
         // ---- Lazy page thumbnails (works in both local and server modes) ----
-        // storage.getImageUrl() already abstracts the two backends: server mode
-        // returns an api/image URL, local mode a blob: URL from the file handle.
+        // storage.getThumbUrl() abstracts the two backends: server mode returns an
+        // api/thumb URL (scaled + cached), local mode a blob: URL from the file handle.
         let pageThumbObserver = null;
         function loadPageThumb(imgEl, page) {
             if (!imgEl || imgEl.dataset.loaded || !page) return;
             imgEl.dataset.loaded = '1';
-            storage.getImageUrl(page).then(url => {
+            storage.getThumbUrl(page).then(url => {
                 if (!url) return;
                 // Once the <img> has decoded a blob: URL we can revoke it immediately
                 // (the picture stays) so local mode doesn't leak object URLs per page.
@@ -2120,6 +2303,22 @@
             });
             return map;
         }
+
+        // Export the current target language's translations as a downloadable
+        // {LANG}.json — the counterpart to import. Server-mode only (in local mode the
+        // file is already on disk); exports the in-memory set, i.e. current edits too.
+        document.getElementById('btn-export-trans').onclick = () => {
+            if (!storage.currentTask) { showToast(t('emptySelectPage'), 'error'); return; }
+            const lang = elements.targetLangSelect.value;
+            const json = JSON.stringify(storage.currentTask.translations || {}, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `${lang}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(t('exportDone', { name: `${lang}.json` }), 'success');
+        };
 
         elements.btnImportTrans.onclick = () => {
             if (!storage.currentTask) { showToast(t('emptySelectPage'), 'error'); return; }
@@ -2509,16 +2708,16 @@
                 // it stays clearly visible regardless of image size / zoom.
                 const s = _dispScale();
                 if (bIndex === state.selectedBlockIndex) {
-                    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = Math.max(2, 3 * s);
+                    ctx.strokeStyle = '#6366f1'; ctx.lineWidth = Math.max(2, 3 * s);
                     ctx.strokeRect(x - 1, y - 1, w + 2, h + 2);
                 } else {
-                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.85)'; ctx.lineWidth = Math.max(1.5, 1.5 * s);
+                    ctx.strokeStyle = 'rgba(99, 102, 241, 0.85)'; ctx.lineWidth = Math.max(1.5, 1.5 * s);
                     ctx.strokeRect(x, y, w, h);
                 }
 
                 // 3. Draw block index tag (scaled with display so it stays legible).
                 const tagH = 22 * s, tagW = (12 + String(bIndex + 1).length * 9) * s, fz = 14 * s;
-                ctx.fillStyle = blockTranslated ? '#3b82f6' : '#f59e0b'; ctx.fillRect(x, y - tagH, tagW, tagH);
+                ctx.fillStyle = blockTranslated ? '#6366f1' : '#f59e0b'; ctx.fillRect(x, y - tagH, tagW, tagH);
                 ctx.fillStyle = '#fff'; ctx.font = `bold ${fz}px sans-serif`;
                 ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
                 ctx.fillText(`${bIndex + 1}`, x + 6 * s, y - tagH / 2);
@@ -2615,7 +2814,7 @@
                 if (state.editMode && bIndex === state.selectedBlockIndex) {
                     const hh = 6 * _dispScale();
                     const gxs = [x, x + w / 2, x + w], gys = [y, y + h / 2, y + h];
-                    ctx.fillStyle = '#3b82f6'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+                    ctx.fillStyle = '#6366f1'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
                     gxs.forEach(gx => gys.forEach(gy => {
                         if (gx === x + w / 2 && gy === y + h / 2) return; // skip center
                         ctx.fillRect(gx - hh, gy - hh, hh * 2, hh * 2);
@@ -2709,16 +2908,32 @@
                 infoRow.appendChild(actions);
                 card.appendChild(infoRow);
 
-                // --- Original (OCR) text: untrusted → textContent, never innerHTML ---
-                const orig = document.createElement('div');
-                orig.className = 'original-text';
-                orig.textContent = block.text || '';
-                card.appendChild(orig);
+                // --- Side-by-side body: original (left) vs translation (right) ---
+                const body = document.createElement('div');
+                body.className = 'block-body';
 
-                // --- Translation textarea: value set as property, immune to markup ---
+                // Original (OCR) column — untrusted → textContent, never innerHTML.
+                const origCol = document.createElement('div');
+                origCol.className = 'block-col';
+                const origLabel = document.createElement('div');
+                origLabel.className = 'col-label';
+                origLabel.textContent = t('labelOrig');
+                const orig = document.createElement('div');
+                orig.className = 'orig-text';
+                orig.textContent = block.text || '';
+                origCol.appendChild(origLabel);
+                origCol.appendChild(orig);
+
+                // Translation column — value set as property, immune to markup.
+                const transCol = document.createElement('div');
+                transCol.className = 'block-col';
+                const transLabel = document.createElement('div');
+                transLabel.className = 'col-label';
+                transLabel.textContent = t('labelTrans');
                 const textarea = document.createElement('textarea');
                 textarea.placeholder = 'Translation...';
                 textarea.value = transText;
+                if (storage.viewOnly) textarea.readOnly = true;
                 textarea.oninput = () => {
                     storage.currentTask.translations[block.id] = { text: textarea.value, edited: true };
                     setDirty(true);
@@ -2726,7 +2941,12 @@
                     clearTimeout(textarea.t); textarea.t = setTimeout(renderPage, 300);
                 };
                 textarea.onfocus = () => { state.selectedBlockIndex = bIndex; renderPage(); Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex)); };
-                card.appendChild(textarea);
+                transCol.appendChild(transLabel);
+                transCol.appendChild(textarea);
+
+                body.appendChild(origCol);
+                body.appendChild(transCol);
+                card.appendChild(body);
 
                 elements.blocksContainer.appendChild(card);
             });
@@ -3004,6 +3224,130 @@
         }
         document.getElementById('btn-help').onclick = showShortcutsHelp;
 
+        // Cross-page search & replace over the current task's translations. Purely
+        // client-side (operates on in-memory translations), so it works the same in
+        // local and server modes; saving goes through the existing saveTranslations().
+        function showSearchReplace() {
+            if (!storage.currentTask) { showToast(t('emptySelectPage'), 'error'); return; }
+            if (document.getElementById('search-overlay')) return;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.id = 'search-overlay';
+            const panel = document.createElement('div');
+            panel.className = 'modal-panel';
+            panel.style.width = '640px';
+
+            const title = document.createElement('h3');
+            title.textContent = t('titleSearch');
+            panel.appendChild(title);
+
+            const ctrls = document.createElement('div');
+            ctrls.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:10px;';
+            const findInput = document.createElement('input');
+            findInput.type = 'text'; findInput.placeholder = t('searchFindPh');
+            const replaceInput = document.createElement('input');
+            replaceInput.type = 'text'; replaceInput.placeholder = t('searchReplacePh');
+            [findInput, replaceInput].forEach(i => i.style.cssText = 'width:100%;padding:7px 8px;background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;font-size:0.85rem;');
+            const origRow = document.createElement('label');
+            origRow.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-secondary);';
+            const origCb = document.createElement('input'); origCb.type = 'checkbox';
+            origRow.appendChild(origCb); origRow.appendChild(document.createTextNode(t('searchInOrig')));
+            ctrls.appendChild(findInput); ctrls.appendChild(replaceInput); ctrls.appendChild(origRow);
+            panel.appendChild(ctrls);
+
+            const counter = document.createElement('div'); counter.className = 'diff-count';
+            counter.style.margin = '0 0 6px'; panel.appendChild(counter);
+            const list = document.createElement('div'); list.className = 'diff-list'; panel.appendChild(list);
+
+            let matches = []; // [{ id, page, block }]
+
+            function collect() {
+                const find = findInput.value;
+                list.innerHTML = ''; matches = [];
+                if (!find) { counter.textContent = ''; return; }
+                const searchOrig = origCb.checked;
+                (storage.currentTask.data.pages || []).forEach((p, pi) => {
+                    (p.blocks || []).forEach((b, bi) => {
+                        const tx = storage.currentTask.translations[b.id]?.text || '';
+                        const og = b.text || '';
+                        const inT = tx.includes(find);
+                        const inO = searchOrig && og.includes(find);
+                        if (!inT && !inO) return;
+                        matches.push({ id: b.id, page: pi, block: bi });
+                        const item = document.createElement('div'); item.className = 'diff-item';
+                        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; item._cb = cb;
+                        const bodyEl = document.createElement('div'); bodyEl.className = 'diff-body'; bodyEl.style.cursor = 'pointer';
+                        const head = document.createElement('div'); head.className = 'diff-head';
+                        head.textContent = `P${pi + 1} · #${bi + 1}` + (inT ? '' : ` · ${t('labelOrig')}`);
+                        const snip = document.createElement('div'); snip.className = 'diff-cur';
+                        snip.style.color = 'var(--text-primary)';
+                        snip.textContent = (inT ? tx : og).replace(/\n/g, ' ');
+                        bodyEl.appendChild(head); bodyEl.appendChild(snip);
+                        // Jump to the block (resolve by id after navigation in case the
+                        // target page re-sorts its blocks on first view).
+                        const pidx = pi, bid = b.id;
+                        bodyEl.onclick = () => {
+                            close(); selectPage(pidx);
+                            setTimeout(() => {
+                                const blocks = storage.currentTask.data.pages[pidx].blocks || [];
+                                const idx = blocks.findIndex(x => x.id === bid);
+                                if (idx >= 0) selectBlock(idx);
+                            }, 90);
+                        };
+                        item.appendChild(cb); item.appendChild(bodyEl);
+                        list.appendChild(item);
+                    });
+                });
+                counter.textContent = matches.length ? `(${matches.length})` : t('searchNoMatch');
+            }
+            findInput.oninput = collect;
+            origCb.onchange = collect;
+
+            const actions = document.createElement('div'); actions.className = 'modal-actions';
+            const replSel = document.createElement('button'); replSel.textContent = t('searchReplaceSel');
+            const replAll = document.createElement('button'); replAll.textContent = t('searchReplaceAll');
+            const closeBtn = document.createElement('button'); closeBtn.textContent = t('infoClose'); closeBtn.style.background = 'var(--bg-hover)';
+            // View-only users can search & jump, but not replace.
+            if (!storage.viewOnly) { actions.appendChild(replSel); actions.appendChild(replAll); }
+            actions.appendChild(closeBtn);
+            panel.appendChild(actions);
+
+            async function doReplace(onlySelected) {
+                const find = findInput.value;
+                if (!find) return;
+                const repl = replaceInput.value;
+                const rows = Array.from(list.children);
+                // Replace only in translations (originals are source — never edited).
+                let n = 0;
+                matches.forEach((m, idx) => {
+                    if (onlySelected && rows[idx] && !rows[idx]._cb.checked) return;
+                    const cur = storage.currentTask.translations[m.id]?.text || '';
+                    if (!cur.includes(find)) return;
+                    const next = cur.split(find).join(repl);
+                    if (next !== cur) { storage.currentTask.translations[m.id] = { text: next, edited: true }; n++; }
+                });
+                if (!n) { showToast(t('searchNoMatch'), 'error'); return; }
+                try { await storage.saveTranslations(); setDirty(false); }
+                catch (e) { showToast('Save failed: ' + e.message, 'error'); }
+                render(); refreshAllPageProgress();
+                showToast(t('searchDone', { n }), 'success');
+                close();
+            }
+            replSel.onclick = () => doReplace(true);
+            replAll.onclick = () => doReplace(false);
+
+            overlay.appendChild(panel);
+            const onKey = (e) => { if (e.key === 'Escape') close(); };
+            function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+            closeBtn.onclick = close;
+            overlay.onclick = (e) => { if (e.target === overlay) close(); };
+            document.addEventListener('keydown', onKey);
+            document.body.appendChild(overlay);
+            findInput.focus();
+        }
+        document.getElementById('btn-search').onclick = showSearchReplace;
+
         elements.boxScale.onchange = () => {
             if (!storage.currentTask) return;
             let v = parseFloat(elements.boxScale.value);
@@ -3109,7 +3453,7 @@
             } else if (drag.type === 'new') {
                 drag.cur = { minX: Math.min(drag.startX, x), minY: Math.min(drag.startY, y), maxX: Math.max(drag.startX, x), maxY: Math.max(drag.startY, y) };
                 redraw();
-                ctx.save(); ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+                ctx.save(); ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
                 ctx.strokeRect(drag.cur.minX, drag.cur.minY, drag.cur.maxX - drag.cur.minX, drag.cur.maxY - drag.cur.minY);
                 ctx.restore();
             }
@@ -3223,4 +3567,5 @@
         init();
     </script>
 </body>
+
 </html>
