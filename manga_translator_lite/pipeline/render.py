@@ -30,9 +30,25 @@ logger = get_logger('render')
 DEFAULT_FONT = os.path.join(BASE_PATH, 'fonts', 'Arial-Unicode-Regular.ttf')
 
 
-def _block_to_textblock(block: Block, translation_text: str, target_lang: str, render_cfg) -> TextBlock:
+def _scale_poly(pts, scale: float) -> np.ndarray:
+    """Scale a set of points about their bounding-box center; returns int32 array."""
+    arr = np.array(pts, dtype=np.float64).reshape(-1, 2)
+    if scale == 1.0 or arr.size == 0:
+        return arr.astype(np.int32)
+    cx = (arr[:, 0].min() + arr[:, 0].max()) / 2
+    cy = (arr[:, 1].min() + arr[:, 1].max()) / 2
+    arr[:, 0] = cx + (arr[:, 0] - cx) * scale
+    arr[:, 1] = cy + (arr[:, 1] - cy) * scale
+    return arr.astype(np.int32)
+
+
+def _block_to_textblock(block: Block, translation_text: str, target_lang: str, render_cfg, box_scale: float = 1.0) -> TextBlock:
     """Reconstruct a TextBlock for the rendering layer."""
     lines = np.array(block.lines, dtype=np.int32) if block.lines else np.array([block.polygon], dtype=np.int32)
+    # Apply the task-level uniform box enlargement (unless this block opts out).
+    scale = 1.0 if block.scale_exempt else (box_scale or 1.0)
+    if scale != 1.0 and lines.size:
+        lines = _scale_poly(lines.reshape(-1, 2), scale).reshape(lines.shape)
     fg = render_cfg.font_color_fg or block.fg_color
     bg = render_cfg.font_color_bg or block.bg_color
 
@@ -60,6 +76,7 @@ def _block_to_textblock(block: Block, translation_text: str, target_lang: str, r
     tb.block_id = block.id
     tb.text_raw = block.text
     tb.fixed_region = block.fixed_region  # user-sized box → renderer must not auto-expand it
+    tb.box_scale_applied = scale          # lifts the font-size ceiling so box_scale truly magnifies text
     if render_cfg.font_color_bg is not None:
         tb.adjust_bg_color = False
     return tb
@@ -101,7 +118,8 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
     white_blocks = [b for b in page.blocks
                     if getattr(b, 'bg_fill', 'none') == 'white' and b.polygon]
     for b in white_blocks:
-        pts = np.array(b.polygon, dtype=np.int32).reshape(-1, 2)
+        sc = 1.0 if b.scale_exempt else (ws.box_scale or 1.0)
+        pts = _scale_poly(b.polygon, sc)
         if len(pts) >= 3:
             cv2.fillPoly(img_rgb, [pts], (255, 255, 255))
 
@@ -122,7 +140,7 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
         rendered_rgb = img_rgb
     else:
         text_regions: List[TextBlock] = [
-            _block_to_textblock(b, text, ws.target_lang, cfg.render) for b, text in blocks_to_render
+            _block_to_textblock(b, text, ws.target_lang, cfg.render, ws.box_scale) for b, text in blocks_to_render
         ]
         if cfg.render.uppercase:
             for tb in text_regions:
@@ -132,14 +150,18 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
                 tb.translation = tb.translation.lower()
 
         font_path = cfg.render.font_path or DEFAULT_FONT
+        # Per-task overrides (pages.json) take precedence; config.toml is the fallback.
+        eff_min = ws.font_size_minimum if ws.font_size_minimum is not None else cfg.render.font_size_minimum
+        eff_expand = (ws.font_size_minimum_expand_limit if ws.font_size_minimum_expand_limit is not None
+                      else cfg.render.font_size_minimum_expand_limit)
         rendered_rgb = await dispatch_rendering(
             img_rgb,
             text_regions,
             font_path=font_path,
             font_size_fixed=cfg.render.font_size,
             font_size_offset=cfg.render.font_size_offset,
-            font_size_minimum=cfg.render.font_size_minimum,
-            font_size_minimum_expand_limit=cfg.render.font_size_minimum_expand_limit,
+            font_size_minimum=eff_min,
+            font_size_minimum_expand_limit=eff_expand,
             hyphenate=not cfg.render.no_hyphenation,
             line_spacing=cfg.render.line_spacing,
             disable_font_border=cfg.render.disable_font_border,

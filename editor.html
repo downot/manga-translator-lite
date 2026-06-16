@@ -246,6 +246,8 @@
         .modal-actions button:hover { background: var(--accent-hover); }
 
         #btn-edit-region.active { background: var(--accent); color: #fff; }
+        #box-scale-wrap, #task-minfont-wrap, #task-expand-wrap { display: inline-flex; align-items: center; gap: 3px; font-size: 0.78rem; color: var(--text-secondary); }
+        #box-scale, #task-min-font, #task-expand { width: 48px; padding: 3px 4px; background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; font-size: 0.78rem; }
         .block-actions { display: inline-flex; align-items: center; gap: 4px; }
         .blk-size { color: var(--text-secondary); font-size: 0.7rem; }
         .blk-bg-btn, .blk-del-btn {
@@ -255,6 +257,16 @@
         }
         .blk-bg-btn:hover { background: var(--bg-hover); }
         .blk-del-btn:hover { background: rgba(255, 80, 80, 0.18); color: #ff5b5b; }
+
+        .diff-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.85rem; }
+        .diff-count { color: var(--text-secondary); }
+        .diff-list { max-height: 60vh; overflow: auto; margin: 4px 0 8px; }
+        .diff-item { display: flex; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--border); }
+        .diff-item input { margin-top: 3px; flex: 0 0 auto; }
+        .diff-body { flex: 1; min-width: 0; }
+        .diff-head { font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 4px; word-break: break-all; }
+        .diff-cur { color: #ff8585; font-size: 0.82rem; white-space: pre-wrap; word-break: break-word; }
+        .diff-imp { color: #34d399; font-size: 0.82rem; white-space: pre-wrap; word-break: break-word; }
 
         .list-item.active {
             background-color: var(--accent);
@@ -686,6 +698,15 @@
                 <span data-i18n="btnReload">Reload</span>
             </button>
 
+            <input type="file" id="import-trans-file" accept=".json,application/json" style="display:none">
+            <button id="btn-import-trans" class="secondary" data-i18n-title="btnImportTrans" title="Import & compare translations">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+            </button>
+
             <button id="btn-save" disabled>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -826,6 +847,18 @@
                         <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
                     </svg>
                 </button>
+                <label id="box-scale-wrap" data-i18n-title="tipBoxScale" title="Box scale">
+                    <span>⬚×</span>
+                    <input type="number" id="box-scale" min="0.5" max="5" step="0.1" value="1">
+                </label>
+                <label id="task-minfont-wrap" data-i18n-title="tipMinFont" title="Min font (task)">
+                    <span>min</span>
+                    <input type="number" id="task-min-font" min="1" step="1">
+                </label>
+                <label id="task-expand-wrap" data-i18n-title="tipExpandLimit" title="Expand limit (task)">
+                    <span>exp</span>
+                    <input type="number" id="task-expand" min="1" step="0.1">
+                </label>
             </div>
         </section>
 
@@ -873,9 +906,9 @@
 
     <script>
         const i18n = {
-            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）" },
-            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)" },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）" }
+            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）" },
+            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)" },
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）" }
         };
 
         function parseSimpleToml(text) {
@@ -1079,6 +1112,11 @@
             btnReload: document.getElementById('btn-reload'),
             btnZoom: document.getElementById('btn-zoom'),
             btnEditRegion: document.getElementById('btn-edit-region'),
+            boxScale: document.getElementById('box-scale'),
+            taskMinFont: document.getElementById('task-min-font'),
+            taskExpand: document.getElementById('task-expand'),
+            btnImportTrans: document.getElementById('btn-import-trans'),
+            importTransFile: document.getElementById('import-trans-file'),
             taskList: document.getElementById('task-list'),
             pageList: document.getElementById('page-list'),
             blocksContainer: document.getElementById('blocks-container'),
@@ -1697,6 +1735,17 @@
         }
 
         function renderPageList() {
+            if (elements.boxScale && storage.currentTask) {
+                const d = storage.currentTask.data;
+                elements.boxScale.value = d.box_scale || 1;
+                // Per-task overrides: blank = inherit config (shown as placeholder).
+                elements.taskMinFont.value = (d.font_size_minimum != null) ? d.font_size_minimum : '';
+                elements.taskExpand.value = (d.font_size_minimum_expand_limit != null) ? d.font_size_minimum_expand_limit : '';
+                if (globalConfig && globalConfig.render) {
+                    if (globalConfig.render.font_size_minimum != null) elements.taskMinFont.placeholder = globalConfig.render.font_size_minimum;
+                    if (globalConfig.render.font_size_minimum_expand_limit != null) elements.taskExpand.placeholder = globalConfig.render.font_size_minimum_expand_limit;
+                }
+            }
             elements.pageList.innerHTML = '';
             storage.currentTask.data.pages.forEach((page, index) => {
                 const item = document.createElement('div');
@@ -1778,6 +1827,125 @@
             closeBtn.onclick = close;
             overlay.onclick = (e) => { if (e.target === overlay) close(); };
             document.addEventListener('keydown', onKey);
+            document.body.appendChild(overlay);
+        }
+
+        // ===== Import an external translation file and merge only the differences =====
+        function _entryText(v) {
+            if (v == null) return '';
+            if (typeof v === 'string') return v;
+            if (typeof v === 'object') return v.text || '';
+            return String(v);
+        }
+        function _buildBlockIndex() {
+            const map = {};
+            (storage.currentTask.data.pages || []).forEach((p, pi) => {
+                (p.blocks || []).forEach(b => { map[b.id] = { orig: b.text || '', page: pi + 1 }; });
+            });
+            return map;
+        }
+
+        elements.btnImportTrans.onclick = () => {
+            if (!storage.currentTask) { showToast(t('emptySelectPage'), 'error'); return; }
+            elements.importTransFile.value = '';
+            elements.importTransFile.click();
+        };
+        elements.importTransFile.onchange = async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            // Warn if the file looks like a different language than the one being edited.
+            const fileLang = file.name.replace(/\.json$/i, '').toUpperCase();
+            const curLang = (elements.targetLangSelect.value || '').toUpperCase();
+            const knownLangs = Array.from(elements.targetLangSelect.options).map(o => o.value.toUpperCase());
+            if (knownLangs.includes(fileLang) && fileLang !== curLang) {
+                if (!confirm(t('importLangMismatch', { file: fileLang, cur: curLang }))) return;
+            }
+            let data;
+            try { data = JSON.parse(await file.text()); }
+            catch (err) { showToast(t('importBadFile'), 'error'); return; }
+            if (!data || typeof data !== 'object' || Array.isArray(data) || data.pages) {
+                showToast(t('importBadFile'), 'error'); return;
+            }
+            const cur = storage.currentTask.translations || {};
+            const diffs = [];
+            for (const [id, val] of Object.entries(data)) {
+                const imp = _entryText(val);
+                const curT = _entryText(cur[id]);
+                if (imp === curT) continue;   // identical → ignore
+                diffs.push({ id, cur: curT, imp });
+            }
+            if (!diffs.length) { showToast(t('importNoDiff')); return; }
+            showImportDiffModal(diffs);
+        };
+
+        function showImportDiffModal(diffs) {
+            const blockIdx = _buildBlockIndex();
+            const overlay = document.createElement('div'); overlay.className = 'modal-overlay';
+            const panel = document.createElement('div'); panel.className = 'modal-panel';
+            panel.style.width = '640px';
+
+            const title = document.createElement('h3');
+            title.textContent = `${t('importTitle')} — ${diffs.length}`;
+            panel.appendChild(title);
+
+            const tb = document.createElement('div'); tb.className = 'diff-toolbar';
+            const selAll = document.createElement('input'); selAll.type = 'checkbox'; selAll.checked = true; selAll.id = 'diff-sel-all';
+            const selAllLabel = document.createElement('label'); selAllLabel.htmlFor = 'diff-sel-all'; selAllLabel.textContent = t('importSelectAll');
+            const counter = document.createElement('span'); counter.className = 'diff-count';
+            tb.appendChild(selAll); tb.appendChild(selAllLabel); tb.appendChild(counter);
+            panel.appendChild(tb);
+
+            const list = document.createElement('div'); list.className = 'diff-list';
+            const checks = [];
+            diffs.forEach(d => {
+                const item = document.createElement('div'); item.className = 'diff-item';
+                const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; checks.push(cb);
+                const body = document.createElement('div'); body.className = 'diff-body';
+                const info = blockIdx[d.id];
+                const head = document.createElement('div'); head.className = 'diff-head';
+                let headTxt = d.id + (info ? ` · P${info.page}` : ` · ${t('importOrphan')}`);
+                if (info && info.orig) headTxt += ` · ${info.orig.replace(/\n/g, ' ').slice(0, 30)}`;
+                head.textContent = headTxt;
+                const cur = document.createElement('div'); cur.className = 'diff-cur'; cur.textContent = d.cur || '∅';
+                const imp = document.createElement('div'); imp.className = 'diff-imp'; imp.textContent = '→ ' + (d.imp || '∅');
+                body.appendChild(head); body.appendChild(cur); body.appendChild(imp);
+                item.appendChild(cb); item.appendChild(body);
+                list.appendChild(item);
+                cb.onchange = updateCounter;
+            });
+            panel.appendChild(list);
+
+            function updateCounter() {
+                const n = checks.filter(c => c.checked).length;
+                counter.textContent = `(${n}/${diffs.length})`;
+                selAll.checked = n === diffs.length;
+            }
+            selAll.onchange = () => { checks.forEach(c => c.checked = selAll.checked); updateCounter(); };
+            updateCounter();
+
+            const actions = document.createElement('div'); actions.className = 'modal-actions';
+            const cancel = document.createElement('button'); cancel.textContent = t('importCancel');
+            cancel.style.background = 'var(--bg-hover)';
+            const apply = document.createElement('button'); apply.textContent = t('importApply');
+            actions.appendChild(cancel); actions.appendChild(apply);
+            panel.appendChild(actions);
+            overlay.appendChild(panel);
+
+            function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+            function onKey(ev) { if (ev.key === 'Escape') close(); }
+            cancel.onclick = close;
+            overlay.onclick = (ev) => { if (ev.target === overlay) close(); };
+            document.addEventListener('keydown', onKey);
+            apply.onclick = async () => {
+                const sel = diffs.filter((d, i) => checks[i].checked);
+                if (!sel.length) { close(); return; }
+                sel.forEach(d => { storage.currentTask.translations[d.id] = { text: d.imp, edited: true }; });
+                try { await storage.saveTranslations(); isDirty = false; elements.btnSave.disabled = true; }
+                catch (err) { showToast('Save failed: ' + err.message, 'error'); }
+                renderBlockEditors(); renderPage();
+                showToast(t('importApplied', { n: sel.length }));
+                close();
+            };
             document.body.appendChild(overlay);
         }
 
@@ -2033,8 +2201,7 @@
         function renderOverlays(page) {
             const blocks = page.blocks || [];
             blocks.forEach((block, bIndex) => {
-                const poly = block.polygon;
-                const rect = getRect(poly);
+                const rect = effRect(block);
                 const x = rect.minX, y = rect.minY, w = rect.maxX - rect.minX, h = rect.maxY - rect.minY;
                 const angle = (block.angle || 0) * Math.PI / 180;
 
@@ -2083,23 +2250,24 @@
                     // Use unrotated dimensions for layout to match Python's 'unrotated_size'
                     // For simplicity, we use the bounding box width/height here
                     let fs = block.font_size || 24;
-                    let minFs = 8; // Default fallback
-                    if (globalConfig && globalConfig.render) {
-                        const configMinFs = globalConfig.render.font_size_minimum;
-                        if (configMinFs === -1) {
-                            minFs = Math.max(1, Math.round((elements.canvas.width + elements.canvas.height) / 200));
-                        } else if (configMinFs !== undefined) {
-                            minFs = Math.max(1, configMinFs);
-                        }
-                    }
+                    let minFs = effMinFs();   // per-task override else config.toml
 
-                    fs = getOptimalFontSize(text, w, h, isVertical, minFs, Math.max(fs, 100, minFs));
+                    // Match render exactly: box_scale lifts the font ceiling (true
+                    // magnification); floor = font_size_minimum (4 for user-fixed boxes).
+                    const offset = (globalConfig && globalConfig.render && globalConfig.render.font_size_offset) || 0;
+                    const fixedFs = (globalConfig && globalConfig.render && globalConfig.render.font_size) || null;
+                    const sc = blockScale(block);
+                    const floor = block.fixed_region ? 4 : minFs;
+                    let ceiling = fixedFs ? Math.round(fixedFs * 1.2)
+                                          : Math.round(((block.font_size || 24) + offset) * sc * 1.2);
+                    ceiling = Math.max(ceiling, floor);
+                    fs = getOptimalFontSize(text, w, h, isVertical, floor, ceiling);
 
-                    // Check if text fits in the original bounding box at the optimal font size
+                    // Check if text fits at the optimal font size
                     const fits = checkTextFits(text, w, h, fs, isVertical);
                     let scaleX = 1.0;
                     let scaleY = 1.0;
-                    if (!fits) {
+                    if (!fits && !block.fixed_region) {
                         if (isVertical) {
                             const { cols, height } = layoutVertical(text, h, fs);
                             const neededW = cols.length * fs * 1.1;
@@ -2114,10 +2282,7 @@
                             scaleY = h > 0 ? Math.max(neededH / h, 1.0) : 1.0;
                         }
                         // Cap expansion to avoid very ugly overflow, matching Python
-                        let expandLimit = 1.5;
-                        if (globalConfig && globalConfig.render && globalConfig.render.font_size_minimum_expand_limit !== undefined) {
-                            expandLimit = Math.max(1.0, globalConfig.render.font_size_minimum_expand_limit);
-                        }
+                        let expandLimit = effExpand();   // per-task override else config.toml
                         scaleX = Math.min(scaleX, expandLimit);
                         scaleY = Math.min(scaleY, expandLimit);
                     }
@@ -2352,7 +2517,7 @@
         }
         function hitTestBlock(blocks, x, y) {
             for (let i = blocks.length - 1; i >= 0; i--) {
-                const r = getRect(blocks[i].polygon);
+                const r = effRect(blocks[i]);
                 if (x >= r.minX && x <= r.maxX && y >= r.minY && y <= r.maxY) return i;
             }
             return -1;
@@ -2365,12 +2530,38 @@
             const poly = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
             b.polygon = poly; b.lines = [poly]; b.bbox = [minX, minY, maxX - minX, maxY - minY];
         }
+        // Task-level box scaling. The editor shows/edits boxes at box_scale (display
+        // space), while the stored geometry (polygon/lines/bbox) stays at base size.
+        function blockScale(block) {
+            if (block && block.scale_exempt) return 1;
+            return (storage.currentTask && storage.currentTask.data.box_scale) || 1;
+        }
+        function effRect(block) {
+            const r = getRect(block.polygon);
+            const s = blockScale(block);
+            if (s === 1) return r;
+            const cx = (r.minX + r.maxX) / 2, cy = (r.minY + r.maxY) / 2;
+            const hw = (r.maxX - r.minX) / 2 * s, hh = (r.maxY - r.minY) / 2 * s;
+            return { minX: cx - hw, minY: cy - hh, maxX: cx + hw, maxY: cy + hh };
+        }
+        function storeRectFromDisplay(b, dr) {
+            const s = blockScale(b);
+            let r = dr;
+            if (s !== 1) {
+                const cx = (dr.minX + dr.maxX) / 2, cy = (dr.minY + dr.maxY) / 2;
+                const hw = (dr.maxX - dr.minX) / 2 / s, hh = (dr.maxY - dr.minY) / 2 / s;
+                r = { minX: cx - hw, minY: cy - hh, maxX: cx + hw, maxY: cy + hh };
+            }
+            setBlockRect(b, r.minX, r.minY, r.maxX, r.maxY);
+        }
         function createUserBlock(r) {
             const id = 'u' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
-            const b = { id, text: '', ocr_text: '', font_size: Math.max(12, Math.round((r.maxY - r.minY) * 0.6)),
+            const b = { id, text: '', ocr_text: '', font_size: 24,
                 angle: 0, fg_color: [0, 0, 0], bg_color: [255, 255, 255], direction: 'auto', alignment: 'auto',
-                prob: 1.0, bg_fill: 'white', user_added: true, fixed_region: true, polygon: [], lines: [], bbox: [0, 0, 0, 0] };
-            setBlockRect(b, r.minX, r.minY, r.maxX, r.maxY);
+                prob: 1.0, bg_fill: 'white', user_added: true, fixed_region: true, scale_exempt: false,
+                polygon: [], lines: [], bbox: [0, 0, 0, 0] };
+            storeRectFromDisplay(b, r);   // r is in display space → stored base = r / box_scale
+            b.font_size = Math.max(12, Math.round((b.bbox[3] || 20) * 0.6));
             return b;
         }
         function persistGeometry() {
@@ -2400,6 +2591,46 @@
         }
         elements.btnEditRegion.onclick = toggleEditMode;
 
+        elements.boxScale.onchange = () => {
+            if (!storage.currentTask) return;
+            let v = parseFloat(elements.boxScale.value);
+            if (!isFinite(v) || v <= 0) v = 1;
+            v = Math.min(5, Math.max(0.5, Math.round(v * 100) / 100));
+            elements.boxScale.value = v;
+            storage.currentTask.data.box_scale = v;
+            persistGeometry();
+            renderPage();
+        };
+
+        // Effective render params: per-task override (pages.json) else config.toml.
+        function effMinFs() {
+            const d = storage.currentTask && storage.currentTask.data;
+            let v = (d && d.font_size_minimum != null) ? d.font_size_minimum
+                : (globalConfig && globalConfig.render ? globalConfig.render.font_size_minimum : undefined);
+            if (v === -1) return Math.max(1, Math.round((elements.canvas.width + elements.canvas.height) / 200));
+            if (v == null) return 8;
+            return Math.max(1, v);
+        }
+        function effExpand() {
+            const d = storage.currentTask && storage.currentTask.data;
+            let v = (d && d.font_size_minimum_expand_limit != null) ? d.font_size_minimum_expand_limit
+                : (globalConfig && globalConfig.render ? globalConfig.render.font_size_minimum_expand_limit : undefined);
+            if (v == null) return 1.5;
+            return Math.max(1.0, v);
+        }
+        // Set/clear a per-task render override (empty input → inherit config.toml).
+        function setTaskOverride(key, raw, isFloat) {
+            if (!storage.currentTask) return;
+            const d = storage.currentTask.data;
+            const s = String(raw).trim();
+            if (s === '') { delete d[key]; }
+            else { const v = isFloat ? parseFloat(s) : parseInt(s); if (isFinite(v)) d[key] = v; }
+            persistGeometry();
+            renderPage();
+        }
+        elements.taskMinFont.onchange = () => setTaskOverride('font_size_minimum', elements.taskMinFont.value, false);
+        elements.taskExpand.onchange = () => setTaskOverride('font_size_minimum_expand_limit', elements.taskExpand.value, true);
+
         const HANDLE_CURSOR = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize',
             n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' };
 
@@ -2411,7 +2642,7 @@
             const blocks = storage.currentTask.data.pages[currentPageIndex].blocks || [];
             let cur = 'crosshair';
             if (selectedBlockIndex >= 0 && blocks[selectedBlockIndex]) {
-                const h = hitHandle(getRect(blocks[selectedBlockIndex].polygon), x, y, 8 * scale);
+                const h = hitHandle(effRect(blocks[selectedBlockIndex]), x, y, 8 * scale);
                 if (h) cur = HANDLE_CURSOR[h];
             }
             if (cur === 'crosshair' && hitTestBlock(blocks, x, y) !== -1) cur = 'move';
@@ -2430,14 +2661,14 @@
             }
             const tol = 8 * scale;
             if (selectedBlockIndex >= 0 && blocks[selectedBlockIndex]) {
-                const r = getRect(blocks[selectedBlockIndex].polygon);
+                const r = effRect(blocks[selectedBlockIndex]);
                 const h = hitHandle(r, x, y, tol);
                 if (h) { drag = { type: 'resize', handle: h, blockIndex: selectedBlockIndex, orig: r }; elements.canvas.style.cursor = HANDLE_CURSOR[h]; e.preventDefault(); return; }
             }
             const f = hitTestBlock(blocks, x, y);
             if (f !== -1) {
                 selectBlock(f);
-                drag = { type: 'move', blockIndex: f, startX: x, startY: y, orig: getRect(blocks[f].polygon) };
+                drag = { type: 'move', blockIndex: f, startX: x, startY: y, orig: effRect(blocks[f]) };
                 elements.canvas.style.cursor = 'move';
                 e.preventDefault(); return;
             }
@@ -2456,11 +2687,11 @@
                 if (drag.handle.includes('e')) maxX = x;
                 if (drag.handle.includes('n')) minY = y;
                 if (drag.handle.includes('s')) maxY = y;
-                setBlockRect(blocks[drag.blockIndex], Math.min(minX, maxX), Math.min(minY, maxY), Math.max(minX, maxX), Math.max(minY, maxY));
+                storeRectFromDisplay(blocks[drag.blockIndex], { minX: Math.min(minX, maxX), minY: Math.min(minY, maxY), maxX: Math.max(minX, maxX), maxY: Math.max(minY, maxY) });
                 redraw();
             } else if (drag.type === 'move') {
                 const dx = x - drag.startX, dy = y - drag.startY;
-                setBlockRect(blocks[drag.blockIndex], drag.orig.minX + dx, drag.orig.minY + dy, drag.orig.maxX + dx, drag.orig.maxY + dy);
+                storeRectFromDisplay(blocks[drag.blockIndex], { minX: drag.orig.minX + dx, minY: drag.orig.minY + dy, maxX: drag.orig.maxX + dx, maxY: drag.orig.maxY + dy });
                 redraw();
             } else if (drag.type === 'new') {
                 drag.cur = { minX: Math.min(drag.startX, x), minY: Math.min(drag.startY, y), maxX: Math.max(drag.startX, x), maxY: Math.max(drag.startY, y) };

@@ -164,6 +164,16 @@ disable_font_border = false  # Keep the outline — key for legibility on any ba
 
 `provider = "openai"` covers any OpenAI-compatible HTTP endpoint, including DeepSeek, OpenRouter, Groq and Ollama. API keys can live in `[translator] api_key` or in `.env` vars (`OPENAI_API_KEY` / `GEMINI_API_KEY`).
 
+### Controlling text size (`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit`)
+
+Three knobs decide how big the translated text is rendered, with distinct, non-overlapping roles:
+
+- **`box_scale`** *(per-task — set in the editor, stored in `pages.json`)* — the main magnifier. It scales each text box **and** the font-size ceiling by the same factor, so `2.5` renders text ~2.5× the detected size and fills the enlarged box (not just adds whitespace). A per-block `scale_exempt` flag opts a single block out.
+- **`font_size_minimum`** *(config `[render]`)* — a pure lower bound (pixels) for legibility. Text only shrinks below the box_scale'd size when a long translation must fit, and never below this floor (hand-adjusted boxes use a 4 px floor).
+- **`font_size_minimum_expand_limit`** *(config `[render]`)* — a fallback only. If a long translation still doesn't fit the box_scale'd box even at `font_size_minimum`, the box is expanded further, up to this ratio.
+
+Typical workflow: set `box_scale` per task for the overall size you want; leave `font_size_minimum` as a legibility floor and `font_size_minimum_expand_limit` as overflow headroom. Boxes you adjust by hand in the editor render exactly as drawn (never auto-expanded). The editor preview uses the same formulas, so what you see matches the output.
+
 ## Visual Editor (Experimental)
 
 A lightweight web-based visual editor `editor.html` is provided for a better manual review experience.
@@ -198,6 +208,7 @@ The editor is more than a translation textbox — it can fix layout and geometry
 - **Per-block background** — each block has a ⬜/▢ toggle: **white** paints a white rectangle behind the text (covers leftover/original content), **transparent** renders text only. A 🗑 deletes the block.
 - **Page management** — each page row has an ℹ️ (file-path & metadata popup) and a 🗑 (delete the page and clean up its blocks, translations in every language, and its clean image; double confirmation).
 - **Task merge** — click **Merge**, tick tasks in the order you want them joined (an order badge 1·2·3 appears), then **Confirm**. Pages are renamed sequentially so the merged output keeps one continuous reading order.
+- **Import & compare translations** — the ⬆ button (next to Save) imports an external translations file (e.g. `translations/CHS.json`) and diffs it against the current language entry-by-entry. **Only differences are shown** (identical entries are ignored); tick which ones to apply (current in red, imported in green) or select all. Applied changes are saved automatically. It warns if the file's language differs from the one you're editing.
 
 Geometry edits save to `pages.json` immediately; translations save with the **Save** button. Re-run `render` to produce the final images.
 

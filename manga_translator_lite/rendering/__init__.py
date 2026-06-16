@@ -115,14 +115,17 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
         # to a small hard floor, so the text always fits the box the user drew.
         fixed = getattr(region, 'fixed_region', False)
         region_min = 4 if fixed else font_size_minimum
+        sc = getattr(region, 'box_scale_applied', 1.0) or 1.0
 
         # --- 1. Determine the font-size search range -----------------------
         original_fs = region.font_size if region.font_size > 0 else region_min
 
         if font_size_fixed is not None:
-            fs_upper = font_size_fixed
+            fs_upper = font_size_fixed   # explicit absolute override — not scaled by box_scale
         else:
-            fs_upper = original_fs + font_size_offset
+            # box_scale lifts the font ceiling too, so enlarging the box actually
+            # magnifies the text instead of just adding whitespace.
+            fs_upper = (original_fs + font_size_offset) * sc
         fs_upper = max(fs_upper, region_min, 1)
 
         # Region dimensions (unrotated)

@@ -164,6 +164,16 @@ disable_font_border = false  # 保留文字描边——任何背景上可读性�
 
 `provider = "openai"` 支持任何兼容 OpenAI 的 HTTP 接口（如 DeepSeek、OpenRouter、Groq、Ollama）。API 密钥可放在 `[translator] api_key` 或 `.env`（`OPENAI_API_KEY` / `GEMINI_API_KEY`）中。
 
+### 控制文字大小（`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit`）
+
+三个旋钮共同决定译文渲染多大，各司其职、互不重叠：
+
+- **`box_scale`**（任务级——在编辑器里设置，存入 `pages.json`）——主放大系数。它把每个文本框**和字号上限**按同一比例放大，所以 `2.5` 会让文字约为检测尺寸的 2.5×、填满放大后的框（而不是只增加留白）。某个块可用 `scale_exempt` 单独豁免。
+- **`font_size_minimum`**（config `[render]`）——纯下限（像素），保证可读性。只有长译文必须塞下时才会缩到比 box_scale 后更小，且不会低于这个下限（手动调过的框下限为 4px）。
+- **`font_size_minimum_expand_limit`**（config `[render]`）——仅作兜底。若长译文在 box_scale 后的框里、缩到 `font_size_minimum` 仍塞不下，才把框进一步扩大，最多到这个倍数。
+
+典型用法：按任务设 `box_scale` 得到整体想要的大小；`font_size_minimum` 留作可读性下限、`font_size_minimum_expand_limit` 留作溢出兜底。在编辑器手动调过的框会严格按所画渲染（不自动扩框）。编辑器预览与渲染使用同一套公式，所见即所得。
+
 ## 可视化编辑器 (实验性)
 
 项目包含了一个轻量级的网页版可视化编辑器 `editor.html`，用于提供更好的手动校正体验。
@@ -198,6 +208,7 @@ disable_font_border = false  # 保留文字描边——任何背景上可读性�
 - **逐块背景**：每个块有 ⬜/▢ 切换：**白底**在文字下铺白矩形（盖住残留/原内容），**透明**只渲染文字；🗑 删除该块。
 - **页面管理**：每个页面行有 ℹ️（文件路径与元数据弹窗）和 🗑（删除该页并清理其区块、所有语言译文、clean 图；二次确认）。
 - **任务合并**：点 **合并**，按想要的拼接顺序勾选任务（出现序号徽章 1·2·3），再 **确认**。页面会被顺序重命名，使合并输出保持单一连续的阅读顺序。
+- **导入并对比译文**：Save 旁的 ⬆ 按钮可导入外部译文文件（如 `translations/CHS.json`），按 `block.id` 逐条与当前语言对比。**只显示差异**（相同条目忽略）；勾选要应用的项（当前=红、导入=绿）或全选，应用后自动保存。导入文件语言与当前编辑语言不一致时会提示。
 
 几何改动会即时写入 `pages.json`；译文用 **保存** 按钮保存。完成后重跑 `render` 生成最终图。
 

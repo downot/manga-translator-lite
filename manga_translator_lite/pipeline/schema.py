@@ -68,6 +68,7 @@ class Block:
     bg_fill: str = "none"                  # "none" (transparent, text only) | "white" (paint white behind text)
     user_added: bool = False               # manually drawn in the editor; preserved across re-extract
     fixed_region: bool = False             # box is user-controlled → render fits text into it, never auto-expands
+    scale_exempt: bool = False             # reserved: when True this block ignores the task-level box_scale
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -91,6 +92,7 @@ class Block:
             bg_fill=str(data.get("bg_fill", "none")),
             user_added=bool(data.get("user_added", False)),
             fixed_region=bool(data.get("fixed_region", False)),
+            scale_exempt=bool(data.get("scale_exempt", False)),
         )
 
 
@@ -146,6 +148,9 @@ class Workspace:
     task_name: str = ""                   # subdirectory name (task identifier)
     pages: List[Page] = field(default_factory=list)
     version: int = WORKSPACE_VERSION
+    box_scale: float = 1.0                 # task-level uniform text-box enlargement applied at render/preview
+    font_size_minimum: Optional[int] = None              # per-task override; None → fall back to config.toml
+    font_size_minimum_expand_limit: Optional[float] = None  # per-task override; None → fall back to config.toml
 
     @property
     def pages_json_path(self) -> str:
@@ -164,6 +169,12 @@ class Workspace:
         }
         if self.task_name:
             d["task_name"] = self.task_name
+        if self.box_scale and self.box_scale != 1.0:
+            d["box_scale"] = self.box_scale
+        if self.font_size_minimum is not None:
+            d["font_size_minimum"] = self.font_size_minimum
+        if self.font_size_minimum_expand_limit is not None:
+            d["font_size_minimum_expand_limit"] = self.font_size_minimum_expand_limit
         return d
 
     def all_blocks(self) -> List[Block]:
@@ -234,6 +245,9 @@ def load_workspace(root: str) -> Workspace:
         source_lang=str(data.get("source_lang", "auto")),
         target_lang=str(data.get("target_lang", "ENG")),
         task_name=str(data.get("task_name", "")),
+        box_scale=float(data.get("box_scale", 1.0)),
+        font_size_minimum=(int(data["font_size_minimum"]) if data.get("font_size_minimum") is not None else None),
+        font_size_minimum_expand_limit=(float(data["font_size_minimum_expand_limit"]) if data.get("font_size_minimum_expand_limit") is not None else None),
         pages=[Page.from_dict(p) for p in data.get("pages", [])],
     )
 
