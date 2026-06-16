@@ -1193,7 +1193,7 @@
                         if (data && data.render) {
                             globalConfig = data;
                             console.log("Loaded config from server:", globalConfig);
-                            if (currentPageIndex !== -1) {
+                            if (state.currentPageIndex !== -1) {
                                 renderPage();
                             }
                         }
@@ -1226,7 +1226,7 @@
                             globalConfig = parseSimpleToml(configText);
                         }
                         console.log("Loaded local config:", globalConfig);
-                        if (currentPageIndex !== -1) {
+                        if (state.currentPageIndex !== -1) {
                             renderPage();
                         }
                     }
@@ -1237,12 +1237,20 @@
         };
 
         let currentLang = localStorage.getItem('editor-lang') || 'zh';
-        let currentPageIndex = -1;
-        let isDirty = false;
-        let zoomMode = 'fit';
-        let selectedBlockIndex = -1;
-        let needsSort = false;
         let globalConfig = { render: { font_size_minimum: -1 } };
+
+        // Centralized editor/view state — the single source of truth for what the
+        // canvas, page list and editor panel display. Mutate via its setters where one
+        // exists (e.g. setDirty) and reflect changes by calling the relevant render*().
+        const state = {
+            currentPageIndex: -1,
+            selectedBlockIndex: -1,
+            isDirty: false,
+            zoomMode: 'fit',
+            needsSort: false,
+            editMode: false,        // region-edit mode (drag to resize/move/add boxes)
+            activeFocusArea: 'pages', // which pane arrow keys navigate: tasks/pages/editor/canvas
+        };
 
         const elements = {
             btnSave: document.getElementById('btn-save'),
@@ -1292,10 +1300,10 @@
             return tmp.firstChild;
         }
 
-        // Single source of truth for the unsaved-changes state: keeps isDirty, the
+        // Single source of truth for the unsaved-changes state: keeps state.isDirty, the
         // Save button's enabled/indicator state, and the title marker in sync.
         function setDirty(d) {
-            isDirty = d;
+            state.isDirty = d;
             elements.btnSave.disabled = !d;
             elements.btnSave.classList.toggle('unsaved', d);
             document.title = (d ? '• ' : '') + 'Manga Translator Lite Editor';
@@ -1544,7 +1552,7 @@
             if (tab === 'story') {
                 loadStoryFile();
             } else if (tab === 'tasks') {
-                activeFocusArea = 'tasks';
+                state.activeFocusArea = 'tasks';
             }
         }
 
@@ -1729,14 +1737,14 @@
         }
 
         elements.btnOpen.onclick = async () => {
-            if (isDirty && !confirm(t('confirmSwitch'))) return;
+            if (state.isDirty && !confirm(t('confirmSwitch'))) return;
             try {
                 storage.workDirHandle = await window.showDirectoryPicker();
                 await storage.loadLocalConfig();
                 // Reset state
                 storage.currentTask = null;
-                currentPageIndex = -1;
-                selectedBlockIndex = -1;
+                state.currentPageIndex = -1;
+                state.selectedBlockIndex = -1;
                 setDirty(false);
 
                 elements.taskList.innerHTML = '';
@@ -1896,7 +1904,7 @@
         }
 
         async function selectTask(task, itemEl) {
-            if (isDirty && !confirm(t('confirmSwitch'))) return;
+            if (state.isDirty && !confirm(t('confirmSwitch'))) return;
             elements.statusLoader.style.display = 'block';
             try {
                 // Clear previous task state before loading new one
@@ -1914,8 +1922,8 @@
                 if (document.getElementById('tab-story').classList.contains('active')) {
                     loadStoryFile();
                 }
-                if (activeFocusArea !== 'tasks') {
-                    activeFocusArea = 'pages';
+                if (state.activeFocusArea !== 'tasks') {
+                    state.activeFocusArea = 'pages';
                 }
             } catch (e) {
                 console.error(e);
@@ -1940,8 +1948,8 @@
         }
         // Update just the current page's badge (cheap, used while typing).
         function updateCurrentPageProgress() {
-            const item = elements.pageList.children[currentPageIndex];
-            const page = storage.currentTask?.data.pages[currentPageIndex];
+            const item = elements.pageList.children[state.currentPageIndex];
+            const page = storage.currentTask?.data.pages[state.currentPageIndex];
             if (!item || !page) return;
             const badge = item.querySelector('.page-prog');
             if (badge) setPageProgress(badge, page);
@@ -2210,7 +2218,7 @@
                 sel.forEach(d => { storage.currentTask.translations[d.id] = { text: d.imp, edited: true }; });
                 try { await storage.saveTranslations(); setDirty(false); }
                 catch (err) { showToast('Save failed: ' + err.message, 'error'); }
-                renderBlockEditors(); renderPage(); refreshAllPageProgress();
+                render(); refreshAllPageProgress();
                 showToast(t('importApplied', { n: sel.length }), 'success');
                 close();
             };
@@ -2308,8 +2316,8 @@
             // Refresh list and fix the current selection.
             renderPageList();
             if (pages.length === 0) {
-                currentPageIndex = -1;
-                selectedBlockIndex = -1;
+                state.currentPageIndex = -1;
+                state.selectedBlockIndex = -1;
                 ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
                 elements.canvas.style.display = 'none';
                 elements.blocksContainer.innerHTML = '';
@@ -2322,10 +2330,10 @@
 
         async function selectPage(index) {
             if (index < 0 || index >= storage.currentTask.data.pages.length) return;
-            currentPageIndex = index;
+            state.currentPageIndex = index;
             elements.inputPage.value = index + 1;
-            selectedBlockIndex = -1;
-            needsSort = true;
+            state.selectedBlockIndex = -1;
+            state.needsSort = true;
             Array.from(elements.pageList.children).forEach((el, i) => el.classList.toggle('active', i === index));
             elements.btnPrev.disabled = index === 0;
             elements.btnNext.disabled = index === storage.currentTask.data.pages.length - 1;
@@ -2334,12 +2342,20 @@
             elements.canvasContainer.scrollTop = 0;
             elements.canvasContainer.scrollLeft = 0;
 
+            render();
+        }
+
+        // Unified re-render of the state-driven views: canvas overlay + editor panel.
+        // Use this wherever both need refreshing together; standalone renderPage() /
+        // renderBlockEditors() calls remain where only one view should update (e.g. the
+        // debounced repaint while typing, which must not rebuild the focused textarea).
+        function render() {
             renderPage();
             renderBlockEditors();
         }
 
         async function renderPage() {
-            const page = storage.currentTask.data.pages[currentPageIndex];
+            const page = storage.currentTask.data.pages[state.currentPageIndex];
             const url = await storage.getImageUrl(page);
             if (!url) return;
             elements.canvas.style.display = 'block';
@@ -2351,7 +2367,7 @@
                 elements.canvas.height = img.height;
                 ctx.clearRect(0, 0, img.width, img.height);
                 ctx.drawImage(img, 0, 0);
-                if (needsSort && page.blocks && page.blocks.length > 1) { sortBlocks(page.blocks, img.width); needsSort = false; renderBlockEditors(); }
+                if (state.needsSort && page.blocks && page.blocks.length > 1) { sortBlocks(page.blocks, img.width); state.needsSort = false; renderBlockEditors(); }
                 renderOverlays(page);
                 updateZoomUI();
                 if (!storage.isServer) URL.revokeObjectURL(url);
@@ -2362,7 +2378,7 @@
         // Lightweight repaint using the cached image (no reload) — used while dragging regions.
         function redraw() {
             if (!currentImageEl) return;
-            const page = storage.currentTask.data.pages[currentPageIndex];
+            const page = storage.currentTask.data.pages[state.currentPageIndex];
             if (!page) return;
             ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
             ctx.drawImage(currentImageEl, 0, 0);
@@ -2492,7 +2508,7 @@
                 // 2. Draw region boundary (solid). Scale line width with the display so
                 // it stays clearly visible regardless of image size / zoom.
                 const s = _dispScale();
-                if (bIndex === selectedBlockIndex) {
+                if (bIndex === state.selectedBlockIndex) {
                     ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = Math.max(2, 3 * s);
                     ctx.strokeRect(x - 1, y - 1, w + 2, h + 2);
                 } else {
@@ -2589,14 +2605,14 @@
                     }
 
                     // Real text extent (what actually gets rendered) — helps you size the box.
-                    if (bIndex === selectedBlockIndex) {
+                    if (bIndex === state.selectedBlockIndex) {
                         ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
                         ctx.strokeRect(renderX, renderY, renderW, renderH); ctx.setLineDash([]);
                     }
                 }
 
                 // Resize handles for the selected block while editing boundaries.
-                if (editMode && bIndex === selectedBlockIndex) {
+                if (state.editMode && bIndex === state.selectedBlockIndex) {
                     const hh = 6 * _dispScale();
                     const gxs = [x, x + w / 2, x + w], gys = [y, y + h / 2, y + h];
                     ctx.fillStyle = '#3b82f6'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
@@ -2631,7 +2647,7 @@
 
         function renderBlockEditors() {
             elements.blocksContainer.innerHTML = '';
-            const page = storage.currentTask.data.pages[currentPageIndex];
+            const page = storage.currentTask.data.pages[state.currentPageIndex];
             if (!page.blocks?.length) {
                 const empty = document.createElement('div');
                 empty.className = 'empty-state';
@@ -2641,7 +2657,7 @@
             }
             page.blocks.forEach((block, bIndex) => {
                 const card = document.createElement('div');
-                card.className = 'block-card' + (bIndex === selectedBlockIndex ? ' selected' : '');
+                card.className = 'block-card' + (bIndex === state.selectedBlockIndex ? ' selected' : '');
                 const transText = storage.currentTask.translations[block.id]?.text || "";
                 const translated = !!transText.trim();
                 const isWhite = block.bg_fill === 'white';
@@ -2709,7 +2725,7 @@
                     updateCurrentPageProgress();
                     clearTimeout(textarea.t); textarea.t = setTimeout(renderPage, 300);
                 };
-                textarea.onfocus = () => { selectedBlockIndex = bIndex; renderPage(); Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex)); };
+                textarea.onfocus = () => { state.selectedBlockIndex = bIndex; renderPage(); Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex)); };
                 card.appendChild(textarea);
 
                 elements.blocksContainer.appendChild(card);
@@ -2741,7 +2757,7 @@
         };
 
         elements.btnReload.onclick = async () => {
-            if (isDirty && !confirm(t('confirmSwitch'))) return;
+            if (state.isDirty && !confirm(t('confirmSwitch'))) return;
             if (storage.isServer) {
                 await storage.loadServerTask();
                 await storage.loadServerConfig();
@@ -2752,7 +2768,7 @@
         };
 
         elements.targetLangSelect.onchange = async () => {
-            if (isDirty && !confirm(t('confirmSwitch'))) {
+            if (state.isDirty && !confirm(t('confirmSwitch'))) {
                 elements.targetLangSelect.value = elements.targetLangSelect.dataset.prev || storage.currentTask.data.target_lang;
                 return;
             }
@@ -2760,21 +2776,20 @@
             elements.targetLangSelect.dataset.prev = newLang;
             elements.statusLoader.style.display = 'block';
             await storage.loadTranslations(newLang);
-            renderPage();
-            renderBlockEditors();
+            render();
             refreshAllPageProgress();
             elements.statusLoader.style.display = 'none';
         };
 
         function toggleZoom() {
-            if (zoomMode === 'fit') zoomMode = 'width';
-            else if (zoomMode === 'width') zoomMode = 'orig';
-            else zoomMode = 'fit';
+            if (state.zoomMode === 'fit') state.zoomMode = 'width';
+            else if (state.zoomMode === 'width') state.zoomMode = 'orig';
+            else state.zoomMode = 'fit';
             updateZoomUI();
         }
         function updateZoomUI() {
-            elements.canvas.className = 'zoom-' + zoomMode;
-            const key = 'zoom' + zoomMode.charAt(0).toUpperCase() + zoomMode.slice(1);
+            elements.canvas.className = 'zoom-' + state.zoomMode;
+            const key = 'zoom' + state.zoomMode.charAt(0).toUpperCase() + state.zoomMode.slice(1);
             elements.btnZoom.title = t(key);
             elements.btnZoom.setAttribute('aria-label', t(key));
             const lbl = document.getElementById('zoom-label');
@@ -2809,8 +2824,8 @@
         function toggleEditor(open) { elements.editor.classList.toggle('open', open); if (open) toggleSidebar(false); }
         function showCanvas() { toggleSidebar(false); toggleEditor(false); }
 
-        elements.btnPrev.onclick = () => selectPage(currentPageIndex - 1);
-        elements.btnNext.onclick = () => selectPage(currentPageIndex + 1);
+        elements.btnPrev.onclick = () => selectPage(state.currentPageIndex - 1);
+        elements.btnNext.onclick = () => selectPage(state.currentPageIndex + 1);
         elements.inputPage.onchange = () => selectPage(parseInt(elements.inputPage.value) - 1);
         elements.btnZoom.onclick = toggleZoom;
         elements.langSelect.onchange = (e) => updateLanguage(e.target.value);
@@ -2834,16 +2849,15 @@
         });
 
         function selectBlock(index) {
-            const page = storage.currentTask?.data.pages[currentPageIndex];
+            const page = storage.currentTask?.data.pages[state.currentPageIndex];
             if (!page || !page.blocks || page.blocks.length === 0) return;
 
             // Wrap around
             if (index < 0) index = page.blocks.length - 1;
             if (index >= page.blocks.length) index = 0;
 
-            selectedBlockIndex = index;
-            renderPage();
-            renderBlockEditors();
+            state.selectedBlockIndex = index;
+            render();
 
             const card = elements.blocksContainer.children[index];
             if (card) {
@@ -2855,7 +2869,7 @@
         }
 
         // ===== Region editing: draw / move / resize block boxes =====
-        let editMode = false;
+        // editMode now lives on `state`; these remain transient drag-machinery locals.
         let currentImageEl = null;   // cached page image, set by renderPage()
         let drag = null;             // active drag operation
 
@@ -2927,28 +2941,28 @@
             savePagesJson().catch(e => showToast('Save failed: ' + e.message));
         }
         function toggleBlockBg(bIndex) {
-            const b = storage.currentTask.data.pages[currentPageIndex].blocks[bIndex]; if (!b) return;
+            const b = storage.currentTask.data.pages[state.currentPageIndex].blocks[bIndex]; if (!b) return;
             b.bg_fill = (b.bg_fill === 'white') ? 'none' : 'white';
-            persistGeometry(); renderBlockEditors(); renderPage();
+            persistGeometry(); render();
         }
         function deleteBlockAt(bIndex) {
-            const page = storage.currentTask.data.pages[currentPageIndex];
+            const page = storage.currentTask.data.pages[state.currentPageIndex];
             const b = page.blocks[bIndex]; if (!b) return;
             if (!confirm(t('confirmDeleteBlock'))) return;
             delete storage.currentTask.translations[b.id];
             page.blocks.splice(bIndex, 1);
-            if (selectedBlockIndex >= page.blocks.length) selectedBlockIndex = page.blocks.length - 1;
+            if (state.selectedBlockIndex >= page.blocks.length) state.selectedBlockIndex = page.blocks.length - 1;
             persistGeometry(); storage.saveTranslations().catch(() => {});
-            renderBlockEditors(); renderPage(); updateCurrentPageProgress();
+            render(); updateCurrentPageProgress();
         }
         function toggleEditMode() {
-            editMode = !editMode;
-            elements.btnEditRegion.classList.toggle('active', editMode);
-            elements.canvas.style.cursor = editMode ? 'crosshair' : 'default';
+            state.editMode = !state.editMode;
+            elements.btnEditRegion.classList.toggle('active', state.editMode);
+            elements.canvas.style.cursor = state.editMode ? 'crosshair' : 'default';
             const legend = document.getElementById('edit-mode-legend');
             legend.textContent = t('editModeOn');
-            legend.style.display = editMode ? 'block' : 'none';
-            showToast(t(editMode ? 'editModeOn' : 'editModeOff'));
+            legend.style.display = state.editMode ? 'block' : 'none';
+            showToast(t(state.editMode ? 'editModeOn' : 'editModeOff'));
             renderPage();
         }
         elements.btnEditRegion.onclick = toggleEditMode;
@@ -3036,12 +3050,12 @@
         // Hover feedback: show resize cursors over the selected block's handles and a
         // move cursor over a block body, so small regions are easy to grab.
         function updateHoverCursor(e) {
-            if (!editMode || drag || !storage.currentTask || currentPageIndex < 0) return;
+            if (!state.editMode || drag || !storage.currentTask || state.currentPageIndex < 0) return;
             const { x, y, scale } = canvasToImg(e);
-            const blocks = storage.currentTask.data.pages[currentPageIndex].blocks || [];
+            const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks || [];
             let cur = 'crosshair';
-            if (selectedBlockIndex >= 0 && blocks[selectedBlockIndex]) {
-                const h = hitHandle(effRect(blocks[selectedBlockIndex]), x, y, 8 * scale);
+            if (state.selectedBlockIndex >= 0 && blocks[state.selectedBlockIndex]) {
+                const h = hitHandle(effRect(blocks[state.selectedBlockIndex]), x, y, 8 * scale);
                 if (h) cur = HANDLE_CURSOR[h];
             }
             if (cur === 'crosshair' && hitTestBlock(blocks, x, y) !== -1) cur = 'move';
@@ -3050,19 +3064,19 @@
         elements.canvas.addEventListener('mousemove', updateHoverCursor);
 
         elements.canvas.addEventListener('mousedown', (e) => {
-            if (!storage.currentTask || currentPageIndex < 0) return;
+            if (!storage.currentTask || state.currentPageIndex < 0) return;
             const { x, y, scale } = canvasToImg(e);
-            const blocks = storage.currentTask.data.pages[currentPageIndex].blocks || [];
-            if (!editMode) {
+            const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks || [];
+            if (!state.editMode) {
                 const f = hitTestBlock(blocks, x, y);
                 if (f !== -1) selectBlock(f);
                 return;
             }
             const tol = 8 * scale;
-            if (selectedBlockIndex >= 0 && blocks[selectedBlockIndex]) {
-                const r = effRect(blocks[selectedBlockIndex]);
+            if (state.selectedBlockIndex >= 0 && blocks[state.selectedBlockIndex]) {
+                const r = effRect(blocks[state.selectedBlockIndex]);
                 const h = hitHandle(r, x, y, tol);
-                if (h) { drag = { type: 'resize', handle: h, blockIndex: selectedBlockIndex, orig: r }; elements.canvas.style.cursor = HANDLE_CURSOR[h]; e.preventDefault(); return; }
+                if (h) { drag = { type: 'resize', handle: h, blockIndex: state.selectedBlockIndex, orig: r }; elements.canvas.style.cursor = HANDLE_CURSOR[h]; e.preventDefault(); return; }
             }
             const f = hitTestBlock(blocks, x, y);
             if (f !== -1) {
@@ -3079,7 +3093,7 @@
         document.addEventListener('mousemove', (e) => {
             if (!drag) return;
             const { x, y } = canvasToImg(e);
-            const blocks = storage.currentTask.data.pages[currentPageIndex].blocks;
+            const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks;
             if (drag.type === 'resize') {
                 let { minX, minY, maxX, maxY } = drag.orig;
                 if (drag.handle.includes('w')) minX = x;
@@ -3103,28 +3117,27 @@
 
         document.addEventListener('mouseup', () => {
             if (!drag) return;
-            const page = storage.currentTask.data.pages[currentPageIndex];
+            const page = storage.currentTask.data.pages[state.currentPageIndex];
             if (drag.type === 'new') {
                 const r = drag.cur;
                 if ((r.maxX - r.minX) > 5 && (r.maxY - r.minY) > 5) {
                     page.blocks.push(createUserBlock(r));
-                    selectedBlockIndex = page.blocks.length - 1;
-                    persistGeometry(); renderBlockEditors(); renderPage(); updateCurrentPageProgress();
+                    state.selectedBlockIndex = page.blocks.length - 1;
+                    persistGeometry(); render(); updateCurrentPageProgress();
                 } else {
                     // Click (no real drag) on empty space → deselect, so the bold
                     // selection border clears and you can see the result cleanly.
-                    selectedBlockIndex = -1;
-                    renderBlockEditors(); renderPage();
+                    state.selectedBlockIndex = -1;
+                    render();
                 }
             } else if (drag.type === 'resize' || drag.type === 'move') {
                 const b = page.blocks[drag.blockIndex];
                 if (b) { b.fixed_region = true; persistGeometry(); renderBlockEditors(); }
             }
             drag = null;
-            if (editMode) elements.canvas.style.cursor = 'crosshair';
+            if (state.editMode) elements.canvas.style.cursor = 'crosshair';
         });
 
-        let activeFocusArea = 'pages';
 
         function navigateTaskList(direction) {
             const items = Array.from(elements.taskList.children);
@@ -3140,14 +3153,14 @@
             }
         }
 
-        document.getElementById('task-list').addEventListener('click', () => { activeFocusArea = 'tasks'; });
-        document.getElementById('page-list').addEventListener('click', () => { activeFocusArea = 'pages'; });
-        document.getElementById('blocks-container').addEventListener('click', () => { activeFocusArea = 'editor'; });
-        document.getElementById('viewport').addEventListener('click', () => { activeFocusArea = 'canvas'; });
+        document.getElementById('task-list').addEventListener('click', () => { state.activeFocusArea = 'tasks'; });
+        document.getElementById('page-list').addEventListener('click', () => { state.activeFocusArea = 'pages'; });
+        document.getElementById('blocks-container').addEventListener('click', () => { state.activeFocusArea = 'editor'; });
+        document.getElementById('viewport').addEventListener('click', () => { state.activeFocusArea = 'canvas'; });
 
         document.addEventListener('focusin', (e) => {
             if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
-                activeFocusArea = 'editor';
+                state.activeFocusArea = 'editor';
             }
         });
 
@@ -3163,38 +3176,38 @@
             if (e.key === 'ArrowLeft') {
                 if (isInput && !e.altKey) return;
                 e.preventDefault();
-                selectPage(currentPageIndex - 1);
+                selectPage(state.currentPageIndex - 1);
             } else if (e.key === 'ArrowRight') {
                 if (isInput && !e.altKey) return;
                 e.preventDefault();
-                selectPage(currentPageIndex + 1);
+                selectPage(state.currentPageIndex + 1);
             } else if (e.key === 'ArrowUp') {
-                if (activeFocusArea === 'editor' && isInput) {
+                if (state.activeFocusArea === 'editor' && isInput) {
                     if (e.target.selectionStart !== 0) return;
                     e.preventDefault();
-                    selectBlock(selectedBlockIndex - 1);
-                } else if (activeFocusArea === 'tasks') {
+                    selectBlock(state.selectedBlockIndex - 1);
+                } else if (state.activeFocusArea === 'tasks') {
                     e.preventDefault();
                     navigateTaskList(-1);
-                } else if (activeFocusArea === 'pages') {
+                } else if (state.activeFocusArea === 'pages') {
                     e.preventDefault();
-                    selectPage(currentPageIndex - 1);
-                } else if (zoomMode !== 'fit') {
+                    selectPage(state.currentPageIndex - 1);
+                } else if (state.zoomMode !== 'fit') {
                     e.preventDefault();
                     document.getElementById('canvas-container').scrollTop -= 60;
                 }
             } else if (e.key === 'ArrowDown') {
-                if (activeFocusArea === 'editor' && isInput) {
+                if (state.activeFocusArea === 'editor' && isInput) {
                     if (e.target.selectionEnd !== e.target.value.length) return;
                     e.preventDefault();
-                    selectBlock(selectedBlockIndex + 1);
-                } else if (activeFocusArea === 'tasks') {
+                    selectBlock(state.selectedBlockIndex + 1);
+                } else if (state.activeFocusArea === 'tasks') {
                     e.preventDefault();
                     navigateTaskList(1);
-                } else if (activeFocusArea === 'pages') {
+                } else if (state.activeFocusArea === 'pages') {
                     e.preventDefault();
-                    selectPage(currentPageIndex + 1);
-                } else if (zoomMode !== 'fit') {
+                    selectPage(state.currentPageIndex + 1);
+                } else if (state.zoomMode !== 'fit') {
                     e.preventDefault();
                     document.getElementById('canvas-container').scrollTop += 60;
                 }
@@ -3210,5 +3223,4 @@
         init();
     </script>
 </body>
-
 </html>
