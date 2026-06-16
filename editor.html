@@ -24,6 +24,7 @@
             --danger: #ef4444;
             --success: #10b981;
             --warning: #f59e0b;
+            --selected-border: #f43f5e;
             /* Work area: neutral mid-gray backdrop so white / black-and-white manga
                pages don't sit on harsh near-black, reducing eye fatigue. */
             --canvas-bg: #34373d;
@@ -48,6 +49,7 @@
             --danger: #dc2626;
             --success: #059669;
             --warning: #d97706;
+            --selected-border: #e11d48;
             --canvas-bg: #a9afb8;
             --canvas-page-bg: #c3c8d0;
             --shadow: rgba(15, 23, 42, 0.18);
@@ -223,6 +225,15 @@
         .task-name {
             vertical-align: middle;
         }
+        .task-perm-badge {
+            margin-left: 6px;
+            padding: 0 5px;
+            border-radius: 9px;
+            font-size: 0.62rem;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
 
         .page-item {
             display: flex;
@@ -312,12 +323,41 @@
         .modal-row:last-of-type { border-bottom: none; }
         .modal-key { color: var(--text-secondary); flex: 0 0 92px; }
         .modal-val { color: var(--text-primary); flex: 1; word-break: break-all; user-select: text; }
-        .modal-actions { margin-top: 14px; text-align: right; }
+        .modal-actions {
+            margin-top: 14px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
         .modal-actions button {
             padding: 6px 14px; border: none; border-radius: 6px;
             background: var(--accent); color: #fff; cursor: pointer; font-size: 0.8rem;
         }
         .modal-actions button:hover { background: var(--accent-hover); }
+        .modal-actions button.secondary {
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        .modal-actions button.secondary:hover {
+            background: var(--border);
+        }
+
+        /* Custom premium scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
 
         #btn-edit-region.active { background: var(--accent); color: #fff; }
         /* Render-settings popover (anchored above the gear button in the toolbar). */
@@ -368,8 +408,14 @@
         .diff-item input { margin-top: 3px; flex: 0 0 auto; }
         .diff-body { flex: 1; min-width: 0; }
         .diff-head { font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 4px; word-break: break-all; }
-        .diff-cur { color: #ff8585; font-size: 0.82rem; white-space: pre-wrap; word-break: break-word; }
-        .diff-imp { color: #34d399; font-size: 0.82rem; white-space: pre-wrap; word-break: break-word; }
+        .diff-cols { display: flex; gap: 10px; margin-top: 4px; }
+        .diff-col { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 4px; display: flex; flex-direction: column; }
+        .diff-col-cur { background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); }
+        .diff-col-imp { background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); }
+        .diff-col-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); margin-bottom: 2px; }
+        .diff-val { font-size: 0.82rem; white-space: pre-wrap; word-break: break-word; line-height: 1.4; }
+        .diff-cur { color: var(--danger); }
+        .diff-imp { color: var(--success); }
 
         .list-item.active {
             background-color: var(--accent);
@@ -432,6 +478,15 @@
         .block-card.selected {
             border-color: var(--accent);
             background-color: var(--bg-hover);
+        }
+
+        .block-card.selected textarea {
+            border-color: var(--accent);
+        }
+
+        .block-card.selected textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 1px var(--accent);
         }
 
         /* Amber dot marking a block whose translation is still empty. */
@@ -1121,9 +1176,9 @@
 
     <script>
         const i18n = {
-            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）" },
-            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)" },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）" }
+            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）" },
+            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)" },
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）" }
         };
         // Tooltip shown when the Pipeline tab is disabled (local mode).
         i18n.zh.pipelineLocalOnly = 'Pipeline 仅在服务端模式可用';
@@ -1210,7 +1265,34 @@
             workDirHandle: null,
             currentTask: null, // { name, handle, data, translations, pagesJsonHandle, transHandle, imageHandles: {} }
 
+            serverTasks: null,          // [{name, token, perm}] in multi-task server mode
+
             async init() {
+                // Multi-task server mode (server_auth): /api/tasks is reachable → show the
+                // Tasks sidebar and switch tasks in-page. Single-task mode (server.py): only
+                // ?t, no /api/tasks. Local mode: file:// or no server endpoints.
+                let serverTasks = null;
+                if (location.protocol !== 'file:') {
+                    try {
+                        const r = await fetch('api/tasks');
+                        if (r.ok) serverTasks = await r.json();
+                    } catch (e) { /* not an auth server → fall through */ }
+                }
+
+                if (Array.isArray(serverTasks)) {
+                    this.isServer = true;
+                    this.serverTasks = serverTasks;
+                    document.getElementById('btn-open').style.display = 'none';
+                    document.getElementById('btn-export-trans').style.display = '';
+                    // Merge is a local-only feature (needs filesystem access).
+                    document.getElementById('btn-merge').style.display = 'none';
+                    renderServerTaskList();
+                    const pre = this.token && serverTasks.find(t => t.token === this.token);
+                    const target = pre || serverTasks[0];
+                    if (target) await this.selectServerTask(target.token);
+                    return;
+                }
+
                 if (this.isServer) {
                     document.getElementById('btn-open').style.display = 'none';
                     document.getElementById('sidebar-tasks-section').style.display = 'none';
@@ -1219,6 +1301,16 @@
                     await this.loadServerCapabilities();
                     await this.loadServerTask();
                 }
+            },
+
+            // Switch to another task in multi-task server mode (no page navigation).
+            async selectServerTask(token) {
+                this.token = token;
+                await this.loadServerCapabilities();
+                await this.loadServerTask();
+                applyViewOnly();
+                updatePipelineTab();
+                highlightServerTask(token);
             },
 
             // Ask the server whether the pipeline (extract/translate/render) can run;
@@ -1712,11 +1804,11 @@
         // controls; here we make any already-rendered text fields read-only and show
         // a badge. The server is the real guard (it 403s every write regardless).
         function applyViewOnly() {
-            if (!storage.viewOnly) return;
-            document.body.classList.add('view-only');
-            document.querySelectorAll('#blocks-container textarea, #story-content').forEach(el => el.readOnly = true);
+            const vo = !!storage.viewOnly;
+            document.body.classList.toggle('view-only', vo);
+            document.querySelectorAll('#blocks-container textarea, #story-content').forEach(el => el.readOnly = vo);
             const badge = document.getElementById('view-badge');
-            if (badge) badge.style.display = '';
+            if (badge) badge.style.display = vo ? '' : 'none';
         }
 
         function switchTab(tab) {
@@ -1950,9 +2042,37 @@
             }
         };
 
-        async function renderTaskList() {
+        // Multi-task server mode: populate the Tasks sidebar from /api/tasks.
+        function renderServerTaskList() {
             elements.taskList.innerHTML = '';
-            
+            (storage.serverTasks || []).forEach(task => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.dataset.taskToken = task.token;
+                const label = document.createElement('span');
+                label.className = 'task-name';
+                label.textContent = middleTruncate(task.name);
+                label.title = task.name;
+                item.appendChild(label);
+                if (task.perm === 'view') {
+                    const badge = document.createElement('span');
+                    badge.className = 'task-perm-badge';
+                    badge.textContent = 'view';
+                    item.appendChild(badge);
+                }
+                item.onclick = () => { if (task.token !== storage.token) storage.selectServerTask(task.token); };
+                elements.taskList.appendChild(item);
+            });
+        }
+        function highlightServerTask(token) {
+            Array.from(elements.taskList.children).forEach(el =>
+                el.classList.toggle('active', el.dataset.taskToken === token));
+        }
+
+        async function renderTaskList() {
+            if (storage.isServer) return;   // server mode uses renderServerTaskList()
+            elements.taskList.innerHTML = '';
+
             function addTaskItem(name, handle, pagesJsonHandle) {
                 const item = document.createElement('div');
                 item.className = 'list-item';
@@ -2357,7 +2477,7 @@
             const blockIdx = _buildBlockIndex();
             const overlay = document.createElement('div'); overlay.className = 'modal-overlay';
             const panel = document.createElement('div'); panel.className = 'modal-panel';
-            panel.style.width = '640px';
+            panel.style.width = '760px';
 
             const title = document.createElement('h3');
             title.textContent = `${t('importTitle')} — ${diffs.length}`;
@@ -2381,9 +2501,21 @@
                 let headTxt = d.id + (info ? ` · P${info.page}` : ` · ${t('importOrphan')}`);
                 if (info && info.orig) headTxt += ` · ${info.orig.replace(/\n/g, ' ').slice(0, 30)}`;
                 head.textContent = headTxt;
-                const cur = document.createElement('div'); cur.className = 'diff-cur'; cur.textContent = d.cur || '∅';
-                const imp = document.createElement('div'); imp.className = 'diff-imp'; imp.textContent = '→ ' + (d.imp || '∅');
-                body.appendChild(head); body.appendChild(cur); body.appendChild(imp);
+
+                const cols = document.createElement('div'); cols.className = 'diff-cols';
+
+                const curCol = document.createElement('div'); curCol.className = 'diff-col diff-col-cur';
+                const curLabel = document.createElement('div'); curLabel.className = 'diff-col-label'; curLabel.textContent = t('importCurrent');
+                const curVal = document.createElement('div'); curVal.className = 'diff-val diff-cur'; curVal.textContent = d.cur || '∅';
+                curCol.appendChild(curLabel); curCol.appendChild(curVal);
+
+                const impCol = document.createElement('div'); impCol.className = 'diff-col diff-col-imp';
+                const impLabel = document.createElement('div'); impLabel.className = 'diff-col-label'; impLabel.textContent = t('importNew');
+                const impVal = document.createElement('div'); impVal.className = 'diff-val diff-imp'; impVal.textContent = d.imp || '∅';
+                impCol.appendChild(impLabel); impCol.appendChild(impVal);
+
+                cols.appendChild(curCol); cols.appendChild(impCol);
+                body.appendChild(head); body.appendChild(cols);
                 item.appendChild(cb); item.appendChild(body);
                 list.appendChild(item);
                 cb.onchange = updateCounter;
@@ -2399,8 +2531,7 @@
             updateCounter();
 
             const actions = document.createElement('div'); actions.className = 'modal-actions';
-            const cancel = document.createElement('button'); cancel.textContent = t('importCancel');
-            cancel.style.background = 'var(--bg-hover)';
+            const cancel = document.createElement('button'); cancel.className = 'secondary'; cancel.textContent = t('importCancel');
             const apply = document.createElement('button'); apply.textContent = t('importApply');
             actions.appendChild(cancel); actions.appendChild(apply);
             panel.appendChild(actions);
@@ -2708,8 +2839,9 @@
                 // it stays clearly visible regardless of image size / zoom.
                 const s = _dispScale();
                 if (bIndex === state.selectedBlockIndex) {
-                    ctx.strokeStyle = '#6366f1'; ctx.lineWidth = Math.max(2, 3 * s);
-                    ctx.strokeRect(x - 1, y - 1, w + 2, h + 2);
+                    ctx.strokeStyle = document.documentElement.getAttribute('data-theme') === 'light' ? '#e11d48' : '#f43f5e';
+                    ctx.lineWidth = Math.max(1.5, 1.5 * s);
+                    ctx.strokeRect(x, y, w, h);
                 } else {
                     ctx.strokeStyle = 'rgba(99, 102, 241, 0.85)'; ctx.lineWidth = Math.max(1.5, 1.5 * s);
                     ctx.strokeRect(x, y, w, h);
@@ -2814,7 +2946,8 @@
                 if (state.editMode && bIndex === state.selectedBlockIndex) {
                     const hh = 6 * _dispScale();
                     const gxs = [x, x + w / 2, x + w], gys = [y, y + h / 2, y + h];
-                    ctx.fillStyle = '#6366f1'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+                    ctx.fillStyle = document.documentElement.getAttribute('data-theme') === 'light' ? '#e11d48' : '#f43f5e';
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
                     gxs.forEach(gx => gys.forEach(gy => {
                         if (gx === x + w / 2 && gy === y + h / 2) return; // skip center
                         ctx.fillRect(gx - hh, gy - hh, hh * 2, hh * 2);
@@ -2857,6 +2990,11 @@
             page.blocks.forEach((block, bIndex) => {
                 const card = document.createElement('div');
                 card.className = 'block-card' + (bIndex === state.selectedBlockIndex ? ' selected' : '');
+                card.onclick = (e) => {
+                    if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'TEXTAREA' && !e.target.closest('button')) {
+                        selectBlock(bIndex);
+                    }
+                };
                 const transText = storage.currentTask.translations[block.id]?.text || "";
                 const translated = !!transText.trim();
                 const isWhite = block.bg_fill === 'white';
@@ -2940,7 +3078,7 @@
                     updateCurrentPageProgress();
                     clearTimeout(textarea.t); textarea.t = setTimeout(renderPage, 300);
                 };
-                textarea.onfocus = () => { state.selectedBlockIndex = bIndex; renderPage(); Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex)); };
+                textarea.onfocus = () => { state.selectedBlockIndex = bIndex; redraw(); Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex)); };
                 transCol.appendChild(transLabel);
                 transCol.appendChild(textarea);
 
@@ -3469,7 +3607,7 @@
                     state.selectedBlockIndex = page.blocks.length - 1;
                     persistGeometry(); render(); updateCurrentPageProgress();
                 } else {
-                    // Click (no real drag) on empty space → deselect, so the bold
+                    // Click (no real drag) on empty space → deselect, so the striking
                     // selection border clears and you can see the result cleanly.
                     state.selectedBlockIndex = -1;
                     render();
