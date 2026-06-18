@@ -10,6 +10,52 @@ authors = []
 readme = "README.md"
 requires-python = ">=3.10, <3.12"
 license = {text = "GPL-3.0-only"}
+# Runtime dependencies (kept in sync with requirements.txt). Declaring them here is
+# what makes `pip install .` actually install the dependencies. Pins mirror those
+# already validated in requirements.txt; pytest and the compiler-only pydensecrf
+# build live under [project.optional-dependencies] so a base install stays clean.
+dependencies = [
+    # Core ML / image processing
+    "torch",
+    "torchvision",
+    "numpy==1.26.4",
+    "opencv-python",
+    "einops",
+    "scikit-image",
+    "shapely",
+    "pyclipper",
+    "freetype-py",
+    "timm",
+    "Pillow",
+    # Local OCR & native translators
+    "manga-ocr",
+    "rusty-manga-image-translator",
+    # LLM API providers
+    "openai==1.63.0",
+    "google-genai",
+    "httpx==0.27.2",
+    # Utilities & infrastructure
+    "requests",
+    "tqdm",
+    "tomli; python_version < '3.11'",
+    "pydantic==2.5.0",
+    "python-dotenv",
+    "py3langid==0.2.2",
+    "langcodes[data]",
+    "colorama",
+    "rich",
+    "pyhyphen",
+    "networkx",
+    "packaging",
+    "PyYAML",
+    "backports.cached-property",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+# High-quality CRF mask refinement — needs a C++ compiler to build:
+#   pip install ".[crf]"
+crf = ["pydensecrf @ https://github.com/lucasb-eyer/pydensecrf/archive/refs/heads/master.zip"]
 
 [project.scripts]
 manga-translator = "manga_translator_lite.__main__:main"
