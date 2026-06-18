@@ -30,10 +30,14 @@ def test_defaults_sane():
     assert c.use_gpu is False
 
 
-def test_load_sample_toml():
+def test_load_sample_toml(tmp_path):
     sample = REPO / "config.toml.sample"
     assert sample.is_file(), "config.toml.sample is missing"
-    c = Config.load(str(sample))
+    # Config.load() dispatches on the file extension, so copy the *.sample to a real
+    # .toml first — exactly what `cp config.toml.sample config.toml` does in practice.
+    dest = tmp_path / "config.toml"
+    dest.write_text(sample.read_text(encoding="utf-8"), encoding="utf-8")
+    c = Config.load(str(dest))
     # The shipped sample must parse into a valid Config with sane core values.
     assert isinstance(c.translator.target_lang, str) and c.translator.target_lang
     assert c.detector.detection_size > 0
