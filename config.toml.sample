@@ -13,7 +13,9 @@ mask_dilation_offset = 30      # how much to grow the text mask before inpaintin
 force_simple_sort = false      # true = skip panel-aware ordering (simpler top-to-bottom / RTL)
 
 [detector]
-detector = "ctd"               # default | dbconvnext | ctd | craft | paddle | none
+detector = "ctd"               # default | dbconvnext | ctd | craft | paddle | none | rtdetr
+                               # rtdetr = RT-DETR-v2 comic detector (experimental; needs `transformers`;
+                               # box-level masks → coarser erase. Try box_threshold ~0.3. See detection/rtdetr.py)
 detection_size = 2048          # detection input size (larger = catches smaller text, slower)
 text_threshold = 0.25          # lower = catch fainter/thinner text (more recall)
 box_threshold = 0.6            # lower = keep lower-confidence boxes
