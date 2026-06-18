@@ -1,0 +1,57 @@
+name: CI
+
+# Minimal CI for frequent iteration: a fast syntax gate on every push/PR, plus a
+# dependency-light smoke suite for the manga_translator_lite module — its CLI command
+# surface (extract / translate / render / run / config-help) and the config contract.
+# Scope note: editor.html and the server scripts are intentionally NOT covered here.
+# It also does NOT install the heavy ML stack or run the real pipeline (those need
+# model weights + GPU); add a separate scheduled/manual workflow for end-to-end runs.
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    name: Syntax check (compileall)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Byte-compiles every module (no imports → no heavy deps needed). Catches the
+      # most common push-time breakage — syntax errors — in seconds, across the whole
+      # package and the standalone scripts.
+      - name: Byte-compile the module + workspace tools
+        run: |
+          python -m compileall -q manga_translator_lite \
+            compress_work.py migrate_to_v4.py
+
+  smoke:
+    name: Core smoke tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Floor and ceiling of the supported range (requires-python >=3.10,<3.12).
+        python-version: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      # Light deps only — the smoke tests load config.py and args.py standalone (no
+      # intra-package imports), so torch/cv2 are never imported. pydantic is needed
+      # for the config model; tomli is harmless on 3.11 (tomllib is used there).
+      - name: Install light test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pydantic==2.5.0" pytest tomli
+      - name: Run smoke tests
+        run: pytest
