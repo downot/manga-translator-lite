@@ -15,6 +15,7 @@ class Detector(str, Enum):
     ctd = "ctd"
     craft = "craft"
     paddle = "paddle"
+    rtdetr = "rtdetr"      # RT-DETR-v2 comic detector (experimental; box masks — see detection/rtdetr.py)
     none = "none"
 
 
