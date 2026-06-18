@@ -906,69 +906,122 @@
             opacity: 0.9;
         }
 
-        /* Collaboration Chat Drawer */
+        /* Collaboration Chat Drawer (1v1 DM) — translucent, sits below header */
         .chat-drawer {
             position: fixed;
-            right: -320px;
-            top: 0;
-            width: 320px;
-            height: 100%;
-            background-color: var(--bg-sidebar);
+            right: -340px;
+            top: 60px;                /* sit below the 60px header */
+            width: 340px;
+            height: calc(100% - 60px);
+            background-color: rgba(26, 29, 35, 0.78);     /* dark theme: bg-card @ 78% */
+            backdrop-filter: blur(14px) saturate(140%);
+            -webkit-backdrop-filter: blur(14px) saturate(140%);
             border-left: 1px solid var(--border);
-            box-shadow: -4px 0 16px rgba(0, 0, 0, 0.25);
+            box-shadow: -8px 0 28px rgba(0, 0, 0, 0.45);
             display: flex;
             flex-direction: column;
             transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1000;
+            z-index: 200;             /* above main content, below modals */
+        }
+        :root[data-theme="light"] .chat-drawer {
+            background-color: rgba(255, 255, 255, 0.72);  /* light theme: bg-card @ 72% */
+            box-shadow: -8px 0 28px rgba(15, 23, 42, 0.18);
         }
         .chat-drawer.open {
             right: 0;
         }
+        /* translucent versions of inner bands so the blur shows through */
+        .chat-drawer .chat-header,
+        .chat-drawer .chat-emoji-bar,
+        .chat-drawer .chat-input-area {
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+        :root[data-theme="light"] .chat-drawer .chat-header,
+        :root[data-theme="light"] .chat-drawer .chat-emoji-bar,
+        :root[data-theme="light"] .chat-drawer .chat-input-area {
+            background-color: rgba(15, 23, 42, 0.04);
+        }
         .chat-header {
-            padding: 12px 16px;
+            padding: 10px 14px;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background-color: var(--bg-header);
+            background-color: var(--bg-hover);
+            flex-shrink: 0;
         }
-        .chat-header h3 {
-            margin: 0;
-            font-size: 0.95rem;
-            color: var(--text-primary);
+        .chat-peer-name {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            font-weight: 600;
+            overflow: hidden;
+        }
+        .chat-peer-name .peer-handle {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            white-space: nowrap;
+        }
+        .chat-peer-avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .chat-empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            gap: 8px;
+            padding: 24px;
+            text-align: center;
+        }
+        .chat-empty-state svg {
+            opacity: 0.3;
         }
         .chat-close-btn {
             background: transparent;
             border: none;
-            color: var(--text-muted);
+            color: var(--text-secondary);
             cursor: pointer;
-            padding: 4px;
+            padding: 4px 6px;
             font-size: 1.1rem;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 4px;
             transition: background-color 0.2s;
+            flex-shrink: 0;
         }
         .chat-close-btn:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: var(--bg-dark);
             color: var(--text-primary);
         }
         .chat-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 16px;
+            padding: 14px 12px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
         .chat-msg {
             display: flex;
             flex-direction: column;
-            max-width: 85%;
+            max-width: 82%;
         }
         .chat-msg.self {
             align-self: flex-end;
@@ -977,67 +1030,69 @@
             align-self: flex-start;
         }
         .chat-msg-meta {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            margin-bottom: 4px;
+            font-size: 0.62rem;
+            color: var(--text-secondary);
+            margin-bottom: 3px;
             display: flex;
-            gap: 6px;
+            gap: 5px;
         }
         .chat-msg.self .chat-msg-meta {
             justify-content: flex-end;
         }
         .chat-msg-bubble {
-            padding: 8px 12px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            line-height: 1.4;
+            padding: 7px 11px;
+            border-radius: 14px;
+            font-size: 0.82rem;
+            line-height: 1.45;
             word-break: break-word;
         }
         .chat-msg.self .chat-msg-bubble {
             background-color: var(--accent);
             color: #fff;
-            border-bottom-right-radius: 2px;
+            border-bottom-right-radius: 3px;
         }
         .chat-msg.other .chat-msg-bubble {
-            background-color: var(--bg-main);
+            background-color: var(--bg-hover);
             color: var(--text-primary);
-            border-bottom-left-radius: 2px;
+            border-bottom-left-radius: 3px;
             border: 1px solid var(--border);
         }
         .chat-emoji-bar {
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-top: 1px solid var(--border);
             display: flex;
             justify-content: space-around;
-            background-color: var(--bg-header);
+            background-color: var(--bg-hover);
+            flex-shrink: 0;
         }
         .chat-emoji-btn {
             background: transparent;
             border: none;
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             cursor: pointer;
             padding: 4px;
             border-radius: 4px;
             transition: transform 0.1s, background-color 0.2s;
         }
         .chat-emoji-btn:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: var(--bg-dark);
             transform: scale(1.2);
         }
         .chat-input-area {
-            padding: 12px;
+            padding: 10px 12px;
             border-top: 1px solid var(--border);
             display: flex;
-            gap: 8px;
-            background-color: var(--bg-header);
+            gap: 7px;
+            background-color: var(--bg-hover);
+            flex-shrink: 0;
         }
         .chat-input-area input {
             flex: 1;
-            background-color: var(--bg-main);
+            background-color: var(--bg-dark);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 0.8rem;
+            border-radius: 18px;
+            padding: 7px 14px;
+            font-size: 0.82rem;
             color: var(--text-primary);
             outline: none;
         }
@@ -1047,69 +1102,59 @@
         .chat-send-btn {
             background-color: var(--accent);
             border: none;
-            border-radius: 6px;
+            border-radius: 50%;
+            width: 34px;
+            height: 34px;
             color: white;
-            padding: 8px 12px;
-            font-size: 0.8rem;
+            font-size: 0.9rem;
             font-weight: bold;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
         .chat-send-btn:hover {
-            opacity: 0.9;
+            background-color: var(--accent-hover);
         }
         .chat-link {
-            color: #60a5fa;
+            color: #93c5fd;
             text-decoration: underline dotted;
             cursor: pointer;
             font-weight: 500;
         }
         .chat-link:hover {
-            color: #93c5fd;
+            color: #bfdbfe;
         }
-        .chat-toggle-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            transition: background-color 0.2s, color 0.2s;
-            position: relative;
-        }
-        .chat-toggle-btn:hover,
-        .chat-toggle-btn.active {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: var(--text-primary);
-        }
-        /* Unread Dot Badge */
+        /* Unread badge on avatars: number when <10, plain dot when >=10 */
         .collab-avatar {
             position: relative;
         }
-        .collab-avatar.has-unread::after {
-            content: '';
+        .collab-unread-badge {
             position: absolute;
-            top: -2px;
-            right: -2px;
-            width: 8px;
-            height: 8px;
+            top: -4px;
+            right: -4px;
+            min-width: 14px;
+            height: 14px;
+            padding: 0 3px;
             background-color: var(--danger);
-            border-radius: 50%;
-            border: 1px solid var(--bg-header);
+            color: #fff;
+            border-radius: 7px;
+            border: 2px solid var(--bg-card);
+            font-size: 9px;
+            font-weight: 700;
+            line-height: 14px;
+            text-align: center;
+            box-sizing: content-box;
         }
-        .chat-toggle-btn.has-unread::after {
-            content: '';
-            position: absolute;
-            top: 2px;
-            right: 2px;
+        .collab-unread-badge.dot {
+            min-width: 0;
             width: 8px;
             height: 8px;
-            background-color: var(--danger);
+            padding: 0;
             border-radius: 50%;
-            border: 1px solid var(--bg-header);
+            line-height: 0;
         }
     </style>
 </head>
@@ -1141,11 +1186,6 @@
         </div>
         <div class="controls">
             <div id="collaborators-list" style="display: flex; align-items: center; gap: 6px; margin-right: 8px;"></div>
-            <button id="chat-toggle-btn" class="chat-toggle-btn secondary" title="Collaboration Chat" style="padding: 6px; margin-right: 12px; display: none;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
-            </button>
             <div id="status-loader" class="loader"></div>
             <span id="status-text" style="font-size: 0.8rem; color: var(--text-secondary); display: none;"></span>
             <span id="view-badge" data-i18n="viewBadge">Read-only</span>
@@ -1431,30 +1471,43 @@
 
     <div id="toast"></div>
 
-    <!-- Collapsible Chat Drawer -->
+    <!-- 1v1 DM Chat Drawer -->
     <div id="chat-drawer" class="chat-drawer">
         <div class="chat-header">
-            <h3>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div id="chat-peer-name" class="chat-peer-name">
+                <!-- filled dynamically when a peer avatar is clicked -->
+            </div>
+            <button id="chat-close-btn" class="chat-close-btn" title="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div id="chat-messages" class="chat-messages">
+            <div class="chat-empty-state" id="chat-empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                 </svg>
-                Collaboration Chat
-            </h3>
-            <button id="chat-close-btn" class="chat-close-btn">&times;</button>
+                <span>Click a collaborator's avatar<br>to start a private chat</span>
+            </div>
         </div>
-        <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-emoji-bar">
-            <button class="chat-emoji-btn">👍</button>
-            <button class="chat-emoji-btn">❤️</button>
-            <button class="chat-emoji-btn">😂</button>
-            <button class="chat-emoji-btn">🎉</button>
-            <button class="chat-emoji-btn">😮</button>
-            <button class="chat-emoji-btn">✍️</button>
-            <button class="chat-emoji-btn">🙏</button>
+            <button class="chat-emoji-btn" title="👍">👍</button>
+            <button class="chat-emoji-btn" title="❤️">❤️</button>
+            <button class="chat-emoji-btn" title="😂">😂</button>
+            <button class="chat-emoji-btn" title="🎉">🎉</button>
+            <button class="chat-emoji-btn" title="😮">😮</button>
+            <button class="chat-emoji-btn" title="✍️">✍️</button>
+            <button class="chat-emoji-btn" title="🙏">🙏</button>
         </div>
         <div class="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Type a message (e.g. p4b6)...">
-            <button id="chat-send-btn" class="chat-send-btn">Send</button>
+            <input type="text" id="chat-input" placeholder="Message... (p4b6 = page 4 block 6)" disabled>
+            <button id="chat-send-btn" class="chat-send-btn" disabled title="Send">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
         </div>
     </div>
 
@@ -1462,7 +1515,7 @@
         const i18n = {
             zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页 of 该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）", authorLabel: "作者", authorManual: "校正用户", authorLLM: "LLM", authExpired: '会话已过期。请 <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">点击此处在新标签页登录</a></b>，然后重新保存。' },
             en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)", authorLabel: "Author", authorManual: "Manual", authorLLM: "LLM", authExpired: 'Session expired. Please <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">click here to log in in a new tab</a></b>, then save again.' },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳文件（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM", authExpired: 'セッションの期限が切れました。<b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">ここをクリックして新しいタブでログイン</a></b>し、再度保存してください。' }te: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM" }
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM", authExpired: 'セッションの期限が切れました。<b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">ここをクリックして新しいタブでログイン</a></b>し、再度保存してください。' }
         };
         // Tooltip shown when the Pipeline tab is disabled (local mode).
         i18n.zh.pipelineLocalOnly = 'Pipeline 仅在服务端模式可用';
@@ -1782,6 +1835,9 @@
             collabSource: null,
             collabActive: false,
             activeCollaborators: [],
+            chatPeer: null,       // username of the open DM conversation
+            dmUnread: {},         // username -> unread count
+            dmHistory: {},        // username -> [{user,to,text,ts}]
 
             startCollabStream() {
                 if (!this.isServer) return;
@@ -1798,17 +1854,7 @@
                     try {
                         const event = JSON.parse(e.data);
                         if (event.type === 'presence') {
-                            const oldUnread = {};
-                            this.activeCollaborators.forEach(c => {
-                                if (c.unreadCount) oldUnread[c.username] = c.unreadCount;
-                            });
-
                             this.activeCollaborators = event.users || [];
-                            
-                            this.activeCollaborators.forEach(c => {
-                                if (oldUnread[c.username]) c.unreadCount = oldUnread[c.username];
-                            });
-
                             redrawActiveCollaborators();
                             updateEditingIndicators();
                         } else if (event.type === 'save') {
@@ -1816,16 +1862,23 @@
                                 this.syncTranslations(event.mtime);
                             }
                         } else if (event.type === 'chat') {
-                            appendChatMessage(event.user, event.name, event.text, event.ts);
-                            if (!isChatOpen) {
-                                let found = false;
-                                this.activeCollaborators.forEach(c => {
-                                    if (c.username === event.user) {
-                                        c.unreadCount = (c.unreadCount || 0) + 1;
-                                        found = true;
-                                    }
-                                });
-                                elements.chatToggleBtn.classList.add('has-unread');
+                            const me = this.currentUser;
+                            // "peer" is the other person in this DM
+                            const peer = event.user === me ? event.to : event.user;
+                            if (!this.dmHistory[peer]) this.dmHistory[peer] = [];
+                            // Self-echo dedup: if we already locally rendered this on send
+                            // (matching ts within 2s + same text), skip — avoids duplicates.
+                            if (event.user === me) {
+                                const dup = this.dmHistory[peer].some(m =>
+                                    m.user === me && m.text === event.text &&
+                                    Math.abs((m.ts || 0) - (event.ts || 0)) < 2);
+                                if (dup) return;
+                            }
+                            this.dmHistory[peer].push(event);
+                            if (isChatOpen && this.chatPeer === peer) {
+                                appendChatMessage(event);
+                            } else if (event.user !== me) {
+                                this.dmUnread[peer] = (this.dmUnread[peer] || 0) + 1;
                                 redrawActiveCollaborators();
                             }
                         }
@@ -1963,11 +2016,12 @@
             editor: document.getElementById('editor'),
             canvasContainer: document.getElementById('canvas-container'),
             chatDrawer: document.getElementById('chat-drawer'),
-            chatToggleBtn: document.getElementById('chat-toggle-btn'),
             chatCloseBtn: document.getElementById('chat-close-btn'),
             chatMessages: document.getElementById('chat-messages'),
             chatInput: document.getElementById('chat-input'),
-            chatSendBtn: document.getElementById('chat-send-btn')
+            chatSendBtn: document.getElementById('chat-send-btn'),
+            chatPeerName: document.getElementById('chat-peer-name'),
+            chatEmptyState: document.getElementById('chat-empty-state')
         };
 
         const ctx = elements.canvas.getContext('2d');
@@ -2084,31 +2138,33 @@
                 }
             });
 
-            // Bind Chat drawer event listeners
-            if (storage.isServer) {
-                elements.chatToggleBtn.style.display = 'inline-flex';
-                elements.chatToggleBtn.onclick = () => toggleChatDrawer();
-                elements.chatCloseBtn.onclick = () => toggleChatDrawer(false);
-                
-                // Emoji quick click send
-                document.querySelectorAll('.chat-emoji-btn').forEach(btn => {
-                    btn.onclick = () => sendChatMessage(btn.textContent);
-                });
-                
-                // Send chat message
-                elements.chatSendBtn.onclick = () => {
-                    const text = elements.chatInput.value.trim();
-                    if (text) {
-                        sendChatMessage(text);
-                        elements.chatInput.value = '';
-                    }
+            // Bind Chat drawer event listeners (always wired; DMs only active in server mode)
+            elements.chatCloseBtn.onclick = () => toggleChatDrawer(false);
+
+            // Click outside the drawer (and outside the avatars that open it) closes it.
+            document.addEventListener('mousedown', (e) => {
+                if (!isChatOpen) return;
+                if (elements.chatDrawer.contains(e.target)) return;
+                if (e.target.closest('.collab-avatar')) return; // avatars handle their own click
+                toggleChatDrawer(false);
+            });
+
+            document.querySelectorAll('.chat-emoji-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if (!storage.chatPeer) return;
+                    sendChatMessage(btn.textContent.trim());
                 };
-                elements.chatInput.onkeypress = (e) => {
-                    if (e.key === 'Enter') {
-                        elements.chatSendBtn.click();
-                    }
-                };
-            }
+            });
+
+            const doSend = () => {
+                const text = elements.chatInput.value.trim();
+                if (text && storage.chatPeer) {
+                    sendChatMessage(text);
+                    elements.chatInput.value = '';
+                }
+            };
+            elements.chatSendBtn.onclick = doSend;
+            elements.chatInput.onkeydown = (e) => { if (e.key === 'Enter') doSend(); };
         }
 
         let isMergeMode = false;
@@ -3719,79 +3775,104 @@
             if (lbl) lbl.textContent = t(key + 'Short');
         }
         let isChatOpen = false;
+
+        function openDMWith(username, displayName) {
+            storage.chatPeer = username;
+            storage.dmUnread[username] = 0;
+
+            // Update drawer header
+            const color = stringToColor(username);
+            const initial = (displayName || username).charAt(0).toUpperCase();
+            elements.chatPeerName.innerHTML =
+                `<span class="chat-peer-avatar" style="background:${color}">${initial}</span>` +
+                `<span>${displayName || username}</span>` +
+                `<span class="peer-handle">@${username}</span>`;
+
+            // Enable input
+            elements.chatInput.disabled = false;
+            elements.chatInput.placeholder = `Message ${displayName || username}… (p4b6 = page 4 block 6)`;
+            elements.chatSendBtn.disabled = false;
+
+            // Render conversation history
+            elements.chatMessages.innerHTML = '';
+            if (elements.chatEmptyState) elements.chatEmptyState.remove();
+            (storage.dmHistory[username] || []).forEach(ev => appendChatMessage(ev));
+
+            redrawActiveCollaborators();
+            toggleChatDrawer(true);
+        }
+
         function toggleChatDrawer(show) {
             isChatOpen = (show !== undefined) ? show : !isChatOpen;
             if (isChatOpen) {
                 elements.chatDrawer.classList.add('open');
-                elements.chatToggleBtn.classList.add('active');
-                
-                // Clear unread counts for all users and the main button
-                elements.chatToggleBtn.classList.remove('has-unread');
-                if (storage.activeCollaborators) {
-                    storage.activeCollaborators.forEach(u => {
-                        u.unreadCount = 0;
-                    });
-                    redrawActiveCollaborators();
-                }
             } else {
                 elements.chatDrawer.classList.remove('open');
-                elements.chatToggleBtn.classList.remove('active');
+                // clear unread for current peer when closing
+                if (storage.chatPeer) {
+                    storage.dmUnread[storage.chatPeer] = 0;
+                    redrawActiveCollaborators();
+                }
             }
         }
 
-        function appendChatMessage(username, displayName, text, timestamp) {
-            const isSelf = username === storage.currentUser;
+        function appendChatMessage(event) {
+            const isSelf = event.user === storage.currentUser;
             const msgDiv = document.createElement('div');
             msgDiv.className = `chat-msg ${isSelf ? 'self' : 'other'}`;
-            
+
             const metaDiv = document.createElement('div');
             metaDiv.className = 'chat-msg-meta';
-            
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = displayName || username;
-            nameSpan.style.fontWeight = 'bold';
-            
             const timeSpan = document.createElement('span');
-            const date = new Date(timestamp * 1000);
+            const date = new Date((event.ts || 0) * 1000);
             timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            metaDiv.appendChild(nameSpan);
             metaDiv.appendChild(timeSpan);
-            
+
             const bubbleDiv = document.createElement('div');
             bubbleDiv.className = 'chat-msg-bubble';
-            
-            // Format coordinate links: p4b6
-            const rawText = text || '';
-            const htmlText = rawText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/p(\d+)b(\d+)/gi, (match, pNum, bNum) => {
-                return `<span class="chat-link" onclick="navigateToPageAndBlock(${pNum}, ${bNum})">${match}</span>`;
-            });
-            bubbleDiv.innerHTML = htmlText;
-            
+            const rawText = event.text || '';
+            bubbleDiv.innerHTML = rawText
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/p(\d+)b(\d+)/gi, (m, p, b) =>
+                    `<span class="chat-link" onclick="navigateToPageAndBlock(${p},${b})">${m}</span>`);
+
             msgDiv.appendChild(metaDiv);
             msgDiv.appendChild(bubbleDiv);
-            
             elements.chatMessages.appendChild(msgDiv);
             elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
         }
 
         async function sendChatMessage(text) {
-            if (!text || !storage.isServer) return;
+            if (!text || !storage.isServer || !storage.chatPeer) return;
+            const peer = storage.chatPeer;
+            // Optimistic render: show the message immediately so the user has
+            // instant feedback. The server's SSE echo is deduped by ts+text.
+            const optimisticEvent = {
+                type: 'chat',
+                user: storage.currentUser,
+                to: peer,
+                text,
+                ts: Date.now() / 1000
+            };
+            if (!storage.dmHistory[peer]) storage.dmHistory[peer] = [];
+            storage.dmHistory[peer].push(optimisticEvent);
+            appendChatMessage(optimisticEvent);
+
             try {
                 const resp = await fetch(`api/collab/chat?t=${storage.token}&user=${encodeURIComponent(storage.currentUser)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text })
+                    body: JSON.stringify({ text, to: peer })
                 });
                 if (!resp.ok) {
                     if (resp.status === 401) {
                         showToast(t('authExpired'), 'error', true);
                     } else {
-                        showToast("Failed to send message", "error");
+                        showToast('Failed to send message', 'error');
                     }
                 }
             } catch (err) {
-                console.error("Chat send error:", err);
+                console.error('Chat send error:', err);
             }
         }
 
@@ -3858,24 +3939,38 @@
             list.innerHTML = '';
             if (!storage.activeCollaborators) return;
             storage.activeCollaborators.forEach(u => {
+                if (u.username === storage.currentUser) return; // don't show self
                 const avatar = document.createElement('div');
                 avatar.className = 'collab-avatar';
-                if (u.unreadCount > 0) {
-                    avatar.classList.add('has-unread');
-                }
                 avatar.style.backgroundColor = stringToColor(u.username);
                 avatar.textContent = (u.name || u.username || '?').charAt(0).toUpperCase();
-                let status = 'Idle';
-                if (u.page !== undefined) {
-                    status = `Page ${u.page + 1}`;
+
+                const unread = storage.dmUnread[u.username] || 0;
+                if (unread > 0) {
+                    const badge = document.createElement('span');
+                    badge.className = 'collab-unread-badge';
+                    if (unread >= 10) {
+                        badge.classList.add('dot');   // just a red dot, no number
+                    } else {
+                        badge.textContent = String(unread);
+                    }
+                    avatar.appendChild(badge);
                 }
-                avatar.title = `${u.name || u.username} (@${u.username}) - ${status}`;
+
+                const pageLabel = u.page !== undefined ? `Page ${u.page + 1}` : 'Idle';
+                const unreadLabel = unread > 0 ? ` · ${unread} unread` : '';
+                avatar.title = `${u.name || u.username} (@${u.username}) — ${pageLabel}${unreadLabel}\nClick to DM`;
                 if (u.page === state.currentPageIndex) {
                     avatar.style.borderColor = 'var(--accent)';
                     avatar.style.boxShadow = '0 0 6px var(--accent)';
                 }
-                avatar.onclick = () => {
-                    toggleChatDrawer(true);
+                if (isChatOpen && storage.chatPeer === u.username) {
+                    avatar.style.borderColor = 'var(--success)';
+                    avatar.style.boxShadow = '0 0 6px var(--success)';
+                }
+                avatar.onclick = (e) => {
+                    e.stopPropagation();   // don't trigger outside-click-close
+                    openDMWith(u.username, u.name || u.username);
                 };
                 list.appendChild(avatar);
             });
