@@ -516,6 +516,14 @@
             font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;
             color: var(--text-secondary);
         }
+        .col-meta {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            opacity: 0.55;
+            text-align: right;
+            margin-top: 1px;
+            font-style: italic;
+        }
         .orig-text {
             flex: 1; min-height: 80px; max-height: 220px; overflow: auto;
             background: rgba(255, 255, 255, 0.03);
@@ -860,6 +868,249 @@
         .resizer.dragging {
             background-color: var(--accent);
         }
+
+        /* Collaboration */
+        .collab-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #fff;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+        .collab-avatar:hover {
+            transform: scale(1.1);
+        }
+        .btn-collab-resolve {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-collab-resolve.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+        .btn-collab-resolve:hover {
+            opacity: 0.9;
+        }
+
+        /* Collaboration Chat Drawer */
+        .chat-drawer {
+            position: fixed;
+            right: -320px;
+            top: 0;
+            width: 320px;
+            height: 100%;
+            background-color: var(--bg-sidebar);
+            border-left: 1px solid var(--border);
+            box-shadow: -4px 0 16px rgba(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+        }
+        .chat-drawer.open {
+            right: 0;
+        }
+        .chat-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--bg-header);
+        }
+        .chat-header h3 {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .chat-close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        .chat-close-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .chat-msg {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+        }
+        .chat-msg.self {
+            align-self: flex-end;
+        }
+        .chat-msg.other {
+            align-self: flex-start;
+        }
+        .chat-msg-meta {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            display: flex;
+            gap: 6px;
+        }
+        .chat-msg.self .chat-msg-meta {
+            justify-content: flex-end;
+        }
+        .chat-msg-bubble {
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .chat-msg.self .chat-msg-bubble {
+            background-color: var(--accent);
+            color: #fff;
+            border-bottom-right-radius: 2px;
+        }
+        .chat-msg.other .chat-msg-bubble {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            border-bottom-left-radius: 2px;
+            border: 1px solid var(--border);
+        }
+        .chat-emoji-bar {
+            padding: 6px 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            background-color: var(--bg-header);
+        }
+        .chat-emoji-btn {
+            background: transparent;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        .chat-emoji-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: scale(1.2);
+        }
+        .chat-input-area {
+            padding: 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+            background-color: var(--bg-header);
+        }
+        .chat-input-area input {
+            flex: 1;
+            background-color: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            outline: none;
+        }
+        .chat-input-area input:focus {
+            border-color: var(--accent);
+        }
+        .chat-send-btn {
+            background-color: var(--accent);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .chat-send-btn:hover {
+            opacity: 0.9;
+        }
+        .chat-link {
+            color: #60a5fa;
+            text-decoration: underline dotted;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .chat-link:hover {
+            color: #93c5fd;
+        }
+        .chat-toggle-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background-color 0.2s, color 0.2s;
+            position: relative;
+        }
+        .chat-toggle-btn:hover,
+        .chat-toggle-btn.active {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+        /* Unread Dot Badge */
+        .collab-avatar {
+            position: relative;
+        }
+        .collab-avatar.has-unread::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+            background-color: var(--danger);
+            border-radius: 50%;
+            border: 1px solid var(--bg-header);
+        }
+        .chat-toggle-btn.has-unread::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 8px;
+            height: 8px;
+            background-color: var(--danger);
+            border-radius: 50%;
+            border: 1px solid var(--bg-header);
+        }
     </style>
 </head>
 
@@ -889,6 +1140,12 @@
             <button id="btn-theme" class="secondary" data-i18n-title="toggleTheme" title="Toggle light/dark" style="padding: 8px;"></button>
         </div>
         <div class="controls">
+            <div id="collaborators-list" style="display: flex; align-items: center; gap: 6px; margin-right: 8px;"></div>
+            <button id="chat-toggle-btn" class="chat-toggle-btn secondary" title="Collaboration Chat" style="padding: 6px; margin-right: 12px; display: none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+            </button>
             <div id="status-loader" class="loader"></div>
             <span id="status-text" style="font-size: 0.8rem; color: var(--text-secondary); display: none;"></span>
             <span id="view-badge" data-i18n="viewBadge">Read-only</span>
@@ -1174,11 +1431,38 @@
 
     <div id="toast"></div>
 
+    <!-- Collapsible Chat Drawer -->
+    <div id="chat-drawer" class="chat-drawer">
+        <div class="chat-header">
+            <h3>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Collaboration Chat
+            </h3>
+            <button id="chat-close-btn" class="chat-close-btn">&times;</button>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <div class="chat-emoji-bar">
+            <button class="chat-emoji-btn">👍</button>
+            <button class="chat-emoji-btn">❤️</button>
+            <button class="chat-emoji-btn">😂</button>
+            <button class="chat-emoji-btn">🎉</button>
+            <button class="chat-emoji-btn">😮</button>
+            <button class="chat-emoji-btn">✍️</button>
+            <button class="chat-emoji-btn">🙏</button>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type a message (e.g. p4b6)...">
+            <button id="chat-send-btn" class="chat-send-btn">Send</button>
+        </div>
+    </div>
+
     <script>
         const i18n = {
-            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）" },
-            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)" },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）" }
+            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页 of 该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）", authorLabel: "作者", authorManual: "校正用户", authorLLM: "LLM", authExpired: '会话已过期。请 <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">点击此处在新标签页登录</a></b>，然后重新保存。' },
+            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)", authorLabel: "Author", authorManual: "Manual", authorLLM: "LLM", authExpired: 'Session expired. Please <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">click here to log in in a new tab</a></b>, then save again.' },
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳文件（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM", authExpired: 'セッションの期限が切れました。<b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">ここをクリックして新しいタブでログイン</a></b>し、再度保存してください。' }te: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM" }
         };
         // Tooltip shown when the Pipeline tab is disabled (local mode).
         i18n.zh.pipelineLocalOnly = 'Pipeline 仅在服务端模式可用';
@@ -1262,6 +1546,7 @@
             pipelineAvailable: false,   // set true only if the server reports the pipeline is usable
             permission: 'edit',         // 'edit' | 'view' (server-reported in server mode)
             viewOnly: false,            // true when the logged-in user may only view this task
+            currentUser: null,          // set to logged-in user under server_auth
             workDirHandle: null,
             currentTask: null, // { name, handle, data, translations, pagesJsonHandle, transHandle, imageHandles: {} }
 
@@ -1305,6 +1590,7 @@
 
             // Switch to another task in multi-task server mode (no page navigation).
             async selectServerTask(token) {
+                this.stopCollabStream();
                 this.token = token;
                 await this.loadServerCapabilities();
                 await this.loadServerTask();
@@ -1313,8 +1599,6 @@
                 highlightServerTask(token);
             },
 
-            // Ask the server whether the pipeline (extract/translate/render) can run;
-            // it can't if the server is running standalone without manga_translator_lite.
             async loadServerCapabilities() {
                 try {
                     const resp = await fetch(`api/capabilities?t=${this.token}`);
@@ -1326,6 +1610,17 @@
                         // rejects every write with 403.
                         this.permission = caps.permission || 'edit';
                         this.viewOnly = this.permission !== 'edit';
+                        this.currentUser = caps.user || null;
+
+                        // Only assign a random username in unauthenticated server.py mode
+                        if (!('user' in caps) && !this.currentUser && this.isServer) {
+                            let localUser = localStorage.getItem('collab-username');
+                            if (!localUser) {
+                                localUser = 'User_' + Math.floor(1000 + Math.random() * 9000);
+                                localStorage.setItem('collab-username', localUser);
+                            }
+                            this.currentUser = localUser;
+                        }
                     }
                 } catch (e) {
                     this.pipelineAvailable = false;
@@ -1345,6 +1640,7 @@
                     await this.loadServerConfig();
                     renderPageList();
                     selectPage(0);
+                    this.startCollabStream();
                 } catch (e) {
                     showToast(e.message, 'error');
                 } finally {
@@ -1353,6 +1649,7 @@
             },
 
             async loadLocalTask(task) {
+                this.stopCollabStream();
                 try {
                     const file = await task.pagesJsonHandle.getFile();
                     task.data = JSON.parse(await file.text());
@@ -1370,6 +1667,7 @@
                 if (this.isServer) {
                     const resp = await fetch(`api/translations?t=${this.token}&lang=${lang}`);
                     this.currentTask.translations = resp.ok ? await resp.json() : {};
+                    this.lastMtime = parseFloat(resp.headers.get('X-Translation-Mtime')) || 0;
                 } else {
                     try {
                         const transDir = await this.currentTask.handle.getDirectoryHandle('translations', { create: true });
@@ -1387,7 +1685,17 @@
                 const lang = elements.targetLangSelect.value;
                 if (this.isServer) {
                     const resp = await fetch(`api/save?t=${this.token}&lang=${lang}`, { method: 'POST', body: JSON.stringify(this.currentTask.translations) });
-                    if (!resp.ok) throw new Error("Save failed");
+                    if (!resp.ok) {
+                        if (resp.status === 401) {
+                            showToast(t('authExpired'), 'error', true);
+                            throw new Error("UNAUTHORIZED");
+                        }
+                        throw new Error("Save failed");
+                    }
+                    try {
+                        const res = await resp.json();
+                        if (res.mtime) this.lastMtime = res.mtime;
+                    } catch (e) {}
                 } else {
                     if (!this.currentTask.transHandle) {
                         const transDir = await this.currentTask.handle.getDirectoryHandle('translations', { create: true });
@@ -1469,6 +1777,145 @@
                 } catch (e) {
                     console.error("Failed to load local config:", e);
                 }
+            },
+
+            collabSource: null,
+            collabActive: false,
+            activeCollaborators: [],
+
+            startCollabStream() {
+                if (!this.isServer) return;
+                if (this.collabSource) return;
+
+                this.collabSource = new EventSource(`api/collab/stream?t=${this.token}&user=${encodeURIComponent(this.currentUser)}`);
+                
+                this.collabSource.onopen = () => {
+                    this.collabActive = true;
+                    this.sendCollabAction();
+                };
+
+                this.collabSource.onmessage = (e) => {
+                    try {
+                        const event = JSON.parse(e.data);
+                        if (event.type === 'presence') {
+                            const oldUnread = {};
+                            this.activeCollaborators.forEach(c => {
+                                if (c.unreadCount) oldUnread[c.username] = c.unreadCount;
+                            });
+
+                            this.activeCollaborators = event.users || [];
+                            
+                            this.activeCollaborators.forEach(c => {
+                                if (oldUnread[c.username]) c.unreadCount = oldUnread[c.username];
+                            });
+
+                            redrawActiveCollaborators();
+                            updateEditingIndicators();
+                        } else if (event.type === 'save') {
+                            if (event.lang === elements.targetLangSelect.value && event.mtime > this.lastMtime) {
+                                this.syncTranslations(event.mtime);
+                            }
+                        } else if (event.type === 'chat') {
+                            appendChatMessage(event.user, event.name, event.text, event.ts);
+                            if (!isChatOpen) {
+                                let found = false;
+                                this.activeCollaborators.forEach(c => {
+                                    if (c.username === event.user) {
+                                        c.unreadCount = (c.unreadCount || 0) + 1;
+                                        found = true;
+                                    }
+                                });
+                                elements.chatToggleBtn.classList.add('has-unread');
+                                redrawActiveCollaborators();
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Collab event error:", err);
+                    }
+                };
+
+                this.collabSource.onerror = (err) => {
+                    this.collabActive = false;
+                    this.activeCollaborators = [];
+                    redrawActiveCollaborators();
+                    updateEditingIndicators();
+
+                    if (this.collabSource && this.collabSource.readyState === EventSource.CLOSED) {
+                        this.stopCollabStream();
+                        setTimeout(() => {
+                            if (this.isServer && this.currentUser) {
+                                this.startCollabStream();
+                            }
+                        }, 5000);
+                    }
+                };
+            },
+
+            stopCollabStream() {
+                if (this.collabSource) {
+                    this.collabSource.close();
+                    this.collabSource = null;
+                }
+                this.collabActive = false;
+                this.activeCollaborators = [];
+                redrawActiveCollaborators();
+                updateEditingIndicators();
+            },
+
+            async sendCollabAction(blockId = null) {
+                if (!this.collabActive) return;
+                try {
+                    await fetch(`api/collab/action?t=${this.token}&user=${encodeURIComponent(this.currentUser)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            page: state.currentPageIndex,
+                            block: blockId,
+                            lang: elements.targetLangSelect.value
+                        })
+                    });
+                } catch (e) {}
+            },
+
+            async syncTranslations(serverMtime) {
+                const lang = elements.targetLangSelect.value;
+                try {
+                    const resp = await fetch(`api/translations?t=${this.token}&lang=${lang}`);
+                    if (!resp.ok) return;
+                    const serverTrans = await resp.json();
+                    
+                    let hasChanges = false;
+                    for (const blockId in serverTrans) {
+                        const localVal = this.currentTask.translations[blockId];
+                        const serverVal = serverTrans[blockId];
+                        if (!serverVal) continue;
+                        
+                        if (!localVal) {
+                            this.currentTask.translations[blockId] = serverVal;
+                            hasChanges = true;
+                        } else if (localVal.text !== serverVal.text) {
+                            if (localVal.conflict) {
+                                localVal.conflict = serverVal;
+                                hasChanges = true;
+                            } else if (localVal.edited) {
+                                localVal.conflict = serverVal;
+                                hasChanges = true;
+                            } else {
+                                this.currentTask.translations[blockId] = serverVal;
+                                hasChanges = true;
+                            }
+                        }
+                    }
+                    
+                    this.lastMtime = serverMtime;
+                    if (hasChanges) {
+                        renderBlockEditors();
+                        renderPage();
+                        showToast(t('collabSyncSuccess'), 'success');
+                    }
+                } catch (e) {
+                    console.error("Auto-sync translations failed:", e);
+                }
             }
         };
 
@@ -1514,7 +1961,13 @@
             targetLangSelect: document.getElementById('target-lang-select'),
             sidebar: document.getElementById('sidebar'),
             editor: document.getElementById('editor'),
-            canvasContainer: document.getElementById('canvas-container')
+            canvasContainer: document.getElementById('canvas-container'),
+            chatDrawer: document.getElementById('chat-drawer'),
+            chatToggleBtn: document.getElementById('chat-toggle-btn'),
+            chatCloseBtn: document.getElementById('chat-close-btn'),
+            chatMessages: document.getElementById('chat-messages'),
+            chatInput: document.getElementById('chat-input'),
+            chatSendBtn: document.getElementById('chat-send-btn')
         };
 
         const ctx = elements.canvas.getContext('2d');
@@ -1630,6 +2083,32 @@
                     localStorage.setItem('editor-width', getComputedStyle(document.documentElement).getPropertyValue('--editor-width'));
                 }
             });
+
+            // Bind Chat drawer event listeners
+            if (storage.isServer) {
+                elements.chatToggleBtn.style.display = 'inline-flex';
+                elements.chatToggleBtn.onclick = () => toggleChatDrawer();
+                elements.chatCloseBtn.onclick = () => toggleChatDrawer(false);
+                
+                // Emoji quick click send
+                document.querySelectorAll('.chat-emoji-btn').forEach(btn => {
+                    btn.onclick = () => sendChatMessage(btn.textContent);
+                });
+                
+                // Send chat message
+                elements.chatSendBtn.onclick = () => {
+                    const text = elements.chatInput.value.trim();
+                    if (text) {
+                        sendChatMessage(text);
+                        elements.chatInput.value = '';
+                    }
+                };
+                elements.chatInput.onkeypress = (e) => {
+                    if (e.key === 'Enter') {
+                        elements.chatSendBtn.click();
+                    }
+                };
+            }
         }
 
         let isMergeMode = false;
@@ -2547,7 +3026,7 @@
                 if (!sel.length) { close(); return; }
                 sel.forEach(d => { storage.currentTask.translations[d.id] = { text: d.imp, edited: true }; });
                 try { await storage.saveTranslations(); setDirty(false); }
-                catch (err) { showToast('Save failed: ' + err.message, 'error'); }
+                catch (err) { if (err.message !== "UNAUTHORIZED") showToast('Save failed: ' + err.message, 'error'); }
                 render(); refreshAllPageProgress();
                 showToast(t('importApplied', { n: sel.length }), 'success');
                 close();
@@ -2661,6 +3140,10 @@
         async function selectPage(index) {
             if (index < 0 || index >= storage.currentTask.data.pages.length) return;
             state.currentPageIndex = index;
+            if (storage.collabActive) {
+                storage.sendCollabAction();
+                redrawActiveCollaborators();
+            }
             elements.inputPage.value = index + 1;
             state.selectedBlockIndex = -1;
             state.needsSort = true;
@@ -2990,6 +3473,7 @@
             page.blocks.forEach((block, bIndex) => {
                 const card = document.createElement('div');
                 card.className = 'block-card' + (bIndex === state.selectedBlockIndex ? ' selected' : '');
+                card.dataset.blockId = block.id;
                 card.onclick = (e) => {
                     if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'TEXTAREA' && !e.target.closest('button')) {
                         selectBlock(bIndex);
@@ -3072,15 +3556,95 @@
                 textarea.placeholder = 'Translation...';
                 textarea.value = transText;
                 if (storage.viewOnly) textarea.readOnly = true;
+
+                const metaRow = document.createElement('div');
+                metaRow.className = 'col-meta';
+
+                const updateMetaRow = (val) => {
+                    let authorText = '';
+                    if (val && (val.text || '').trim()) {
+                        if (val.author) {
+                            authorText = `@${val.author}`;
+                        } else if (val.edited) {
+                            authorText = t('authorManual');
+                        } else {
+                            authorText = t('authorLLM');
+                        }
+                    }
+                    metaRow.textContent = authorText ? `${t('authorLabel')}: ${authorText}` : '';
+                };
+
                 textarea.oninput = () => {
-                    storage.currentTask.translations[block.id] = { text: textarea.value, edited: true };
+                    const nextVal = { text: textarea.value, edited: true };
+                    if (storage.currentUser) {
+                        nextVal.author = storage.currentUser;
+                    }
+                    storage.currentTask.translations[block.id] = nextVal;
+                    updateMetaRow(nextVal);
                     setDirty(true);
                     updateCurrentPageProgress();
                     clearTimeout(textarea.t); textarea.t = setTimeout(renderPage, 300);
                 };
-                textarea.onfocus = () => { state.selectedBlockIndex = bIndex; redraw(); Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex)); };
+                textarea.onfocus = () => {
+                    state.selectedBlockIndex = bIndex;
+                    redraw();
+                    Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex));
+                    if (storage.collabActive) storage.sendCollabAction(block.id);
+                };
+                textarea.onblur = () => {
+                    if (storage.collabActive) storage.sendCollabAction(null);
+                };
                 transCol.appendChild(transLabel);
                 transCol.appendChild(textarea);
+                updateMetaRow(storage.currentTask.translations[block.id]);
+                transCol.appendChild(metaRow);
+
+                // Render conflict UI if any
+                const conflictInfo = storage.currentTask.translations[block.id]?.conflict;
+                if (conflictInfo) {
+                    const conflictDiv = document.createElement('div');
+                    conflictDiv.className = 'conflict-card';
+                    conflictDiv.style.border = '1px solid var(--danger)';
+                    conflictDiv.style.borderRadius = '4px';
+                    conflictDiv.style.padding = '8px';
+                    conflictDiv.style.marginTop = '6px';
+                    conflictDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                    
+                    const conflictMsg = document.createElement('div');
+                    conflictMsg.style.fontSize = '0.7rem';
+                    conflictMsg.style.color = '#f87171';
+                    conflictMsg.style.marginBottom = '6px';
+                    conflictMsg.textContent = `⚠️ Conflict: @${conflictInfo.author || 'another user'} saved "${conflictInfo.text}"`;
+                    conflictDiv.appendChild(conflictMsg);
+                    
+                    const btnKeep = document.createElement('button');
+                    btnKeep.className = 'btn-collab-resolve';
+                    btnKeep.textContent = t('btnKeepMine') || 'Keep Mine';
+                    btnKeep.style.marginRight = '8px';
+                    btnKeep.onclick = (ev) => {
+                        ev.stopPropagation();
+                        delete storage.currentTask.translations[block.id].conflict;
+                        renderBlockEditors();
+                    };
+                    conflictDiv.appendChild(btnKeep);
+                    
+                    const btnReset = document.createElement('button');
+                    btnReset.className = 'btn-collab-resolve secondary';
+                    btnReset.textContent = t('btnUseServer') || 'Use Server';
+                    btnReset.onclick = (ev) => {
+                        ev.stopPropagation();
+                        storage.currentTask.translations[block.id] = {
+                            text: conflictInfo.text,
+                            edited: true,
+                            author: conflictInfo.author
+                        };
+                        renderBlockEditors();
+                        renderPage();
+                    };
+                    conflictDiv.appendChild(btnReset);
+                    
+                    transCol.appendChild(conflictDiv);
+                }
 
                 body.appendChild(origCol);
                 body.appendChild(transCol);
@@ -3088,6 +3652,7 @@
 
                 elements.blocksContainer.appendChild(card);
             });
+            updateEditingIndicators();
         }
 
         function sortBlocks(blocks, imgWidth) {
@@ -3110,7 +3675,7 @@
                 await storage.saveTranslations();
                 setDirty(false);
                 showToast(t('saveSuccess'), 'success');
-            } catch (e) { showToast(e.message, 'error'); }
+            } catch (e) { if (e.message !== "UNAUTHORIZED") showToast(e.message, 'error'); }
             finally { elements.statusLoader.style.display = 'none'; }
         };
 
@@ -3153,14 +3718,115 @@
             const lbl = document.getElementById('zoom-label');
             if (lbl) lbl.textContent = t(key + 'Short');
         }
-        function showToast(msg, type) {
-            elements.toast.textContent = msg;
+        let isChatOpen = false;
+        function toggleChatDrawer(show) {
+            isChatOpen = (show !== undefined) ? show : !isChatOpen;
+            if (isChatOpen) {
+                elements.chatDrawer.classList.add('open');
+                elements.chatToggleBtn.classList.add('active');
+                
+                // Clear unread counts for all users and the main button
+                elements.chatToggleBtn.classList.remove('has-unread');
+                if (storage.activeCollaborators) {
+                    storage.activeCollaborators.forEach(u => {
+                        u.unreadCount = 0;
+                    });
+                    redrawActiveCollaborators();
+                }
+            } else {
+                elements.chatDrawer.classList.remove('open');
+                elements.chatToggleBtn.classList.remove('active');
+            }
+        }
+
+        function appendChatMessage(username, displayName, text, timestamp) {
+            const isSelf = username === storage.currentUser;
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-msg ${isSelf ? 'self' : 'other'}`;
+            
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'chat-msg-meta';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = displayName || username;
+            nameSpan.style.fontWeight = 'bold';
+            
+            const timeSpan = document.createElement('span');
+            const date = new Date(timestamp * 1000);
+            timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            metaDiv.appendChild(nameSpan);
+            metaDiv.appendChild(timeSpan);
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'chat-msg-bubble';
+            
+            // Format coordinate links: p4b6
+            const rawText = text || '';
+            const htmlText = rawText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/p(\d+)b(\d+)/gi, (match, pNum, bNum) => {
+                return `<span class="chat-link" onclick="navigateToPageAndBlock(${pNum}, ${bNum})">${match}</span>`;
+            });
+            bubbleDiv.innerHTML = htmlText;
+            
+            msgDiv.appendChild(metaDiv);
+            msgDiv.appendChild(bubbleDiv);
+            
+            elements.chatMessages.appendChild(msgDiv);
+            elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+        }
+
+        async function sendChatMessage(text) {
+            if (!text || !storage.isServer) return;
+            try {
+                const resp = await fetch(`api/collab/chat?t=${storage.token}&user=${encodeURIComponent(storage.currentUser)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                if (!resp.ok) {
+                    if (resp.status === 401) {
+                        showToast(t('authExpired'), 'error', true);
+                    } else {
+                        showToast("Failed to send message", "error");
+                    }
+                }
+            } catch (err) {
+                console.error("Chat send error:", err);
+            }
+        }
+
+        async function navigateToPageAndBlock(pageNumber, blockNumber) {
+            const pageIndex = pageNumber - 1;
+            const blockIndex = blockNumber - 1;
+            if (!storage.currentTask || pageIndex < 0 || pageIndex >= storage.currentTask.data.pages.length) {
+                showToast(currentLang === 'zh' ? "无效的页码索引" : "Invalid page number", "error");
+                return;
+            }
+            
+            // 1. Switch page
+            await selectPage(pageIndex);
+            
+            // 2. Select block
+            const page = storage.currentTask.data.pages[pageIndex];
+            if (page && page.blocks && blockIndex >= 0 && blockIndex < page.blocks.length) {
+                selectBlock(blockIndex);
+            } else {
+                showToast(currentLang === 'zh' ? "该页无此文字块" : "No such text block on this page", "error");
+            }
+        }
+
+        function showToast(msg, type, isHtml = false) {
+            if (isHtml) {
+                elements.toast.innerHTML = msg;
+            } else {
+                elements.toast.textContent = msg;
+            }
             elements.toast.style.backgroundColor =
                 type === 'error' ? 'var(--danger)' :
                 type === 'success' ? 'var(--success)' : 'var(--accent)';
             elements.toast.classList.add('show');
             clearTimeout(showToast._t);
-            showToast._t = setTimeout(() => elements.toast.classList.remove('show'), 2000);
+            showToast._t = setTimeout(() => elements.toast.classList.remove('show'), isHtml ? 10000 : 2000);
         }
         function updateLanguage(lang) {
             currentLang = lang; localStorage.setItem('editor-lang', lang);
@@ -3172,6 +3838,75 @@
             });
             updateZoomUI();
         }
+        function stringToColor(str) {
+            if (!str) return '#6b7280';
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const colors = [
+                '#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4',
+                '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899'
+            ];
+            const idx = Math.abs(hash) % colors.length;
+            return colors[idx];
+        }
+
+        function redrawActiveCollaborators() {
+            const list = document.getElementById('collaborators-list');
+            if (!list) return;
+            list.innerHTML = '';
+            if (!storage.activeCollaborators) return;
+            storage.activeCollaborators.forEach(u => {
+                const avatar = document.createElement('div');
+                avatar.className = 'collab-avatar';
+                if (u.unreadCount > 0) {
+                    avatar.classList.add('has-unread');
+                }
+                avatar.style.backgroundColor = stringToColor(u.username);
+                avatar.textContent = (u.name || u.username || '?').charAt(0).toUpperCase();
+                let status = 'Idle';
+                if (u.page !== undefined) {
+                    status = `Page ${u.page + 1}`;
+                }
+                avatar.title = `${u.name || u.username} (@${u.username}) - ${status}`;
+                if (u.page === state.currentPageIndex) {
+                    avatar.style.borderColor = 'var(--accent)';
+                    avatar.style.boxShadow = '0 0 6px var(--accent)';
+                }
+                avatar.onclick = () => {
+                    toggleChatDrawer(true);
+                };
+                list.appendChild(avatar);
+            });
+        }
+
+        function updateEditingIndicators() {
+            document.querySelectorAll('.editing-indicator').forEach(el => el.remove());
+            if (!storage.activeCollaborators) return;
+            storage.activeCollaborators.forEach(u => {
+                if (u.username === storage.currentUser) return;
+                if (u.page !== state.currentPageIndex) return;
+                if (u.lang !== elements.targetLangSelect.value) return;
+                if (!u.block) return;
+                const card = document.querySelector(`.block-card[data-block-id="${u.block}"]`);
+                if (card) {
+                    const infoRow = card.querySelector('.block-info');
+                    const actions = card.querySelector('.block-actions');
+                    if (infoRow && actions && !card.querySelector('.editing-indicator')) {
+                        const indicator = document.createElement('span');
+                        indicator.className = 'editing-indicator';
+                        indicator.textContent = `✍️ @${u.username}`;
+                        indicator.style.color = '#ef4444';
+                        indicator.style.fontWeight = 'bold';
+                        indicator.style.fontSize = '0.65rem';
+                        indicator.style.marginRight = '8px';
+                        infoRow.insertBefore(indicator, actions);
+                    }
+                }
+            });
+        }
+
         function t(key, vars = {}) {
             let str = i18n[currentLang][key] || key;
             for (let v in vars) str = str.replace(`{${v}}`, vars[v]);
@@ -3467,7 +4202,7 @@
                 });
                 if (!n) { showToast(t('searchNoMatch'), 'error'); return; }
                 try { await storage.saveTranslations(); setDirty(false); }
-                catch (e) { showToast('Save failed: ' + e.message, 'error'); }
+                catch (e) { if (e.message !== "UNAUTHORIZED") showToast('Save failed: ' + e.message, 'error'); }
                 render(); refreshAllPageProgress();
                 showToast(t('searchDone', { n }), 'success');
                 close();
