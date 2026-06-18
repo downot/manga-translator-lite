@@ -176,5 +176,8 @@ def draw_connected_labels(num_labels, labels, stats, centroids, names="draw_conn
             labdraw = cv2.drawContours(labdraw, [box], 0, randcolor, 2)
             labdraw = cv2.circle(labdraw, (int(centroids[lab][0]),int(centroids[lab][1])), radius=5, color=(random.randint(0,255), random.randint(0,255), random.randint(0,255)), thickness=-1)                
 
-    cv2.imshow(names, labdraw)
+#    cv2.imshow(names, labdraw)
+    # NOTE: this is a debug-visualization helper; it returns the drawn image for the
+    # caller to display/save. (Removed a stray cv2.imshow side-effect that would pop a
+    # window in headless/server runs.)
     return labdraw
