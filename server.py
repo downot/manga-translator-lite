@@ -126,6 +126,48 @@ class TokenManager:
             links.append((task_name, f"{base_url}?t={token}"))
         return links
 
+_COLLAB_LOCK = threading.Lock()
+_LISTENERS = {}      # task_name -> list of queue.Queue
+_ACTIVE_USERS = {}   # task_name -> username -> dict of collab details
+_CHAT_HISTORIES = {} # task_name -> list of chat events (capped at 30)
+
+
+def broadcast_event(task_name, event):
+    with _COLLAB_LOCK:
+        queues = _LISTENERS.get(task_name, [])
+        for q in queues:
+            q.put(event)
+
+
+def broadcast_presence(task_name):
+    with _COLLAB_LOCK:
+        users_info = []
+        if task_name in _ACTIVE_USERS:
+            for username, info in _ACTIVE_USERS[task_name].items():
+                users_info.append({
+                    "username": username,
+                    "name": info["name"],
+                    "avatar": info["avatar"],
+                    "page": info["page"],
+                    "block": info["block"],
+                    "lang": info.get("lang")
+                })
+        event = {
+            "type": "presence",
+            "users": users_info
+        }
+    broadcast_event(task_name, event)
+
+
+def broadcast_save(task_name, lang, mtime):
+    event = {
+        "type": "save",
+        "lang": lang,
+        "mtime": mtime
+    }
+    broadcast_event(task_name, event)
+
+
 class EditorHandler(http.server.BaseHTTPRequestHandler):
     token_manager = None
     root_dir = Path(".")
@@ -168,14 +210,31 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                     return
                 trans_path = task_path / "translations" / f"{lang}.json"
                 if trans_path.exists():
-                    self.serve_file(trans_path, "application/json")
+                    mtime = os.path.getmtime(trans_path)
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("X-Translation-Mtime", str(mtime))
+                    self.send_header("Content-Length", trans_path.stat().st_size)
+                    self.end_headers()
+                    with open(trans_path, "rb") as f:
+                        self.wfile.write(f.read())
                 else:
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
+                    self.send_header("X-Translation-Mtime", "0")
+                    self.send_header("Content-Length", 2)
                     self.end_headers()
                     self.wfile.write(b"{}")
             else:
                 self.send_error(400, "Language required")
+        elif parsed.path.endswith("/api/collab/stream"):
+            user = params.get('user', [None])[0] or "Anonymous"
+            task_name = self.token_manager.tokens.get(token)
+            if not task_name:
+                self.send_error(404, "Task not found")
+                return
+            self.handle_collab_stream(task_name, user)
+            return
         elif parsed.path.endswith("/api/story"):
             story_path = task_path / "story.txt"
             if story_path.exists():
@@ -251,6 +310,24 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Invalid token or task not found")
             return
 
+        if parsed.path.endswith("/api/collab/action"):
+            user = params.get('user', [None])[0] or "Anonymous"
+            task_name = self.token_manager.tokens.get(token)
+            if not task_name:
+                self.send_error(404, "Task not found")
+                return
+            self.handle_collab_action(params, task_name, user)
+            return
+
+        if parsed.path.endswith("/api/collab/chat"):
+            user = params.get('user', [None])[0] or "Anonymous"
+            task_name = self.token_manager.tokens.get(token)
+            if not task_name:
+                self.send_error(404, "Task not found")
+                return
+            self.handle_collab_chat(task_name, user)
+            return
+
         if parsed.path.endswith("/api/save"):
             lang = params.get('lang', [None])[0]
             if lang and not _is_safe_lang(lang):
@@ -269,10 +346,18 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
 
                 with open(target_file, "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
+
+                mtime = 0
+                if lang:
+                    task_name = self.token_manager.tokens.get(token)
+                    mtime = os.path.getmtime(target_file)
+                    if task_name:
+                        broadcast_save(task_name, lang, mtime)
+
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "success"}).encode())
+                self.wfile.write(json.dumps({"status": "success", "mtime": mtime}).encode())
             except Exception as e:
                 self.send_error(500, str(e))
         elif parsed.path.endswith("/api/story/save"):
@@ -493,6 +578,110 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             if self.logger:
                 self.logger.info(f"Thumbnail fallback for {img_name}: {e}")
             self.serve_file(src, "image/png")
+
+    def handle_collab_stream(self, task_name, user):
+        q = queue.Queue()
+        with _COLLAB_LOCK:
+            if task_name not in _LISTENERS:
+                _LISTENERS[task_name] = []
+            _LISTENERS[task_name].append(q)
+
+            if task_name not in _ACTIVE_USERS:
+                _ACTIVE_USERS[task_name] = {}
+            _ACTIVE_USERS[task_name][user] = {
+                "name": user,
+                "avatar": "",
+                "page": 0,
+                "block": None,
+                "lang": None,
+                "ts": time.time()
+            }
+
+        broadcast_presence(task_name)
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream')
+        self.send_header('Cache-Control', 'no-cache')
+        self.send_header('Connection', 'keep-alive')
+        self.end_headers()
+
+        # Send in-memory chat history on connect
+        with _COLLAB_LOCK:
+            history = list(_CHAT_HISTORIES.get(task_name, []))
+        for msg in history:
+            self.wfile.write(f"data: {json.dumps(msg)}\n\n".encode('utf-8'))
+        self.wfile.flush()
+
+        try:
+            while True:
+                try:
+                    event = q.get(timeout=15)
+                    self.wfile.write(f"data: {json.dumps(event)}\n\n".encode('utf-8'))
+                    self.wfile.flush()
+                except queue.Empty:
+                    self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+        except Exception:
+            pass
+        finally:
+            with _COLLAB_LOCK:
+                if task_name in _LISTENERS and q in _LISTENERS[task_name]:
+                    _LISTENERS[task_name].remove(q)
+                if task_name in _ACTIVE_USERS and user in _ACTIVE_USERS[task_name]:
+                    del _ACTIVE_USERS[task_name][user]
+            broadcast_presence(task_name)
+
+    def handle_collab_action(self, params, task_name, user):
+        try:
+            length = int(self.headers['Content-Length'])
+            action = json.loads(self.rfile.read(length))
+
+            page = action.get("page", 0)
+            block = action.get("block")
+            lang = action.get("lang")
+
+            with _COLLAB_LOCK:
+                if task_name in _ACTIVE_USERS and user in _ACTIVE_USERS[task_name]:
+                    _ACTIVE_USERS[task_name][user]["page"] = page
+                    _ACTIVE_USERS[task_name][user]["block"] = block
+                    _ACTIVE_USERS[task_name][user]["lang"] = lang
+                    _ACTIVE_USERS[task_name][user]["ts"] = time.time()
+
+            broadcast_presence(task_name)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success"}).encode())
+        except Exception as e:
+            self.send_error(500, str(e))
+
+    def handle_collab_chat(self, task_name, user):
+        try:
+            length = int(self.headers['Content-Length'])
+            action = json.loads(self.rfile.read(length))
+            text = action.get("text", "")
+
+            event = {
+                "type": "chat",
+                "user": user,
+                "text": text,
+                "ts": time.time()
+            }
+
+            with _COLLAB_LOCK:
+                if task_name not in _CHAT_HISTORIES:
+                    _CHAT_HISTORIES[task_name] = []
+                _CHAT_HISTORIES[task_name].append(event)
+                if len(_CHAT_HISTORIES[task_name]) > 30:
+                    _CHAT_HISTORIES[task_name].pop(0)
+
+            broadcast_event(task_name, event)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success"}).encode())
+        except Exception as e:
+            self.send_error(500, str(e))
 
     def serve_file(self, path, content_type):
         if not path.exists():
