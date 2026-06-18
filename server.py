@@ -63,6 +63,29 @@ def _read_config_as_json(path: str) -> str:
     except Exception:
         return "{}"
 
+
+def _is_safe_lang(lang: str) -> bool:
+    """Validate that language name only contains alphanumeric characters, hyphens or underscores.
+
+    Prevents directory traversal attacks via query parameters.
+    """
+    import re
+    return bool(re.match(r"^[a-zA-Z0-9_-]+$", lang))
+
+
+def _is_safe_config_path(path_str: str, root_dir: Path) -> bool:
+    """Ensure that the resolved configuration path resides within the root directory.
+
+    Prevents reading arbitrary configuration files on the system.
+    """
+    try:
+        resolved = Path(path_str).resolve()
+        base = root_dir.resolve()
+        return base in resolved.parents or resolved == base
+    except Exception:
+        return False
+
+
 class LogQueueHandler(logging.Handler):
     def __init__(self, q):
         super().__init__()
@@ -84,7 +107,7 @@ class TokenManager:
         if not self.work_dir.exists():
             return
         for item in self.work_dir.iterdir():
-            if item.is_dir() and (item / 'pages.json').exists():
+            if item.is_dir() and not item.name.startswith('.'):
                 task_name = item.name
                 if task_name not in self.tasks:
                     token = hashlib.sha256((task_name + self.secret).encode()).hexdigest()[:16]
@@ -140,6 +163,9 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         elif parsed.path.endswith("/api/translations"):
             lang = params.get('lang', [None])[0]
             if lang:
+                if not _is_safe_lang(lang):
+                    self.send_error(400, "Invalid language format")
+                    return
                 trans_path = task_path / "translations" / f"{lang}.json"
                 if trans_path.exists():
                     self.serve_file(trans_path, "application/json")
@@ -185,9 +211,17 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             config_path = params.get('config', [None])[0]
             if not config_path:
                 config_path = "config.toml"
-            if os.path.exists(config_path):
+            resolved_path = Path(config_path)
+            if not resolved_path.is_absolute():
+                resolved_path = self.root_dir / resolved_path
+            
+            if not _is_safe_config_path(str(resolved_path), self.root_dir):
+                self.send_error(403, "Access to configuration file denied")
+                return
+
+            if resolved_path.exists() and resolved_path.is_file():
                 try:
-                    json_str = _read_config_as_json(config_path)
+                    json_str = _read_config_as_json(str(resolved_path))
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -219,6 +253,9 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
 
         if parsed.path.endswith("/api/save"):
             lang = params.get('lang', [None])[0]
+            if lang and not _is_safe_lang(lang):
+                self.send_error(400, "Invalid language format")
+                return
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             try:
@@ -320,6 +357,15 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         output_path = args.get('output')
         config_path = args.get('config')
 
+        if config_path:
+            resolved_path = Path(config_path)
+            if not resolved_path.is_absolute():
+                resolved_path = self.root_dir / resolved_path
+            if not _is_safe_config_path(str(resolved_path), self.root_dir):
+                self.send_error(403, "Access to configuration file denied")
+                return
+            config_path = str(resolved_path)
+
         self.send_response(200)
         self.send_header('Content-Type', 'text/event-stream')
         self.send_header('Cache-Control', 'no-cache')
@@ -342,7 +388,8 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         if not EditorHandler.pipeline_lock.acquire(blocking=False):
             send_log("Another pipeline task is running, waiting for it to finish...", 'status')
             EditorHandler.pipeline_lock.acquire()
-        logging.root.addHandler(handler)
+        pipeline_logger = logging.getLogger('manga-translator')
+        pipeline_logger.addHandler(handler)
 
         async def execute():
             # Pipeline features need the full package — import lazily so the editor
@@ -394,7 +441,8 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                 if msg is None: break
                 send_log(msg)
         finally:
-            logging.root.removeHandler(handler)
+            pipeline_logger = logging.getLogger('manga-translator')
+            pipeline_logger.removeHandler(handler)
             EditorHandler.pipeline_lock.release()
 
     # Largest dimension (px) of generated thumbnails for the editor's page list.
@@ -461,7 +509,7 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         if self.logger:
             self.logger.info(format % args)
 
-def run_server(work_dir, port=8000, host="0.0.0.0", log_file="server.log"):
+def run_server(work_dir, port=8000, host="127.0.0.1", log_file="server.log"):
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s [%(levelname)s] %(message)s',
@@ -472,7 +520,22 @@ def run_server(work_dir, port=8000, host="0.0.0.0", log_file="server.log"):
     )
     logger = logging.getLogger("server")
 
-    tm = TokenManager(work_dir)
+    secret_file = Path(work_dir) / ".secret"
+    secret = None
+    if secret_file.exists():
+        try:
+            secret = secret_file.read_text(encoding='utf-8').strip()
+        except Exception:
+            pass
+    if not secret:
+        secret = secrets.token_hex(16)
+        try:
+            Path(work_dir).mkdir(exist_ok=True)
+            secret_file.write_text(secret, encoding='utf-8')
+        except Exception:
+            pass
+
+    tm = TokenManager(work_dir, secret=secret)
     EditorHandler.token_manager = tm
     EditorHandler.root_dir = Path(__file__).parent.absolute()
     EditorHandler.logger = logger
@@ -483,7 +546,7 @@ def run_server(work_dir, port=8000, host="0.0.0.0", log_file="server.log"):
     logger.info(f" Work Directory: {os.path.abspath(work_dir)}")
     logger.info("="*60)
 
-    links = tm.get_all_links(f"http://{host if host != '0.0.0.0' else 'localhost'}:{port}/")
+    links = tm.get_all_links(f"http://{host if host not in ('0.0.0.0', '127.0.0.1') else 'localhost'}:{port}/")
     if not links:
         logger.warning(" [!] No tasks found in work directory.")
     else:
@@ -503,7 +566,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-w", "--work-dir", default="work", help="Path to work directory")
     parser.add_argument("-p", "--port", type=int, default=8000, help="Server port")
-    parser.add_argument("--host", default="0.0.0.0", help="Server host")
+    parser.add_argument("--host", default="127.0.0.1", help="Server host")
     parser.add_argument("--log-file", default="server.log", help="Path to log file")
     args = parser.parse_args()
     run_server(args.work_dir, args.port, args.host, args.log_file)
