@@ -1513,9 +1513,9 @@
 
     <script>
         const i18n = {
-            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页 of 该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）", authorLabel: "作者", authorManual: "校正用户", authorLLM: "LLM", authExpired: '会话已过期。请 <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">点击此处在新标签页登录</a></b>，然后重新保存。' },
-            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)", authorLabel: "Author", authorManual: "Manual", authorLLM: "LLM", authExpired: 'Session expired. Please <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">click here to log in in a new tab</a></b>, then save again.' },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM", authExpired: 'セッションの期限が切れました。<b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">ここをクリックして新しいタブでログイン</a></b>し、再度保存してください。' }
+            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页 of 该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为白底）", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）", authorLabel: "作者", authorManual: "校正用户", authorLLM: "LLM", collabSyncSuccess: "已同步协作者的最新译文", collabConflict: "部分文字块在服务器上已被他人修改，请在冲突卡片中处理", liveTyping: "正在输入", authExpired: '会话已过期。请 <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">点击此处在新标签页登录</a></b>，然后重新保存。' },
+            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for white)", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)", authorLabel: "Author", authorManual: "Manual", authorLLM: "LLM", collabSyncSuccess: "Synced collaborators' latest translations", collabConflict: "Some blocks changed on the server — resolve them in the conflict cards", liveTyping: "typing", authExpired: 'Session expired. Please <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">click here to log in in a new tab</a></b>, then save again.' },
+            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで白）", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM", collabSyncSuccess: "共同編集者の最新の翻訳を同期しました", collabConflict: "一部のブロックがサーバー上で変更されました。競合カードで解決してください", liveTyping: "入力中", authExpired: 'セッションの期限が切れました。<b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">ここをクリックして新しいタブでログイン</a></b>し、再度保存してください。' }
         };
         // Tooltip shown when the Pipeline tab is disabled (local mode).
         i18n.zh.pipelineLocalOnly = 'Pipeline 仅在服务端模式可用';
@@ -1599,6 +1599,12 @@
             pipelineAvailable: false,   // set true only if the server reports the pipeline is usable
             permission: 'edit',         // 'edit' | 'view' (server-reported in server mode)
             viewOnly: false,            // true when the logged-in user may only view this task
+            collab2: false,             // server speaks the richer collab protocol (block-level
+                                        // saves, structural push, live cursor) — server_auth only
+            dirtyBlocks: new Set(),     // block ids with unsaved local translation edits
+            deletedBlocks: new Set(),   // block ids deleted locally, pending a server delete
+            pendingStructReload: false, // a structural change arrived while in region-edit mode
+            liveCursors: {},            // username -> {page, block, lang, text, ts} (ephemeral)
             currentUser: null,          // set to logged-in user under server_auth
             workDirHandle: null,
             currentTask: null, // { name, handle, data, translations, pagesJsonHandle, transHandle, imageHandles: {} }
@@ -1664,6 +1670,7 @@
                         // rejects every write with 403.
                         this.permission = caps.permission || 'edit';
                         this.viewOnly = this.permission !== 'edit';
+                        this.collab2 = !!caps.collab2;
                         this.currentUser = caps.user || null;
 
                         // Only assign a random username in unauthenticated server.py mode
@@ -1732,12 +1739,25 @@
                         this.currentTask.transHandle = handle;
                     } catch (e) { this.currentTask.translations = {}; }
                 }
+                // Fresh server/disk state is the new baseline: clear local edit tracking.
+                this.dirtyBlocks.clear();
+                this.deletedBlocks.clear();
                 setDirty(false);
+            },
+
+            // Mark a translation block as locally edited (unsaved). Drives the
+            // block-level save payload and precise conflict detection (collab2).
+            markBlockDirty(id) {
+                if (id) this.dirtyBlocks.add(id);
             },
 
             async saveTranslations() {
                 const lang = elements.targetLangSelect.value;
+                if (this.isServer && this.collab2) {
+                    return this._saveTranslationsV2(lang);
+                }
                 if (this.isServer) {
+                    // Legacy whole-object save (server.py): last-writer-wins.
                     const resp = await fetch(`api/save?t=${this.token}&lang=${lang}`, { method: 'POST', body: JSON.stringify(this.currentTask.translations) });
                     if (!resp.ok) {
                         if (resp.status === 401) {
@@ -1750,6 +1770,8 @@
                         const res = await resp.json();
                         if (res.mtime) this.lastMtime = res.mtime;
                     } catch (e) {}
+                    this.dirtyBlocks.clear();
+                    this.deletedBlocks.clear();
                 } else {
                     if (!this.currentTask.transHandle) {
                         const transDir = await this.currentTask.handle.getDirectoryHandle('translations', { create: true });
@@ -1758,6 +1780,54 @@
                     const writable = await this.currentTask.transHandle.createWritable();
                     await writable.write(JSON.stringify(this.currentTask.translations, null, 2));
                     await writable.close();
+                    this.dirtyBlocks.clear();
+                    this.deletedBlocks.clear();
+                }
+            },
+
+            // Block-level optimistic-concurrency save (collab2). Sends only the blocks
+            // changed/deleted locally, each with the base revision it was edited against.
+            // The server accepts a change only if nobody else bumped that block since,
+            // otherwise it comes back as a conflict (our text is kept, server value shown).
+            async _saveTranslationsV2(lang) {
+                const tr = this.currentTask.translations || {};
+                const changes = {};
+                this.dirtyBlocks.forEach(id => {
+                    const v = tr[id];
+                    if (!v) return;
+                    changes[id] = { text: v.text || '', edited: v.edited !== false,
+                                    author: v.author, base: v.rev || 0 };
+                });
+                const deletes = [...this.deletedBlocks];
+                if (Object.keys(changes).length === 0 && deletes.length === 0) return;
+
+                const resp = await fetch(`api/save?t=${this.token}&lang=${lang}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ changes, deletes })
+                });
+                if (!resp.ok) {
+                    if (resp.status === 401) { showToast(t('authExpired'), 'error', true); throw new Error("UNAUTHORIZED"); }
+                    throw new Error("Save failed");
+                }
+                const res = await resp.json();
+                if (res.mtime) this.lastMtime = res.mtime;
+
+                // Applied: adopt the new server revision as our base; the block is clean.
+                const applied = res.applied || {};
+                for (const id in applied) {
+                    if (tr[id]) tr[id].rev = applied[id];
+                    this.dirtyBlocks.delete(id);
+                }
+                this.deletedBlocks.clear();
+
+                // Conflicts: keep our unsaved text (still dirty) and attach the server
+                // value so the per-block conflict UI lets the user choose.
+                const conflicts = res.conflicts || {};
+                const conflictIds = Object.keys(conflicts);
+                if (conflictIds.length) {
+                    conflictIds.forEach(id => { if (tr[id]) tr[id].conflict = conflicts[id]; });
+                    renderBlockEditors();
+                    showToast(t('collabConflict'), 'error');
                 }
             },
 
@@ -1901,18 +1971,50 @@
                             if (event.lang === elements.targetLangSelect.value && event.mtime > this.lastMtime) {
                                 this.syncTranslations(event.mtime);
                             }
+                        } else if (event.type === 'struct') {
+                            // Another user changed pages.json (region edit / page delete).
+                            // Ignore our own echo; reload structure (deferred if we're
+                            // mid region-edit so we don't lose in-progress changes).
+                            if (event.by === this.currentUser) return;
+                            if (state.editMode) {
+                                this.pendingStructReload = true;
+                            } else {
+                                this.reloadStructure();
+                            }
+                        } else if (event.type === 'cursor') {
+                            if (event.user === this.currentUser) return;
+                            if (event.block) {
+                                this.liveCursors[event.user] = {
+                                    page: event.page, block: event.block,
+                                    lang: event.lang, text: event.text || '', ts: Date.now()
+                                };
+                            } else {
+                                delete this.liveCursors[event.user];   // blur / cleared
+                            }
+                            updateEditingIndicators();
                         } else if (event.type === 'chat') {
                             const me = this.currentUser;
                             // "peer" is the other person in this DM
                             const peer = event.user === me ? event.to : event.user;
                             if (!this.dmHistory[peer]) this.dmHistory[peer] = [];
-                            // Self-echo dedup: if we already locally rendered this on send
-                            // (matching ts within 2s + same text), skip — avoids duplicates.
                             if (event.user === me) {
+                                // Self-echo dedup: our optimistic copy has a client ts (no
+                                // server id), so match on text + ts within 2s to avoid a
+                                // duplicate of the message we already rendered on send.
                                 const dup = this.dmHistory[peer].some(m =>
                                     m.user === me && m.text === event.text &&
                                     Math.abs((m.ts || 0) - (event.ts || 0)) < 2);
                                 if (dup) return;
+                            } else {
+                                // Received-message dedup: every reconnect replays the full
+                                // history, so skip anything we've already stored. Prefer the
+                                // server-assigned id; fall back to a stable content key for
+                                // servers that don't stamp one (e.g. server.py).
+                                const key = m => (m.id != null)
+                                    ? 'id:' + m.id
+                                    : [m.user, m.to, m.ts, m.text].join('|');
+                                const k = key(event);
+                                if (this.dmHistory[peer].some(m => key(m) === k)) return;
                             }
                             this.dmHistory[peer].push(event);
                             if (isChatOpen && this.chatPeer === peer) {
@@ -1962,6 +2064,7 @@
                 }
                 this.collabActive = false;
                 this.activeCollaborators = [];
+                this.liveCursors = {};
                 redrawActiveCollaborators();
                 updateEditingIndicators();
             },
@@ -2022,30 +2125,35 @@
                     const resp = await fetch(`api/translations?t=${this.token}&lang=${lang}`);
                     if (!resp.ok) return;
                     const serverTrans = await resp.json();
-                    
+
                     let hasChanges = false;
                     for (const blockId in serverTrans) {
-                        const localVal = this.currentTask.translations[blockId];
                         const serverVal = serverTrans[blockId];
                         if (!serverVal) continue;
-                        
+                        const localVal = this.currentTask.translations[blockId];
+
                         if (!localVal) {
+                            // New block from a collaborator — adopt it.
                             this.currentTask.translations[blockId] = serverVal;
                             hasChanges = true;
-                        } else if (localVal.text !== serverVal.text) {
-                            if (localVal.conflict) {
-                                localVal.conflict = serverVal;
-                                hasChanges = true;
-                            } else if (localVal.edited) {
+                        } else if (this.dirtyBlocks.has(blockId)) {
+                            // We have unsaved edits here. If the server's text now differs
+                            // from ours, surface a conflict (don't clobber our work); the
+                            // base rev stays so our save will detect the conflict too.
+                            if (localVal.text !== serverVal.text) {
                                 localVal.conflict = serverVal;
                                 hasChanges = true;
                             } else {
-                                this.currentTask.translations[blockId] = serverVal;
-                                hasChanges = true;
+                                // Same text landed on the server — just rebase quietly.
+                                localVal.rev = serverVal.rev;
                             }
+                        } else if (localVal.text !== serverVal.text || localVal.rev !== serverVal.rev) {
+                            // Not locally modified — take the server's version + revision.
+                            this.currentTask.translations[blockId] = serverVal;
+                            hasChanges = true;
                         }
                     }
-                    
+
                     this.lastMtime = serverMtime;
                     if (hasChanges) {
                         renderBlockEditors();
@@ -2055,6 +2163,54 @@
                 } catch (e) {
                     console.error("Auto-sync translations failed:", e);
                 }
+            },
+
+            // Reload pages.json after another user changed the structure (region edits /
+            // page delete). Translations (separate state) are preserved; the current page
+            // index is clamped in case pages were removed.
+            async reloadStructure() {
+                if (!this.isServer) return;
+                try {
+                    const resp = await fetch(`api/data?t=${this.token}`);
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    this.currentTask.data = data;
+                    const n = (data.pages || []).length;
+                    if (state.currentPageIndex >= n) state.currentPageIndex = Math.max(0, n - 1);
+                    renderPageList();
+                    selectPage(state.currentPageIndex);
+                    refreshAllPageProgress();
+                } catch (e) {
+                    console.error("Structure reload failed:", e);
+                }
+            },
+
+            // Throttled live cursor / typing relay (collab2). Lets collaborators see the
+            // block you're in and a preview of what you're typing, in real time.
+            sendCursor(blockId, text) {
+                if (!this.isServer || !this.collab2 || !this.token) return;
+                this._cursorPending = { block: blockId, text: text != null ? String(text).slice(0, 200) : '' };
+                if (this._cursorTimer) return;   // trailing-edge throttle (~350ms)
+                this._cursorTimer = setTimeout(() => {
+                    this._cursorTimer = null;
+                    const p = this._cursorPending; this._cursorPending = null;
+                    if (!p) return;
+                    fetch(`api/collab/cursor?t=${this.token}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            page: state.currentPageIndex, block: p.block,
+                            lang: elements.targetLangSelect.value, text: p.text
+                        })
+                    }).catch(() => {});
+                }, 350);
+            },
+
+            clearCursor() {
+                if (!this.isServer || !this.collab2 || !this.token) return;
+                fetch(`api/collab/cursor?t=${this.token}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ page: state.currentPageIndex, block: null, lang: elements.targetLangSelect.value, text: '' })
+                }).catch(() => {});
             }
         };
 
@@ -3170,7 +3326,11 @@
             apply.onclick = async () => {
                 const sel = diffs.filter((d, i) => checks[i].checked);
                 if (!sel.length) { close(); return; }
-                sel.forEach(d => { storage.currentTask.translations[d.id] = { text: d.imp, edited: true }; });
+                sel.forEach(d => {
+                    const prev = storage.currentTask.translations[d.id] || {};
+                    storage.currentTask.translations[d.id] = { text: d.imp, edited: true, author: prev.author, rev: prev.rev };
+                    storage.markBlockDirty(d.id);
+                });
                 try { await storage.saveTranslations(); setDirty(false); }
                 catch (err) { if (err.message !== "UNAUTHORIZED") showToast('Save failed: ' + err.message, 'error'); }
                 render(); refreshAllPageProgress();
@@ -3721,24 +3881,32 @@
                 };
 
                 textarea.oninput = () => {
-                    const nextVal = { text: textarea.value, edited: true };
+                    const prev = storage.currentTask.translations[block.id] || {};
+                    // Preserve rev (the base for optimistic-concurrency saves) and any
+                    // pending conflict marker across edits.
+                    const nextVal = { text: textarea.value, edited: true, rev: prev.rev };
+                    if (prev.conflict) nextVal.conflict = prev.conflict;
                     if (storage.currentUser) {
                         nextVal.author = storage.currentUser;
                     }
                     storage.currentTask.translations[block.id] = nextVal;
+                    storage.markBlockDirty(block.id);
                     updateMetaRow(nextVal);
                     setDirty(true);
                     updateCurrentPageProgress();
                     clearTimeout(textarea.t); textarea.t = setTimeout(renderPage, 300);
+                    storage.sendCursor(block.id, textarea.value);   // live typing preview
                 };
                 textarea.onfocus = () => {
                     state.selectedBlockIndex = bIndex;
                     redraw();
                     Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex));
                     if (storage.collabActive) storage.sendCollabAction(block.id);
+                    storage.sendCursor(block.id, textarea.value);   // show my cursor immediately
                 };
                 textarea.onblur = () => {
                     if (storage.collabActive) storage.sendCollabAction(null);
+                    storage.clearCursor();   // remove my live-cursor/typing preview
                 };
                 transCol.appendChild(transLabel);
                 transCol.appendChild(textarea);
@@ -3769,21 +3937,29 @@
                     btnKeep.style.marginRight = '8px';
                     btnKeep.onclick = (ev) => {
                         ev.stopPropagation();
-                        delete storage.currentTask.translations[block.id].conflict;
+                        // Keep my text but rebase onto the server's current revision so my
+                        // next save is accepted instead of re-conflicting. Stays dirty.
+                        const v = storage.currentTask.translations[block.id];
+                        if (v) { v.rev = conflictInfo.rev; delete v.conflict; }
+                        storage.markBlockDirty(block.id);
+                        setDirty(true);
                         renderBlockEditors();
                     };
                     conflictDiv.appendChild(btnKeep);
-                    
+
                     const btnReset = document.createElement('button');
                     btnReset.className = 'btn-collab-resolve secondary';
                     btnReset.textContent = t('btnUseServer') || 'Use Server';
                     btnReset.onclick = (ev) => {
                         ev.stopPropagation();
+                        // Take the server's value as-is: nothing left to save for this block.
                         storage.currentTask.translations[block.id] = {
                             text: conflictInfo.text,
                             edited: true,
-                            author: conflictInfo.author
+                            author: conflictInfo.author,
+                            rev: conflictInfo.rev
                         };
+                        storage.dirtyBlocks.delete(block.id);
                         renderBlockEditors();
                         renderPage();
                     };
@@ -3819,8 +3995,11 @@
             elements.statusLoader.style.display = 'block';
             try {
                 await storage.saveTranslations();
-                setDirty(false);
-                showToast(t('saveSuccess'), 'success');
+                // Unresolved conflicts (collab2) leave blocks dirty — keep the Save button
+                // live so the user can re-save after resolving, instead of looking clean.
+                const stillDirty = storage.dirtyBlocks.size > 0 || storage.deletedBlocks.size > 0;
+                setDirty(stillDirty);
+                if (!stillDirty) showToast(t('saveSuccess'), 'success');
             } catch (e) { if (e.message !== "UNAUTHORIZED") showToast(e.message, 'error'); }
             finally { elements.statusLoader.style.display = 'none'; }
         };
@@ -4067,29 +4246,65 @@
         }
 
         function updateEditingIndicators() {
-            document.querySelectorAll('.editing-indicator').forEach(el => el.remove());
-            if (!storage.activeCollaborators) return;
-            storage.activeCollaborators.forEach(u => {
+            document.querySelectorAll('.editing-indicator, .live-typing-preview').forEach(el => el.remove());
+            const lang = elements.targetLangSelect.value;
+            const page = state.currentPageIndex;
+
+            // Drop stale live cursors (no update for >8s).
+            const now = Date.now();
+            for (const u in storage.liveCursors) {
+                if (now - (storage.liveCursors[u].ts || 0) > 8000) delete storage.liveCursors[u];
+            }
+
+            // Build block -> [{user, text}] for collaborators editing the current page+lang.
+            const byBlock = {};
+            const add = (user, block, text) => {
+                if (!block) return;
+                (byBlock[block] = byBlock[block] || []);
+                if (!byBlock[block].some(e => e.user === user)) byBlock[block].push({ user, text: text || '' });
+            };
+            // Live cursors first (fresher, carry typing text).
+            for (const user in storage.liveCursors) {
+                if (user === storage.currentUser) continue;
+                const c = storage.liveCursors[user];
+                if (c.page !== page || (c.lang && c.lang !== lang)) continue;
+                add(user, c.block, c.text);
+            }
+            // Presence heartbeat as a fallback for users without a live cursor.
+            (storage.activeCollaborators || []).forEach(u => {
                 if (u.username === storage.currentUser) return;
-                if (u.page !== state.currentPageIndex) return;
-                if (u.lang !== elements.targetLangSelect.value) return;
-                if (!u.block) return;
-                const card = document.querySelector(`.block-card[data-block-id="${u.block}"]`);
-                if (card) {
-                    const infoRow = card.querySelector('.block-info');
-                    const actions = card.querySelector('.block-actions');
-                    if (infoRow && actions && !card.querySelector('.editing-indicator')) {
-                        const indicator = document.createElement('span');
-                        indicator.className = 'editing-indicator';
-                        indicator.textContent = `✍️ @${u.username}`;
-                        indicator.style.color = '#ef4444';
-                        indicator.style.fontWeight = 'bold';
-                        indicator.style.fontSize = '0.65rem';
-                        indicator.style.marginRight = '8px';
-                        infoRow.insertBefore(indicator, actions);
-                    }
-                }
+                if (u.page !== page || u.lang !== lang || !u.block) return;
+                if (storage.liveCursors[u.username]) return;
+                add(u.username, u.block, '');
             });
+
+            for (const block in byBlock) {
+                const card = document.querySelector(`.block-card[data-block-id="${block}"]`);
+                if (!card) continue;
+                const editors = byBlock[block];
+                const infoRow = card.querySelector('.block-info');
+                const actions = card.querySelector('.block-actions');
+                if (infoRow && actions) {
+                    const indicator = document.createElement('span');
+                    indicator.className = 'editing-indicator';
+                    indicator.textContent = '✍️ ' + editors.map(e => '@' + e.user).join(', ');
+                    indicator.style.color = '#ef4444';
+                    indicator.style.fontWeight = 'bold';
+                    indicator.style.fontSize = '0.65rem';
+                    indicator.style.marginRight = '8px';
+                    infoRow.insertBefore(indicator, actions);
+                }
+                // In-progress text preview from the first editor who is typing.
+                const typing = editors.find(e => e.text && e.text.length);
+                if (typing) {
+                    const prev = document.createElement('div');
+                    prev.className = 'live-typing-preview';
+                    prev.style.cssText = 'font-size:.7rem;color:var(--mut,#9ca3af);font-style:italic;' +
+                        'margin-top:4px;border-left:2px solid #ef4444;padding-left:6px;white-space:pre-wrap';
+                    prev.textContent = `@${typing.user} (${t('liveTyping')}): ${typing.text}`;
+                    card.appendChild(prev);
+                }
+            }
         }
 
         function t(key, vars = {}) {
@@ -4228,6 +4443,9 @@
             const b = page.blocks[bIndex]; if (!b) return;
             if (!confirm(t('confirmDeleteBlock'))) return;
             delete storage.currentTask.translations[b.id];
+            // Record the deletion so the block-level save tells the server to drop it.
+            storage.dirtyBlocks.delete(b.id);
+            storage.deletedBlocks.add(b.id);
             page.blocks.splice(bIndex, 1);
             if (state.selectedBlockIndex >= page.blocks.length) state.selectedBlockIndex = page.blocks.length - 1;
             persistGeometry(); storage.saveTranslations().catch(() => {});
@@ -4242,6 +4460,12 @@
             legend.style.display = state.editMode ? 'block' : 'none';
             showToast(t(state.editMode ? 'editModeOn' : 'editModeOff'));
             renderPage();
+            // A collaborator's structural change arrived while we were editing regions —
+            // apply it now that we've left edit mode (deferred to avoid losing our work).
+            if (!state.editMode && storage.pendingStructReload) {
+                storage.pendingStructReload = false;
+                storage.reloadStructure();
+            }
         }
         elements.btnEditRegion.onclick = toggleEditMode;
 
@@ -4383,7 +4607,12 @@
                     const cur = storage.currentTask.translations[m.id]?.text || '';
                     if (!cur.includes(find)) return;
                     const next = cur.split(find).join(repl);
-                    if (next !== cur) { storage.currentTask.translations[m.id] = { text: next, edited: true }; n++; }
+                    if (next !== cur) {
+                        const prev = storage.currentTask.translations[m.id] || {};
+                        storage.currentTask.translations[m.id] = { text: next, edited: true, author: prev.author, rev: prev.rev };
+                        storage.markBlockDirty(m.id);
+                        n++;
+                    }
                 });
                 if (!n) { showToast(t('searchNoMatch'), 'error'); return; }
                 try { await storage.saveTranslations(); setDirty(false); }
