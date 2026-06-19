@@ -111,13 +111,22 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
             cfg, secondary, img_rgb, device, verbose, sec_box_thr)
         primary_boxes = [tl.xyxy for tl in textlines]
         thr = cfg.detector.fusion_iou
+        page_area = float(img_rgb.shape[0] * img_rgb.shape[1])
+        max_area = cfg.detector.fusion_max_area_ratio * page_area
+        oversize = 0
         for s in sec_textlines:
+            x1, y1, x2, y2 = s.xyxy
+            # A box detector can return one huge box for a stylized title / SFX spanning the
+            # art; box-filling it would wipe a large region, so drop oversized candidates.
+            if max_area > 0 and (x2 - x1) * (y2 - y1) > max_area:
+                oversize += 1
+                continue
             if all(_iou_xyxy(s.xyxy, pb) < thr for pb in primary_boxes):
                 secondary_only.append(s)
         textlines = textlines + secondary_only
         logger.info(f"detector fusion: {cfg.detector.detector.value}={len(primary_boxes)} "
                     f"+{len(secondary_only)} new from {secondary.value} "
-                    f"(of {len(sec_textlines)})")
+                    f"(of {len(sec_textlines)}; {oversize} oversize dropped)")
 
     return textlines, mask_raw, mask, secondary_only
 

@@ -72,7 +72,7 @@ All commands are invoked as `python -m manga_translator_lite <command> [options]
 | Option | Description |
 |---|---|
 | `-c, --config <path>` | Path to the `.toml`/`.json` config file. Defaults to `./config.toml` (or `config.json`) when present. |
-| `--target-lang <code>` | Override `translator.target_lang` (e.g. `CHS`, `ENG`, `JPN`, `KOR`). |
+| `--target-lang <code>` | Override `translator.target_lang` for this run only — `config.toml` is **not** modified (e.g. `CHS`, `ENG`, `JPN`, `KOR`). |
 | `-v, --verbose` | Verbose logging and intermediate diagnostics. |
 
 ### `extract` — Step 1: detection / OCR / inpaint → workspace
@@ -90,6 +90,13 @@ All commands are invoked as `python -m manga_translator_lite <command> [options]
 | `work_dir` *(positional, required)* | Existing workspace directory. |
 | `--overwrite` | Re-translate blocks that already have translations. Hand-edited blocks (`edited: true`) are preserved. |
 | `--start-index <n>` | Start (re)translating from this page index; earlier pages are used as context only. |
+
+> **Per-language output:** `--target-lang` temporarily overrides the configured language without touching `config.toml`. Output is keyed by language code (`translations/CHS.json`, `translations/ENG.json`, …), so the same workspace can hold several languages side by side — translate once per language, no overwriting:
+>
+> ```bash
+> python -m manga_translator_lite translate ./work --target-lang CHS
+> python -m manga_translator_lite translate ./work --target-lang JPN
+> ```
 
 ### `render` — Step 3: paint translations onto clean images
 
@@ -187,9 +194,12 @@ detector = "ctd"                # primary — keep a stroke detector for clean m
 secondary_detector = "rtdetr"   # booster — adds the regions ctd misses (needs `transformers`)
 secondary_box_threshold = 0.3   # rtdetr likes a lower confidence than ctd/dbnet
 fusion_iou = 0.4                # a secondary region is "new" only if it overlaps no primary box above this
+fusion_max_area_ratio = 0.1     # drop secondary boxes larger than this fraction of the page (see below)
 ```
 
 `secondary_detector = "none"` (the default) disables fusion entirely — behavior is unchanged. This is purely additive recall: the primary still owns the mask, so erase quality is the primary's everywhere except the extra regions.
+
+**Avoiding large false erasures.** A box detector can return one huge box for a stylized title or SFX that spans the artwork; since secondary regions are erased by box-fill, that would wipe a large area. `fusion_max_area_ratio` drops any secondary box covering more than that fraction of the page (default `0.1` = 10%), so oversized region boxes are neither translated nor erased — the art is left intact. Lower it (e.g. `0.06`) if you still see big rectangular wipes; set `0` to disable the cap.
 
 ### Controlling text size (`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit`)
 

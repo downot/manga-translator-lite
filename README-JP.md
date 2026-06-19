@@ -72,7 +72,7 @@ python -m manga_translator_lite render ./work -o ./out
 | オプション | 説明 |
 |---|---|
 | `-c, --config <パス>` | 設定ファイル（`.toml`/`.json`）のパス。省略時は `./config.toml`（または `config.json`）を自動使用。 |
-| `--target-lang <コード>` | `translator.target_lang` を上書き（例: `CHS`、`ENG`、`JPN`、`KOR`）。 |
+| `--target-lang <コード>` | この実行に限り `translator.target_lang` を上書き——`config.toml` は**変更しません**（例: `CHS`、`ENG`、`JPN`、`KOR`）。 |
 | `-v, --verbose` | 詳細ログと中間診断情報。 |
 
 ### `extract` — ステップ1：検出 / OCR / インペイント → ワークスペース
@@ -90,6 +90,13 @@ python -m manga_translator_lite render ./work -o ./out
 | `work_dir` *(位置引数・必須)* | 既存のワークスペースディレクトリ。 |
 | `--overwrite` | 既訳のブロックも再翻訳。**手動編集されたブロック（`edited: true`）は保持されます**。 |
 | `--start-index <n>` | このページインデックスから（再）翻訳を開始。それ以前のページは文脈としてのみ使用。 |
+
+> **言語ごとの出力：** `--target-lang` は `config.toml` を変更せず、その実行だけ言語を上書きします。出力は言語コードごとに保存されるため（`translations/CHS.json`、`translations/ENG.json` …）、同じワークスペースに複数言語を併存できます——言語ごとに 1 回ずつ翻訳すれば、互いに上書きされません：
+>
+> ```bash
+> python -m manga_translator_lite translate ./work --target-lang CHS
+> python -m manga_translator_lite translate ./work --target-lang JPN
+> ```
 
 ### `render` — ステップ3：翻訳をクリーン画像に描画
 
@@ -187,9 +194,12 @@ detector = "ctd"                # 主検出器——きれいなマスクのた�
 secondary_detector = "rtdetr"   # ブースター——ctd が見逃す領域を補う（`transformers` が必要）
 secondary_box_threshold = 0.3   # rtdetr は ctd/dbnet より低い信頼度を好む
 fusion_iou = 0.4                # 副領域は、どの主ボックスともこの IoU を超えて重ならない場合のみ「新規」とみなす
+fusion_max_area_ratio = 0.1     # ページのこの割合を超える副ボックスは破棄（下記参照）
 ```
 
 `secondary_detector = "none"`（デフォルト）は融合を完全に無効化します——挙動は変わりません。これは純粋に再現率を上げる仕組みで、マスクは引き続き主検出器が担うため、追加領域を除けば消去品質はどこでも主検出器どおりです。
+
+**大面積の誤消去を防ぐ。** ボックス検出器は、画面をまたぐ様式化タイトルや SFX を 1 つの巨大なボックスとして返すことがあります。副領域はボックス塗りつぶしで消去するため、これが広い範囲を消してしまいます。`fusion_max_area_ratio` は、ページのその割合を超える副ボックスをすべて破棄し（デフォルト `0.1` = 10%）、過大な領域ボックスは翻訳も消去もされず、絵がそのまま残ります。大きな矩形の消去がまだ見える場合は値を下げ（例: `0.06`）、`0` で上限を無効化します。
 
 ### 文字サイズの制御（`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit`）
 

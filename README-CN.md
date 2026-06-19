@@ -72,7 +72,7 @@ python -m manga_translator_lite render ./work -o ./out
 | 参数 | 说明 |
 |---|---|
 | `-c, --config <路径>` | 配置文件（`.toml`/`.json`）路径。缺省时自动使用 `./config.toml`（或 `config.json`）。 |
-| `--target-lang <代码>` | 覆盖 `translator.target_lang`（如 `CHS`、`ENG`、`JPN`、`KOR`）。 |
+| `--target-lang <代码>` | 仅对本次运行覆盖 `translator.target_lang`——**不会改动** `config.toml`（如 `CHS`、`ENG`、`JPN`、`KOR`）。 |
 | `-v, --verbose` | 详细日志与中间诊断信息。 |
 
 ### `extract` — 步骤一：检测 / OCR / 修复 → 工作区
@@ -90,6 +90,13 @@ python -m manga_translator_lite render ./work -o ./out
 | `work_dir` *(位置参数，必填)* | 已存在的工作区目录。 |
 | `--overwrite` | 重新翻译已有译文的块；**人工编辑过的块（`edited: true`）会被保留**。 |
 | `--start-index <n>` | 从该页索引开始（重新）翻译；之前的页面仅作为上下文。 |
+
+> **按语言分文件输出：** `--target-lang` 只临时覆盖配置语言，不会改动 `config.toml`。译文按语言代码命名（`translations/CHS.json`、`translations/ENG.json` ……），因此同一个工作区可以并存多种语言——每种语言翻译一次,互不覆盖：
+>
+> ```bash
+> python -m manga_translator_lite translate ./work --target-lang CHS
+> python -m manga_translator_lite translate ./work --target-lang JPN
+> ```
 
 ### `render` — 步骤三：将译文渲染到清理后的图片
 
@@ -187,9 +194,12 @@ detector = "ctd"                # 主检测器——保留笔画检测器以获�
 secondary_detector = "rtdetr"   # 增强器——补上 ctd 漏掉的区域(需要 `transformers`)
 secondary_box_threshold = 0.3   # rtdetr 偏好比 ctd/dbnet 更低的置信度
 fusion_iou = 0.4                # 次检测器区域只有在不与任何主框以高于此 IoU 重叠时才算"新增"
+fusion_max_area_ratio = 0.1     # 丢弃面积超过整页此比例的次检测框（见下）
 ```
 
 `secondary_detector = "none"`(默认)完全关闭融合——行为不变。这是纯粹的召回率增强:mask 仍由主检测器掌管,因此除了那些额外区域,擦除质量处处与主检测器一致。
+
+**避免大面积误擦除。** 框检测器可能把一整块跨越画面的花字标题 / SFX 检成一个大框;由于次检测区域是按整框填充来擦除的,这会涂掉一大片画面。`fusion_max_area_ratio` 会丢弃任何面积超过整页该比例的次检测框(默认 `0.1` = 10%),这样超大区域框既不翻译也不擦除,画面保持原样。若仍看到大块矩形被擦,调低它(如 `0.06`);设为 `0` 则关闭该上限。
 
 ### 控制文字大小（`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit`）
 

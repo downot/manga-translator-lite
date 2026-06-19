@@ -81,6 +81,10 @@ class DetectorConfig(BaseModel):
     """box_threshold for the secondary detector (rtdetr likes ~0.3). None = reuse box_threshold."""
     fusion_iou: float = 0.4
     """A secondary region is 'new' (kept) only if its IoU with every primary region is below this."""
+    fusion_max_area_ratio: float = 0.1
+    """Drop secondary regions whose box covers more than this fraction of the page. A box
+    detector (rtdetr) can return one huge box for a stylized title / SFX spanning the art;
+    box-filling that into the erase mask would wipe a large area. 0 disables the cap."""
 
 
 class OcrConfig(BaseModel):
