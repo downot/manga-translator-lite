@@ -57,6 +57,107 @@ def _select_device(use_gpu: bool) -> str:
     return 'cpu'
 
 
+def _iou_xyxy(a, b) -> float:
+    """IoU of two axis-aligned (x1, y1, x2, y2) boxes."""
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+    inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    union = area_a + area_b - inter
+    return inter / union if union > 0 else 0.0
+
+
+def _overlap_min(a, b) -> float:
+    """Intersection over the *smaller* box's area — a containment score.
+
+    Unlike IoU, this stays high when one box sits inside a much larger one
+    (e.g. a small primary text line fully covered by a large box-detector
+    region), which is exactly the duplicate case IoU misses.
+    """
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    inter = max(0.0, min(ax2, bx2) - max(ax1, bx1)) * max(0.0, min(ay2, by2) - max(ay1, by1))
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    m = min(area_a, area_b)
+    return inter / m if m > 0 else 0.0
+
+
+async def _dispatch_det(cfg: Config, detector: Detector, img_rgb: np.ndarray, device: str,
+                        verbose: bool, box_threshold: float):
+    return await dispatch_detection(
+        detector,
+        img_rgb,
+        cfg.detector.detection_size,
+        cfg.detector.text_threshold,
+        box_threshold,
+        cfg.detector.unclip_ratio,
+        cfg.detector.det_invert,
+        cfg.detector.det_gamma_correct,
+        cfg.detector.det_rotate,
+        cfg.detector.det_auto_rotate,
+        device,
+        verbose,
+    )
+
+
+async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: bool):
+    """Run the primary detector and, when configured, fuse in a secondary detector's
+    regions that the primary missed (IoU below fusion_iou with every primary region).
+
+    Returns (textlines, mask_raw, mask, secondary_only) where ``secondary_only`` are the
+    extra Quadrilaterals contributed by the secondary detector — they have no stroke-level
+    mask data, so the caller box-fills them into the erase mask.
+    """
+    textlines, mask_raw, mask = await _dispatch_det(
+        cfg, cfg.detector.detector, img_rgb, device, verbose, cfg.detector.box_threshold)
+
+    secondary = cfg.detector.secondary_detector
+    secondary_only: List = []
+    if secondary != Detector.none and secondary != cfg.detector.detector:
+        sec_box_thr = (cfg.detector.secondary_box_threshold
+                       if cfg.detector.secondary_box_threshold is not None
+                       else cfg.detector.box_threshold)
+        sec_textlines, _, _ = await _dispatch_det(
+            cfg, secondary, img_rgb, device, verbose, sec_box_thr)
+        primary_boxes = [tl.xyxy for tl in textlines]
+        thr = cfg.detector.fusion_iou
+        overlap_limit = cfg.detector.fusion_overlap_limit
+        page_area = float(img_rgb.shape[0] * img_rgb.shape[1])
+        max_area = cfg.detector.fusion_max_area_ratio * page_area
+        oversize = 0
+        dup = 0
+        for s in sec_textlines:
+            x1, y1, x2, y2 = s.xyxy
+            # A box detector can return one huge box for a stylized title / SFX spanning the
+            # art; box-filling it would wipe a large region, so drop oversized candidates.
+            if max_area > 0 and (x2 - x1) * (y2 - y1) > max_area:
+                oversize += 1
+                continue
+            # A region is genuinely "new" only if it neither overlaps a primary box (IoU) nor
+            # sits on top of / inside one (containment). The containment test catches a large
+            # secondary box covering small primary text lines — low IoU but a clear duplicate,
+            # which would otherwise be OCR'd again as a partial copy.
+            if any(_iou_xyxy(s.xyxy, pb) >= thr or _overlap_min(s.xyxy, pb) >= overlap_limit
+                   for pb in primary_boxes):
+                dup += 1
+                continue
+            secondary_only.append(s)
+        textlines = textlines + secondary_only
+        logger.info(f"detector fusion: {cfg.detector.detector.value}={len(primary_boxes)} "
+                    f"+{len(secondary_only)} new from {secondary.value} "
+                    f"(of {len(sec_textlines)}; {dup} overlap, {oversize} oversize dropped)")
+
+    return textlines, mask_raw, mask, secondary_only
+
+
 def _list_images(input_path: str) -> List[str]:
     if os.path.isfile(input_path):
         return [input_path]
@@ -152,21 +253,8 @@ async def _process_image(
     img_rgb, _ = load_image(pil)
     h, w = img_rgb.shape[:2]
 
-    # 1. detection
-    textlines, mask_raw, mask = await dispatch_detection(
-        cfg.detector.detector,
-        img_rgb,
-        cfg.detector.detection_size,
-        cfg.detector.text_threshold,
-        cfg.detector.box_threshold,
-        cfg.detector.unclip_ratio,
-        cfg.detector.det_invert,
-        cfg.detector.det_gamma_correct,
-        cfg.detector.det_rotate,
-        cfg.detector.det_auto_rotate,
-        device,
-        verbose,
-    )
+    # 1. detection (optionally fused with a secondary detector to boost recall)
+    textlines, mask_raw, mask, secondary_only = await _detect_fused(cfg, img_rgb, device, verbose)
 
     _, ext = os.path.splitext(os.path.basename(img_path))
     if not ext:
@@ -234,6 +322,16 @@ async def _process_image(
                 verbose,
                 cfg.kernel_size,
             )
+
+    # 4b. Secondary-detector-only regions have no stroke-level mask (the primary missed
+    # them), so the stroke refinement above can't erase them. Box-fill their boxes into the
+    # mask — coarser than stroke masks, but it's only the extra recall the primary lacked.
+    if secondary_only:
+        if mask is None:
+            mask = np.zeros((h, w), dtype=np.uint8)
+        for q in secondary_only:
+            x1, y1, x2, y2 = (int(round(v)) for v in q.xyxy)
+            cv2.rectangle(mask, (x1, y1), (x2, y2), 255, thickness=-1)
 
     # 5. inpainting
     inpaint_done = False
@@ -505,6 +603,9 @@ async def run_extract(
 
     # Pre-load models once.
     await prepare_detection(cfg.detector.detector)
+    if (cfg.detector.secondary_detector != Detector.none
+            and cfg.detector.secondary_detector != cfg.detector.detector):
+        await prepare_detection(cfg.detector.secondary_detector)
     await prepare_ocr(cfg.ocr.ocr, device)
     if cfg.inpainter.inpainter != Inpainter.none:
         await prepare_inpainting(cfg.inpainter.inpainter, device)

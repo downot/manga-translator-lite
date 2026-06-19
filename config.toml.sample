@@ -6,56 +6,231 @@
 # `config.toml` is git-ignored so your API key never gets committed.
 # You can also leave `api_key` empty here and export OPENAI_API_KEY /
 # GEMINI_API_KEY in your environment instead.
+#
+# Each setting below carries a 3-line note (EN / 中 / 日):
+#   range-or-options · what raising/lowering changes · when you'd change it
 
-use_gpu = true                 # use CUDA / Apple MPS if available (else CPU)
-kernel_size = 3                # text-mask edge cleanup kernel
-mask_dilation_offset = 30      # how much to grow the text mask before inpainting
-force_simple_sort = false      # true = skip panel-aware ordering (simpler top-to-bottom / RTL)
+# EN  true|false · true uses CUDA/Apple MPS for detect+OCR+inpaint (much faster), false forces CPU · set false if you have no GPU or hit VRAM/driver errors
+# 中  true|false · true 用 CUDA/Apple MPS 跑检测+OCR+重绘(快很多)，false 强制 CPU · 无 GPU 或遇显存/驱动报错时设 false
+# 日  true|false · true は CUDA/Apple MPS で検出+OCR+修復を高速化、false は CPU 固定 · GPU 無し/VRAM・ドライバのエラー時は false
+use_gpu = true
+
+# EN  range 1–5 (odd) · larger smooths/closes mask edges but blurs fine strokes · raise if mask edges look ragged or speckled, else keep 3
+# 中  范围 1–5(奇数) · 调大让 mask 边缘更平滑/连通但糊掉细笔画 · mask 边缘毛糙/有麻点时调大，否则保持 3
+# 日  範囲 1–5(奇数) · 大きいほどマスク端を平滑/結合するが細線がぼやける · マスク端がギザつく/斑点が出る時に上げ、通常は 3
+kernel_size = 3
+
+# EN  range 0–50 px · larger erases more around text (covers glow/outline halos) but can eat nearby art · raise if text halos remain after erase, lower if inpaint bites into art
+# 中  范围 0–50 像素 · 调大向文字周围多擦(覆盖发光/描边残影)但可能吃到邻近画面 · 擦后残留文字光晕时调大，重绘吃到画面时调小
+# 日  範囲 0–50px · 大きいほど文字周辺を広く消す(発光/縁取りの残りを除去)が近くの絵も消えうる · 消去後にハロが残る時は上げ、絵が削れる時は下げる
+mask_dilation_offset = 30
+
+# EN  true|false · false = panel-aware reading order (correct manga flow), true = plain top-to-bottom / RTL · set true only if panel detection mis-orders blocks on unusual layouts
+# 中  true|false · false=按分镜阅读顺序(符合漫画流)，true=纯上到下/从右到左 · 仅当异形排版下分镜排序出错时设 true
+# 日  true|false · false=コマ順(漫画の流れ通り)、true=単純な上→下/右→左 · 変則レイアウトでコマ順が乱れる時のみ true
+force_simple_sort = false
 
 [detector]
-detector = "ctd"               # default | dbconvnext | ctd | craft | paddle | none
-detection_size = 2048          # detection input size (larger = catches smaller text, slower)
-text_threshold = 0.25          # lower = catch fainter/thinner text (more recall)
-box_threshold = 0.6            # lower = keep lower-confidence boxes
-unclip_ratio = 1.5             # how much detected boxes expand outward
+# EN  ctd|default|dbconvnext|craft|paddle|rtdetr|none · the detection model; ctd/default give stroke masks (clean erase), rtdetr is box-only/experimental · use ctd or default for production, switch only if detection is poor on your art
+# 中  ctd|default|dbconvnext|craft|paddle|rtdetr|none · 文字检测模型；ctd/default 产笔画 mask(擦除干净)，rtdetr 仅框/实验性 · 生产用 ctd 或 default，仅当素材检测差时再换
+# 日  ctd|default|dbconvnext|craft|paddle|rtdetr|none · 検出モデル；ctd/default はストロークマスク(きれいな消去)、rtdetr はボックスのみ/実験的 · 本番は ctd か default、検出が悪い時のみ変更
+detector = "ctd"
+
+# EN  range 1536–2560 · larger catches smaller text but uses more VRAM and is slower · raise for dense/tiny text or hi-res scans, lower if slow or out-of-memory
+# 中  范围 1536–2560 · 调大能抓更小的字但更吃显存、更慢 · 密集小字/高分扫图时调大，慢或爆显存时调小
+# 日  範囲 1536–2560 · 大きいほど小さな文字も拾うが VRAM 消費・低速 · 密集した小文字/高解像時は上げ、遅い/メモリ不足なら下げる
+detection_size = 2048
+
+# EN  range 0.2–0.6 · lower catches fainter/thinner text (more recall) but adds noise · lower if faint text is missed, raise if you get noise boxes
+# 中  范围 0.2–0.6 · 调低捕捉更浅/更细的文字(召回↑)但增噪 · 漏检浅字时调低，出现噪声框时调高
+# 日  範囲 0.2–0.6 · 下げると薄い/細い文字も拾う(再現率↑)がノイズ増 · 薄い文字が抜ける時は下げ、ノイズ枠が出る時は上げる
+text_threshold = 0.25
+
+# EN  range 0.3–0.8 (rtdetr ~0.3) · lower keeps lower-confidence boxes (more recall), higher drops them · lower if real text boxes are missed, raise if spurious boxes appear
+# 中  范围 0.3–0.8(rtdetr 约 0.3) · 调低保留低置信框(召回↑)，调高则丢弃 · 漏检文字框时调低，出现误检框时调高
+# 日  範囲 0.3–0.8(rtdetr は約0.3) · 下げると低信頼の枠も残す(再現率↑)、上げると除外 · 本物の枠が抜ける時は下げ、誤検出枠が出る時は上げる
+box_threshold = 0.6
+
+# EN  range 1.2–2.5 · larger expands each detected box outward (captures full glyphs, may merge neighbors), smaller keeps it tight · raise if boxes clip text edges, lower if boxes bleed into adjacent text
+# 中  范围 1.2–2.5 · 调大让每个检测框向外扩张(包住整字、可能粘连邻框)，调小更贴合 · 框切掉文字边缘时调大，框糊到邻近文字时调小
+# 日  範囲 1.2–2.5 · 大きいほど各枠を外側に拡張(字全体を囲む/隣と結合しやすい)、小さいほど密着 · 文字端が切れる時は上げ、隣の文字に被る時は下げる
+unclip_ratio = 1.5
+
+# --- Detector fusion (optional, off by default) ---------------------------------
+# Add a second detector to boost recall: its regions the primary misses are added
+# (OCR'd, translated, box-erased). Keep a stroke detector (ctd/default) as primary
+# so erase masks stay clean; use rtdetr as the booster for stylized/webtoon/SFX.
+
+# EN  none|rtdetr|ctd|default|… · none disables fusion; otherwise the secondary's missed-by-primary regions are added · enable (e.g. rtdetr) to boost recall on stylized/webtoon/SFX pages
+# 中  none|rtdetr|ctd|default|… · none 关闭融合；否则把它检出而主检测器漏掉的区域加入 · 想在花字/webtoon/SFX 页提升召回时启用(如 rtdetr)
+# 日  none|rtdetr|ctd|default|… · none で融合無効；それ以外は主検出器が見逃した領域を追加 · 様式化/webtoon/SFX で再現率を上げたい時に有効化(例 rtdetr)
+secondary_detector = "none"
+
+# EN  range 0.2–0.35 (for rtdetr) · lower lets the secondary contribute more regions, higher fewer · lower if fusion adds too few regions (small +N in the log), raise if it adds noise
+# 中  范围 0.2–0.35(rtdetr) · 调低让次检测器贡献更多区域，调高更少 · 日志里 +N 太小时调低，引入噪声时调高
+# 日  範囲 0.2–0.35(rtdetr) · 下げると副検出器の領域が増え、上げると減る · ログの +N が小さい時は下げ、ノイズが増える時は上げる
+secondary_box_threshold = 0.3
+
+# EN  range 0.3–0.6 · higher keeps more secondary boxes as "new" (more additions), lower dedups more strictly · raise to add more regions, lower if you see duplicate translations over the same text
+# 中  范围 0.3–0.6 · 调高把更多次检测框判为"新增"(加得更多)，调低去重更严 · 想加更多区域时调高，同一文字出现重复译文时调低
+# 日  範囲 0.3–0.6 · 上げると副枠を「新規」として多く残す(追加増)、下げると重複排除を厳格化 · 領域を増やしたい時は上げ、同じ文字に重複訳が出る時は下げる
+fusion_iou = 0.4
+
+# EN  range 0.3–0.7 · drops a secondary box as a duplicate if it covers (or is covered by) this fraction of any primary box; catches a big box-detector region over small primary lines that IoU misses · lower (e.g. 0.3) if the same text still gets extracted twice
+# 中  范围 0.3–0.7 · 当次检测框盖住(或被盖住)主框达此比例时判为重复并丢弃；专治 IoU 抓不到的「大框套小行」重复 · 同一文字仍被提取两次时调低(如 0.3)
+# 日  範囲 0.3–0.7 · 副枠が主枠をこの割合以上覆う(または覆われる)と重複として破棄；IoU では取れない「大枠が小行を覆う」重複に対応 · 同じ文字が二重抽出される時は下げる(例 0.3)
+fusion_overlap_limit = 0.5
+
+# EN  range 0.05–0.2 (0 = no cap) · drops secondary boxes bigger than this fraction of the page; a box detector returns one huge box for stylized titles/SFX and box-fill would wipe the art · lower if big rectangular false-erases remain, raise if legit large bubbles get dropped
+# 中  范围 0.05–0.2(0=不限) · 丢弃面积超过整页此比例的次检测框；框检测器会把花字标题/SFX 检成一个大框，整框填充会涂花画面 · 仍有大块矩形误擦时调低，正常大气泡被误丢时调高
+# 日  範囲 0.05–0.2(0=無制限) · ページのこの割合を超える副枠を破棄；ボックス検出器は様式化タイトル/SFX を巨大枠で返し塗りつぶしで絵が消える · 大きな矩形の誤消去が残る時は下げ、正常な大きい吹き出しが落ちる時は上げる
+fusion_max_area_ratio = 0.1
 
 [ocr]
-ocr = "48px"                   # 32px | 48px | 48px_ctc | mocr
-min_text_length = 0            # drop OCR results shorter than this many chars
-ignore_bubble = 0              # >0 ignores non-bubble text under this area threshold
+# EN  32px|48px|48px_ctc|mocr · OCR model; 48px is the balanced default, mocr (manga-ocr) is strongest on Japanese · use mocr for JP-heavy books, 48px for mixed/other languages
+# 中  32px|48px|48px_ctc|mocr · OCR 模型；48px 为均衡默认，mocr(manga-ocr)对日文最强 · 日文为主用 mocr，混合/其他语言用 48px
+# 日  32px|48px|48px_ctc|mocr · OCR モデル；48px は均衡の既定、mocr(manga-ocr)は日本語に最強 · 日本語中心は mocr、混在/他言語は 48px
+ocr = "48px"
+
+# EN  range 0–3 · drops OCR results shorter than N chars; higher filters single-char noise but may lose real short text (！, single kana) · raise to 1–2 if lots of 1-char junk, keep 0 to preserve everything
+# 中  范围 0–3 · 丢弃短于 N 字的 OCR 结果；调高过滤单字噪声但可能丢真短文本(！、单个假名) · 单字垃圾多时设 1–2，想全保留则 0
+# 日  範囲 0–3 · N 文字未満の OCR 結果を破棄；上げると 1 文字ノイズを除くが本物の短文(！、単一かな)も失う · 1 文字ゴミが多い時は 1–2、全保持なら 0
+min_text_length = 0
+
+# EN  0 (off) or 1–50 · >0 skips non-bubble (free/SFX) text whose region falls under this area heuristic · raise to ignore background/SFX outside bubbles, 0 translates everything
+# 中  0(关) 或 1–50 · >0 跳过气泡外(自由/SFX)且面积低于此启发值的文字 · 想忽略气泡外背景/SFX 时调高，0 则全部翻译
+# 日  0(無効) または 1–50 · >0 で吹き出し外(自由/SFX)かつこの面積基準未満の文字を除外 · 吹き出し外の背景/SFX を無視したい時に上げ、0 は全訳
+ignore_bubble = 0
 
 [inpainter]
-inpainter = "lama_large"       # default | lama_large | lama_mpe | none
+# EN  lama_large|default|lama_mpe|none · fills the erased text area; lama_large = best quality, none = skip erasing entirely · use lama_large normally, none if you only want detection/translation without cleaning
+# 中  lama_large|default|lama_mpe|none · 填补被擦除的文字区域；lama_large 质量最好，none 完全不擦 · 一般用 lama_large，只要检测/翻译不清图时用 none
+# 日  lama_large|default|lama_mpe|none · 消去部を補完；lama_large が最高品質、none は消去しない · 通常は lama_large、検出/翻訳のみで消去不要なら none
+inpainter = "lama_large"
+
+# EN  range 1024–2048 · larger gives cleaner fills on big images but more VRAM/slower · lower if you hit out-of-memory, keep 2048 for quality
+# 中  范围 1024–2048 · 调大对大图修复更干净但更吃显存/更慢 · 爆显存时调小，追求质量保持 2048
+# 日  範囲 1024–2048 · 大きいほど大画像の補完がきれいだが VRAM 消費・低速 · メモリ不足なら下げ、品質重視は 2048
 inpainting_size = 2048
-inpainting_precision = "bf16"  # fp32 | fp16 | bf16
+
+# EN  bf16|fp16|fp32 · numeric precision; bf16/fp16 are fast and low-memory on modern GPUs, fp32 is most compatible (CPU) but slow · use bf16 on GPU, fp32 on CPU or if you see artifacts
+# 中  bf16|fp16|fp32 · 数值精度；bf16/fp16 在新 GPU 上快且省显存，fp32 兼容性最好(CPU)但慢 · GPU 用 bf16，CPU 或出现伪影时用 fp32
+# 日  bf16|fp16|fp32 · 数値精度；bf16/fp16 は新しい GPU で高速・省メモリ、fp32 は互換性最高(CPU)だが低速 · GPU は bf16、CPU やアーティファクト時は fp32
+inpainting_precision = "bf16"
 
 [translator]
-provider = "openai"            # openai (OpenAI-compatible) | gemini | none
-model = "gpt-4o-mini"          # e.g. gpt-4o-mini, deepseek/deepseek-chat, openrouter models...
-api_base = ""                  # leave empty for the provider default, or set a custom endpoint
-                               # e.g. "https://openrouter.ai/api/v1" or a local server
-api_key = ""                   # YOUR KEY HERE — or leave empty and use the OPENAI_API_KEY env var
-target_lang = "CHS"            # CHS, CHT, ENG, JPN, KOR, ...
+# EN  openai|gemini|none · openai = any OpenAI-compatible endpoint (DeepSeek/OpenRouter/Groq/Ollama), none = no translation (passthrough) · match your API; use none to only extract/clean without translating
+# 中  openai|gemini|none · openai=任意 OpenAI 兼容端点(DeepSeek/OpenRouter/Groq/Ollama)，none=不翻译(直通) · 按你的 API 选；只抽取/清图不翻译时用 none
+# 日  openai|gemini|none · openai=OpenAI 互換エンドポイント全般(DeepSeek/OpenRouter/Groq/Ollama)、none=翻訳なし(素通し) · API に合わせて選択；抽出/清書のみなら none
+provider = "openai"
+
+# EN  any model id your provider serves · controls translation quality/cost/speed · pick a capable chat model (e.g. gpt-4o-mini, deepseek/deepseek-chat); upgrade if translations are weak
+# 中  你的提供方支持的任意模型 id · 决定翻译质量/成本/速度 · 选有能力的对话模型(如 gpt-4o-mini、deepseek/deepseek-chat)；译文差时换更强模型
+# 日  プロバイダが提供する任意のモデル id · 翻訳の品質/コスト/速度を左右 · 有能なチャットモデル(例 gpt-4o-mini、deepseek/deepseek-chat)を選択；訳が弱い時は上位へ
+model = "gpt-4o-mini"
+
+# EN  empty = provider default, or a custom endpoint URL · routes requests to a specific gateway/local server · set for OpenRouter/Groq/local (e.g. https://openrouter.ai/api/v1), leave empty for vanilla OpenAI
+# 中  空=提供方默认，或填自定义端点 URL · 把请求指向特定网关/本地服务 · 用 OpenRouter/Groq/本地时填(如 https://openrouter.ai/api/v1)，原版 OpenAI 留空
+# 日  空=プロバイダ既定、またはカスタムエンドポイント URL · リクエストを特定ゲートウェイ/ローカルへ送る · OpenRouter/Groq/ローカル時に設定(例 https://openrouter.ai/api/v1)、純正 OpenAI は空
+api_base = ""
+
+# EN  your provider key, or empty to read OPENAI_API_KEY/GEMINI_API_KEY from env · authenticates API calls · paste your key here, or leave empty and export the env var (safer for sharing)
+# 中  你的提供方密钥，或留空以从环境变量 OPENAI_API_KEY/GEMINI_API_KEY 读取 · 用于 API 鉴权 · 把密钥填这里，或留空改用环境变量(更适合共享)
+# 日  プロバイダのキー、または空で環境変数 OPENAI_API_KEY/GEMINI_API_KEY を使用 · API 認証用 · ここに貼るか、空にして環境変数を使う(共有時は安全)
+api_key = ""
+
+# EN  CHS|CHT|ENG|JPN|KOR|… · destination language (output saved per language) · set your target; override per run with `--target-lang`
+# 中  CHS|CHT|ENG|JPN|KOR|… · 翻译目标语言(译文按语言分文件保存) · 设为你的目标语言；可用 `--target-lang` 单次覆盖
+# 日  CHS|CHT|ENG|JPN|KOR|… · 翻訳先の言語(言語ごとに保存) · 目的の言語に設定；実行毎に `--target-lang` で上書き可
+target_lang = "CHS"
+
+# EN  "auto" or a language code · hints the source language to the model · keep "auto" normally, set explicitly if auto-detection picks the wrong language
+# 中  "auto" 或语言代码 · 给模型的源语言提示 · 一般保持 "auto"，自动识别选错时再手动指定
+# 日  "auto" または言語コード · モデルへの原文言語ヒント · 通常は "auto"、自動判定が外す時に明示指定
 source_lang = "auto"
-batch_chars = 1500             # approx chars per LLM request (1000–2000 recommended)
-context_pages = 1              # how many previously translated pages to send as context
-timeout = 120                  # per-request timeout (seconds)
+
+# EN  range 1000–2000 · approx chars per LLM request; larger = fewer calls + more context but risks truncation/timeout, smaller = more reliable · lower if the model truncates or times out, raise to cut API calls
+# 中  范围 1000–2000 · 每次 LLM 请求约多少字；调大=更少请求+更多上下文但易截断/超时，调小=更稳 · 模型截断/超时时调小，想减少调用时调大
+# 日  範囲 1000–2000 · 1 リクエストあたりの概算文字数；大=呼び出し減+文脈増だが切り捨て/タイムアウトのリスク、小=安定 · 切り捨て/タイムアウト時は下げ、API 呼び出しを減らすなら上げる
+batch_chars = 1500
+
+# EN  range 0–3 · how many already-translated pages are sent as context · raise for better cross-page consistency (more tokens/cost), 0 to minimize cost
+# 中  范围 0–3 · 发送多少已翻译页作为上下文 · 提升跨页一致性时调大(更多 token/成本)，省成本设 0
+# 日  範囲 0–3 · 文脈として送る翻訳済みページ数 · ページ間の一貫性を上げるなら増やす(トークン/コスト増)、節約なら 0
+context_pages = 1
+
+# EN  range 60–300 s · per-request timeout · raise for slow or local models, lower for fast hosted models
+# 中  范围 60–300 秒 · 单次请求超时 · 慢速/本地模型调大，快速云端模型调小
+# 日  範囲 60–300 秒 · 1 リクエストのタイムアウト · 遅い/ローカルモデルは上げ、高速なホスト型は下げる
+timeout = 120
+
+# EN  range 1–5 · retry attempts per failed batch · raise on flaky networks or rate limits, lower to fail fast
+# 中  范围 1–5 · 每批失败后的重试次数 · 网络不稳/限流时调大，想快速失败则调小
+# 日  範囲 1–5 · 失敗バッチごとの再試行回数 · 不安定な回線/レート制限時は上げ、早く失敗させるなら下げる
 max_retries = 3
 
 [render]
-font_path = "fonts/GenEiAntiqueNv5-M.ttf"   # path to a font that covers your target language
-font_size_offset = 0                  # global font-size nudge (+/- pixels)
-font_size_minimum = 34                # lower bound so small text stays legible
-font_size_minimum_expand_limit = 2.5  # max box growth allowed to host the minimum font size
-line_spacing = 0                      # tighten line spacing so more text fits at a larger size
-direction = "auto"                    # auto | horizontal | vertical
-alignment = "auto"                    # auto | left | center | right
+# EN  path to a font file covering your target language · wrong/missing glyphs render as tofu (□) · use a CJK font for CHS/JPN/KOR, a Latin font for ENG
+# 中  覆盖目标语言的字体文件路径 · 缺字会渲染成豆腐块(□) · CHS/JPN/KOR 用 CJK 字体，ENG 用拉丁字体
+# 日  目的言語をカバーするフォントファイルのパス · 字形が無いと豆腐(□)で表示 · CHS/JPN/KOR は CJK フォント、ENG はラテンフォント
+font_path = "fonts/GenEiAntiqueNv5-M.ttf"
+
+# EN  range -10–+10 px · global nudge added to every rendered font size · add a few +px if text feels small overall, -px if too big
+# 中  范围 -10–+10 像素 · 给所有渲染字号的全局微调 · 整体偏小加几像素，偏大则减
+# 日  範囲 -10–+10px · 全描画フォントサイズへの一律補正 · 全体に小さければ +、大きければ - を数 px
+font_size_offset = 0
+
+# EN  range 20–50 px · lower bound so small text stays legible · raise if small translations are unreadable, lower if it forces too much box expansion/overflow
+# 中  范围 20–50 像素 · 保证小字可读的下限 · 小字看不清时调大，导致过度撑框/溢出时调小
+# 日  範囲 20–50px · 小さな文字を読めるようにする下限 · 小さな訳が読めない時は上げ、枠の拡張/溢れが過剰な時は下げる
+font_size_minimum = 34
+
+# EN  range 1.0–3.0 · max box growth allowed to fit the minimum font (1.0 = no growth) · raise if long translations get clipped, lower to stop boxes overlapping neighbors
+# 中  范围 1.0–3.0 · 为容纳最小字号允许的最大扩框倍数(1.0=不扩) · 长译文被截断时调大，防止框相互重叠时调小
+# 日  範囲 1.0–3.0 · 最小フォントを収める最大拡大率(1.0=拡大なし) · 長い訳が切れる時は上げ、枠同士の重なりを防ぐ時は下げる
+font_size_minimum_expand_limit = 2.5
+
+# EN  range 0–10 px · extra space between wrapped lines; larger = airier, 0 = tightest (fits more text) · raise for readability, keep low to fit long text at a larger size
+# 中  范围 0–10 像素 · 换行的额外行距；调大更松，0=最紧(塞更多字) · 重可读性调大，想大字塞长文保持低值
+# 日  範囲 0–10px · 折り返し行の追加行間；大=ゆったり、0=最密(多く収まる) · 可読性なら上げ、大きな字で長文を収めるなら低めに
+line_spacing = 0
+
+# EN  auto|horizontal|vertical · text layout direction in each block · force vertical for vertical JP text, horizontal for western; auto guesses per block
+# 中  auto|horizontal|vertical · 每个块内文字的排版方向 · 日文竖排强制 vertical，西文 horizontal；auto 逐块判断
+# 日  auto|horizontal|vertical · 各ブロックの文字方向 · 縦書き日本語は vertical、欧文は horizontal、auto はブロック毎に推定
+direction = "auto"
+
+# EN  auto|left|center|right · horizontal alignment of text in a block · center suits bubbles; force one if auto looks off
+# 中  auto|left|center|right · 块内文字的水平对齐 · 气泡常用 center；auto 不理想时强制指定
+# 日  auto|left|center|right · ブロック内テキストの水平揃え · 吹き出しは center 向き、auto が不自然なら固定
+alignment = "auto"
+
+# EN  true|false · force all rendered text to UPPER case · enable for a Western-comic look; leave false to keep natural case
+# 中  true|false · 强制渲染文字全大写 · 想要欧美漫画风可开；false 保持自然大小写
+# 日  true|false · 描画文字を全て大文字に強制 · 欧米コミック風なら有効、false で自然な大小
 uppercase = false
+
+# EN  true|false · force all rendered text to lower case (counterpart of uppercase) · rarely needed; leave false
+# 中  true|false · 强制渲染文字全小写(uppercase 的反向) · 很少需要；保持 false
+# 日  true|false · 描画文字を全て小文字に強制(uppercase の逆) · ほぼ不要、false のまま
 lowercase = false
-disable_font_border = false           # keep the outline — key for legibility on any background
+
+# EN  true|false · false keeps a contrasting outline around glyphs (legible on any background) · keep false; set true only if you specifically want borderless text
+# 中  true|false · false 保留字形描边(任意背景都清晰) · 建议 false；只有明确想要无描边文字时设 true
+# 日  true|false · false で字形に縁取りを付与(どんな背景でも読める) · 通常 false、縁取り無しが欲しい時のみ true
+disable_font_border = false
+
+# EN  true|false · true disables word hyphenation at line breaks · enable to avoid mid-word splits (esp. languages where hyphenation looks wrong)
+# 中  true|false · true 禁用换行处的单词连字符 · 想避免词中断行时开启(尤其连字看着别扭的语言)
+# 日  true|false · true で改行時のハイフネーションを無効化 · 単語の途中分割を避けたい時に有効(ハイフンが不自然な言語など)
 no_hyphenation = false
-rtl = true                            # right-to-left reading order (typical for JP/CN manga)
-# Force a fixed text color. Good for pure black-and-white books (standardizes contrast),
-# but it overrides per-block detected colors — leave it commented out if your book has
-# color pages. Format: "FG" or "FG:STROKE" as hex.
+
+# EN  true|false · true = right-to-left block reading order (Japanese/Chinese manga), false = left-to-right (Western/webtoon) · set false for LTR titles and webtoons
+# 中  true|false · true=从右到左的块阅读顺序(日漫/华漫)，false=从左到右(欧美/webtoon) · 西式作品和 webtoon 设 false
+# 日  true|false · true=右→左のブロック読み順(日本/中国の漫画)、false=左→右(欧米/webtoon) · LTR 作品や webtoon は false
+rtl = true
+
+# EN  hex "FG" or "FG:STROKE" · forces a fixed text (and outline) color, overriding per-block detected colors · uncomment for pure B/W books to standardize contrast; leave commented for color pages
+# 中  十六进制 "FG" 或 "FG:描边" · 强制固定文字(及描边)颜色，覆盖逐块检测的颜色 · 纯黑白本可取消注释统一对比度；彩页保持注释
+# 日  16進 "FG" または "FG:STROKE" · 文字(と縁取り)色を固定し、ブロック毎の検出色を上書き · 白黒作品はコメント解除でコントラスト統一、カラーページはコメントのまま
 # font_color = "000000:FFFFFF"        # black text + white outline
