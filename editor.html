@@ -1643,6 +1643,7 @@
 
             // Switch to another task in multi-task server mode (no page navigation).
             async selectServerTask(token) {
+                this.sendLeave(this.token);   // leave the old task's online list at once
                 this.stopCollabStream();
                 this.token = token;
                 await this.loadServerCapabilities();
@@ -1834,21 +1835,60 @@
 
             collabSource: null,
             collabActive: false,
+            collabHeartbeat: null, // setInterval id for periodic presence rebroadcast
+            lastBlockId: null,     // last block reported via sendCollabAction (for heartbeat)
             activeCollaborators: [],
             chatPeer: null,       // username of the open DM conversation
             dmUnread: {},         // username -> unread count
             dmHistory: {},        // username -> [{user,to,text,ts}]
+            dmLastRead: {},       // peer -> last-read epoch seconds (persisted)
+
+            _lastReadKey() {
+                return 'dm-lastread-' + (this.currentUser || '');
+            },
+            loadLastRead() {
+                try {
+                    const raw = localStorage.getItem(this._lastReadKey());
+                    this.dmLastRead = raw ? JSON.parse(raw) : {};
+                } catch (e) {
+                    this.dmLastRead = {};
+                }
+            },
+            markRead(peer) {
+                // Mark the conversation with `peer` read up to now and persist,
+                // so replayed history older than this never re-notifies as unread.
+                this.dmLastRead[peer] = Date.now() / 1000;
+                this.dmUnread[peer] = 0;
+                try {
+                    localStorage.setItem(this._lastReadKey(), JSON.stringify(this.dmLastRead));
+                } catch (e) {}
+            },
 
             startCollabStream() {
                 if (!this.isServer) return;
                 if (this.collabSource) return;
+                this.loadLastRead();
+
+                // Immediate heartbeat so we appear online + GET the current roster so
+                // we see who's already here without waiting for the first SSE push.
+                this.sendCollabAction(this.lastBlockId || null);
+                this.fetchPresence();
 
                 this.collabSource = new EventSource(`api/collab/stream?t=${this.token}&user=${encodeURIComponent(this.currentUser)}`);
-                
+
                 this.collabSource.onopen = () => {
                     this.collabActive = true;
-                    this.sendCollabAction();
+                    this.sendCollabAction(this.lastBlockId || null);
                 };
+
+                // Presence heartbeat: keeps us in the task's online list. Fires on a
+                // timer regardless of SSE state (the heartbeat is an independent POST),
+                // so a transient SSE blip never drops our presence. The server expires a
+                // user only after _PRESENCE_TTL (~30s) without a heartbeat.
+                if (this.collabHeartbeat) clearInterval(this.collabHeartbeat);
+                this.collabHeartbeat = setInterval(() => {
+                    this.sendCollabAction(this.lastBlockId || null);
+                }, 10000);
 
                 this.collabSource.onmessage = (e) => {
                     try {
@@ -1877,9 +1917,16 @@
                             this.dmHistory[peer].push(event);
                             if (isChatOpen && this.chatPeer === peer) {
                                 appendChatMessage(event);
+                                this.markRead(peer);   // keep the open conversation read
                             } else if (event.user !== me) {
-                                this.dmUnread[peer] = (this.dmUnread[peer] || 0) + 1;
-                                redrawActiveCollaborators();
+                                // Only count as unread if the message is newer than the
+                                // last time this user read this conversation. Replayed
+                                // history older than that (already read) is ignored.
+                                const lastRead = this.dmLastRead[peer] || 0;
+                                if ((event.ts || 0) > lastRead) {
+                                    this.dmUnread[peer] = (this.dmUnread[peer] || 0) + 1;
+                                    redrawActiveCollaborators();
+                                }
                             }
                         }
                     } catch (err) {
@@ -1889,10 +1936,10 @@
 
                 this.collabSource.onerror = (err) => {
                     this.collabActive = false;
-                    this.activeCollaborators = [];
-                    redrawActiveCollaborators();
-                    updateEditingIndicators();
-
+                    // Only wipe the collaborator list on a HARD close. A transient blip
+                    // leaves EventSource in CONNECTING and it auto-reconnects; keeping the
+                    // last-known list (refreshed by the next presence/heartbeat) avoids
+                    // avatars flickering away during brief idle disconnects.
                     if (this.collabSource && this.collabSource.readyState === EventSource.CLOSED) {
                         this.stopCollabStream();
                         setTimeout(() => {
@@ -1905,6 +1952,10 @@
             },
 
             stopCollabStream() {
+                if (this.collabHeartbeat) {
+                    clearInterval(this.collabHeartbeat);
+                    this.collabHeartbeat = null;
+                }
                 if (this.collabSource) {
                     this.collabSource.close();
                     this.collabSource = null;
@@ -1915,8 +1966,13 @@
                 updateEditingIndicators();
             },
 
+            // Presence heartbeat / state update. Decoupled from the SSE connection:
+            // sent on a timer (and on selection changes) so the server keeps us online
+            // even while the SSE stream is mid-reconnect. Guarded on identity, not on
+            // collabActive, so a transient SSE blip doesn't suspend the heartbeat.
             async sendCollabAction(blockId = null) {
-                if (!this.collabActive) return;
+                if (!this.isServer || !this.token || !this.currentUser) return;
+                this.lastBlockId = blockId;   // remembered so the heartbeat can resend it
                 try {
                     await fetch(`api/collab/action?t=${this.token}&user=${encodeURIComponent(this.currentUser)}`, {
                         method: 'POST',
@@ -1927,6 +1983,36 @@
                             lang: elements.targetLangSelect.value
                         })
                     });
+                } catch (e) {}
+            },
+
+            // Explicit "leave" so we vanish from a task's online list immediately on
+            // task switch / page unload, instead of lingering until the TTL expires.
+            sendLeave(token) {
+                const tk = token || this.token;
+                if (!this.isServer || !tk || !this.currentUser) return;
+                const url = `api/collab/action?t=${tk}&user=${encodeURIComponent(this.currentUser)}`;
+                const body = JSON.stringify({ leave: true });
+                try {
+                    // sendBeacon survives page unload; fall back to fetch on task switch.
+                    if (navigator.sendBeacon) {
+                        navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+                    } else {
+                        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true });
+                    }
+                } catch (e) {}
+            },
+
+            // GET retrieval of the per-task online list (independent of the SSE push).
+            async fetchPresence() {
+                if (!this.isServer || !this.token) return;
+                try {
+                    const r = await fetch(`api/collab/presence?t=${this.token}`);
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    this.activeCollaborators = data.users || [];
+                    redrawActiveCollaborators();
+                    updateEditingIndicators();
                 } catch (e) {}
             },
 
@@ -2137,6 +2223,10 @@
                     localStorage.setItem('editor-width', getComputedStyle(document.documentElement).getPropertyValue('--editor-width'));
                 }
             });
+
+            // Leave the current task's online list when the tab/window goes away,
+            // so we don't linger as a ghost until the presence TTL expires.
+            window.addEventListener('pagehide', () => storage.sendLeave());
 
             // Bind Chat drawer event listeners (always wired; DMs only active in server mode)
             elements.chatCloseBtn.onclick = () => toggleChatDrawer(false);
@@ -3778,7 +3868,7 @@
 
         function openDMWith(username, displayName) {
             storage.chatPeer = username;
-            storage.dmUnread[username] = 0;
+            storage.markRead(username);   // clears unread + persists last-read time
 
             // Update drawer header
             const color = stringToColor(username);
@@ -3808,9 +3898,9 @@
                 elements.chatDrawer.classList.add('open');
             } else {
                 elements.chatDrawer.classList.remove('open');
-                // clear unread for current peer when closing
+                // mark current peer read when closing
                 if (storage.chatPeer) {
-                    storage.dmUnread[storage.chatPeer] = 0;
+                    storage.markRead(storage.chatPeer);
                     redrawActiveCollaborators();
                 }
             }
