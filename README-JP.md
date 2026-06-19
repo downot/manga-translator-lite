@@ -164,7 +164,7 @@ disable_font_border = false  # 縁取りを維持——あらゆる背景での�
 
 `provider = "openai"` は、DeepSeek、OpenRouter、Groq、Ollama など、OpenAI 互換のすべてのエンドポイントをサポートします。API キーは `[translator] api_key` または `.env` (`OPENAI_API_KEY` / `GEMINI_API_KEY`) で設定できます。
 
-### テキスト検出器の選択 · RT-DETR の評価（`detector_ab.py`）
+### テキスト検出器の選択 · RT-DETR
 
 `[detector] detector` はプラグイン式です：`default`/`dbconvnext`（DBNet）、`ctd`（Comic Text Detector）、`craft`、`paddle`、`none`、そして実験的な **`rtdetr`**。
 
@@ -175,16 +175,21 @@ disable_font_border = false  # 縁取りを維持——あらゆる背景での�
 - 信頼度は低めを推奨：`[detector] box_threshold ≈ 0.3`。
 - Apache-2.0 はコード/重みを対象とし、（非公開の）学習データは**対象外**です。商用利用前に出所を確認してください。
 
-誰の「+X%」という主張も鵜呑みにせず、自分のページで測りましょう。`detector_ab.py` は**検出ステージのみ**を 2 つの検出器で同じ画像群に対して実行し、画像ごと・合計で、各検出器の領域数、両者の一致度（IoU マッチ）、一方だけが見つけた **A-only / B-only** 領域を報告します。オーバーレイ画像（A=緑 / B=赤）と `summary.csv` も出力します。
+RT-DETR は、様式化フォント / webtoon / SFX の多いページで主検出器が見逃す領域を拾えるときに最も役立ちます。検出器を丸ごと切り替えて（ストロークレベルの消去マスクを失って）しまうより、**融合**するのがおすすめです——マスクを出す検出器（ctd/default）を主検出器として残し、その上に RT-DETR が拾った追加領域を重ねます。
 
-```bash
-pip install transformers
-# 最も不満なタイプのページ（webtoon / SFX 多め / 高密度）を選ぶ
-python detector_ab.py ./in/<task> --a ctd --b rtdetr -o ab_out
-# その後 ab_out/*.png のオーバーレイと ab_out/summary.csv を確認
+#### 2 つの検出器を融合する（`secondary_detector`）
+
+2 つ目の検出器が主検出器の見逃した領域を拾うなら、どちらか一方を選ぶ必要はありません——**融合**しましょう。`[detector] secondary_detector` を設定すると、extract ステージは両方を実行します。主検出器のストロークレベルのマスク（きれいな消去用）はそのまま使い、そのうえで**副検出器が見つけ、主検出器が見逃した領域**（IoU が `fusion_iou` 未満）を検出に追加します。これらの追加領域も通常どおり OCR・翻訳・消去されます。ただし主検出器にそこのストローク情報が無いため、マスクは粗いボックス塗りつぶしになります。
+
+```toml
+[detector]
+detector = "ctd"                # 主検出器——きれいなマスクのためストローク検出器を残す
+secondary_detector = "rtdetr"   # ブースター——ctd が見逃す領域を補う（`transformers` が必要）
+secondary_box_threshold = 0.3   # rtdetr は ctd/dbnet より低い信頼度を好む
+fusion_iou = 0.4                # 副領域は、どの主ボックスともこの IoU を超えて重ならない場合のみ「新規」とみなす
 ```
 
-正解データは無いので、これらの数値は精度ではなく A/B の**不一致**シグナルです。オーバーレイと A-only/B-only を見て判断してください。自分のコンテンツで RT-DETR が明確に優れているなら、検出に採用しつつ、消去にはマスクを出す検出器（ctd/default）を残すのがおすすめです。
+`secondary_detector = "none"`（デフォルト）は融合を完全に無効化します——挙動は変わりません。これは純粋に再現率を上げる仕組みで、マスクは引き続き主検出器が担うため、追加領域を除けば消去品質はどこでも主検出器どおりです。
 
 ### 文字サイズの制御（`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit`）
 

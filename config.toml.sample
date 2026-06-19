@@ -21,6 +21,14 @@ text_threshold = 0.25          # lower = catch fainter/thinner text (more recall
 box_threshold = 0.6            # lower = keep lower-confidence boxes
 unclip_ratio = 1.5             # how much detected boxes expand outward
 
+# Detector fusion (optional, off by default). Set a second detector to boost recall:
+# its regions that the primary misses are added — OCR'd, translated, and box-erased.
+# Keep a stroke detector (ctd/default) as `detector` above so erase masks stay clean;
+# use rtdetr as the booster for stylized/webtoon/SFX pages. Measure first with detector_ab.py.
+secondary_detector = "none"    # none = disabled. e.g. "rtdetr" to fuse RT-DETR regions in
+secondary_box_threshold = 0.3  # box_threshold for the secondary detector (rtdetr likes ~0.3)
+fusion_iou = 0.4               # a secondary region is "new" only if it overlaps no primary box above this IoU
+
 [ocr]
 ocr = "48px"                   # 32px | 48px | 48px_ctc | mocr
 min_text_length = 0            # drop OCR results shorter than this many chars

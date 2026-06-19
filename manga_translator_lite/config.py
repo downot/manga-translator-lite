@@ -72,6 +72,16 @@ class DetectorConfig(BaseModel):
     det_invert: bool = False
     det_gamma_correct: bool = False
 
+    secondary_detector: Detector = Detector.none
+    """Optional second detector fused with the primary to boost recall (e.g. 'rtdetr').
+    'none' disables fusion (default — behavior is unchanged). Regions the secondary finds
+    that the primary misses are added to detection: OCR'd, translated, and box-erased.
+    Keep a stroke detector (ctd/default) as the primary so erase masks stay clean."""
+    secondary_box_threshold: Optional[float] = None
+    """box_threshold for the secondary detector (rtdetr likes ~0.3). None = reuse box_threshold."""
+    fusion_iou: float = 0.4
+    """A secondary region is 'new' (kept) only if its IoU with every primary region is below this."""
+
 
 class OcrConfig(BaseModel):
     ocr: Ocr = Ocr.ocr48px

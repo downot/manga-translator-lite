@@ -11,8 +11,8 @@ IMPORTANT — read before using in production:
     The erase/inpaint stage in extract.py expects a text mask; here we synthesize
     a *box-filled* mask, which is COARSER than the dbnet/ctd stroke masks and will
     leave/erase more than necessary. For clean inpainting, keep dbnet/ctd as the
-    mask source and use this detector for detection/region-typing experiments
-    (see detector_ab.py to measure the difference on your own pages first).
+    mask source and use this detector for detection/region-typing experiments,
+    or as a `secondary_detector` fused on top of a stroke detector (see README).
   * Requires `transformers` (+ torch). Both are imported lazily so the rest of the
     package still works without them; a clear error is raised only if you select
     this detector without the dependency installed.

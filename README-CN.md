@@ -164,7 +164,7 @@ disable_font_border = false  # 保留文字描边——任何背景上可读性�
 
 `provider = "openai"` 支持任何兼容 OpenAI 的 HTTP 接口（如 DeepSeek、OpenRouter、Groq、Ollama）。API 密钥可放在 `[translator] api_key` 或 `.env`（`OPENAI_API_KEY` / `GEMINI_API_KEY`）中。
 
-### 选择文字检测器 · 评估 RT-DETR（`detector_ab.py`）
+### 选择文字检测器 · RT-DETR
 
 `[detector] detector` 是可插拔的:`default`/`dbconvnext`(DBNet)、`ctd`(Comic Text Detector)、`craft`、`paddle`、`none`,以及实验性的 **`rtdetr`**。
 
@@ -175,16 +175,21 @@ disable_font_border = false  # 保留文字描边——任何背景上可读性�
 - 置信阈值建议调低:`[detector] box_threshold ≈ 0.3`。
 - Apache-2.0 只覆盖代码/权重,**不覆盖**(未披露的)训练数据——商用前请核实来源。
 
-别信任何人的"提升 X%"——在你自己的页面上量。`detector_ab.py` 只跑**检测阶段**,用两个检测器跑同一批图,按每图与总计报告:各自检出多少区域、两者一致程度(IoU 匹配)、以及一方有而另一方漏的 **A-only / B-only** 区域;并生成叠框图(A 绿 / B 红)和 `summary.csv`。
+当 RT-DETR 能在风格化 / webtoon / SFX 密集的页面上捕捉到主检测器漏掉的区域时,它最有用。与其整体切换检测器(从而失去笔画级擦除 mask),不如把它**融合**进来——保留产 mask 的检测器(ctd/default)做主检测器,再叠加 RT-DETR 多出的区域。
 
-```bash
-pip install transformers
-# 挑你最不满意的那类页（webtoon / SFX 多 / 密集）
-python detector_ab.py ./in/<task> --a ctd --b rtdetr -o ab_out
-# 然后看 ab_out/*.png 叠框图 + ab_out/summary.csv
+#### 融合两个检测器（`secondary_detector`）
+
+若第二个检测器能捕捉到主检测器漏掉的区域,你不必二选一——直接**融合**。设置 `[detector] secondary_detector` 后,extract 阶段会同时跑两个检测器:保留主检测器的笔画级 mask 以保证擦除干净,然后把**次检测器检出、而主检测器漏掉的区域**(IoU 低于 `fusion_iou`)加入检测。这些额外区域会照常 OCR、翻译、擦除——只是用较粗的方框 mask,因为主检测器在那里没有笔画信息。
+
+```toml
+[detector]
+detector = "ctd"                # 主检测器——保留笔画检测器以获得干净的 mask
+secondary_detector = "rtdetr"   # 增强器——补上 ctd 漏掉的区域(需要 `transformers`)
+secondary_box_threshold = 0.3   # rtdetr 偏好比 ctd/dbnet 更低的置信度
+fusion_iou = 0.4                # 次检测器区域只有在不与任何主框以高于此 IoU 重叠时才算"新增"
 ```
 
-没有 ground truth,所以这些数字是 A/B **分歧**信号而非准确率——让叠框图和 A-only/B-only 来决定。若 RT-DETR 在你的内容上明显更好,可用它做检测,同时保留产 mask 的检测器(ctd/default)用于擦除。
+`secondary_detector = "none"`(默认)完全关闭融合——行为不变。这是纯粹的召回率增强:mask 仍由主检测器掌管,因此除了那些额外区域,擦除质量处处与主检测器一致。
 
 ### 控制文字大小（`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit`）
 

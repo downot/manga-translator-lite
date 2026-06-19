@@ -164,7 +164,7 @@ disable_font_border = false  # Keep the outline — key for legibility on any ba
 
 `provider = "openai"` covers any OpenAI-compatible HTTP endpoint, including DeepSeek, OpenRouter, Groq and Ollama. API keys can live in `[translator] api_key` or in `.env` vars (`OPENAI_API_KEY` / `GEMINI_API_KEY`).
 
-### Choosing a text detector · evaluating RT-DETR (`detector_ab.py`)
+### Choosing a text detector · RT-DETR
 
 The `[detector] detector` option is pluggable: `default`/`dbconvnext` (DBNet), `ctd` (Comic Text Detector), `craft`, `paddle`, `none`, and the experimental **`rtdetr`**.
 
@@ -175,16 +175,21 @@ The `[detector] detector` option is pluggable: `default`/`dbconvnext` (DBNet), `
 - Try a lower confidence: set `[detector] box_threshold ≈ 0.3`.
 - Apache-2.0 covers the code/weights, **not** the (undisclosed) training data — verify provenance before commercial use.
 
-Don't trust anyone's "+X%" claim — measure on your own pages. `detector_ab.py` runs the **detection stage only** through two detectors and reports, per image and in total, how many regions each finds, how much they agree (IoU-matched), and the **A-only / B-only** regions one finds that the other misses; it also writes overlay images (A green, B red) and a `summary.csv`.
+RT-DETR shines when it catches regions your primary detector misses on stylized / webtoon / SFX-heavy pages. Rather than switching detectors wholesale (and losing stroke-level erase masks), you can **fuse** it in — keep a mask-producing detector (ctd/default) as primary and add RT-DETR's extra regions on top.
 
-```bash
-pip install transformers
-# pick the pages you're least happy with (webtoon / heavy SFX / dense)
-python detector_ab.py ./in/<task> --a ctd --b rtdetr -o ab_out
-# then review ab_out/*.png overlays + ab_out/summary.csv
+#### Fusing two detectors (`secondary_detector`)
+
+If a second detector catches regions your primary misses, you don't have to choose — **fuse** them. Set a `[detector] secondary_detector` and the extract step runs both: it keeps your primary detector's stroke-level masks for clean erasing, then **adds the secondary's regions that the primary missed** (IoU below `fusion_iou`) to detection. Those extra regions are OCR'd, translated, and erased like any other — just with a coarser box-fill mask, since the primary had no strokes there.
+
+```toml
+[detector]
+detector = "ctd"                # primary — keep a stroke detector for clean masks
+secondary_detector = "rtdetr"   # booster — adds the regions ctd misses (needs `transformers`)
+secondary_box_threshold = 0.3   # rtdetr likes a lower confidence than ctd/dbnet
+fusion_iou = 0.4                # a secondary region is "new" only if it overlaps no primary box above this
 ```
 
-There's no ground truth, so the counts are A/B *disagreement* signals, not accuracy — let the overlays and the A-only/B-only buckets drive the call. If RT-DETR clearly wins on your content, adopt it for detection while keeping a mask-producing detector (ctd/default) for erase.
+`secondary_detector = "none"` (the default) disables fusion entirely — behavior is unchanged. This is purely additive recall: the primary still owns the mask, so erase quality is the primary's everywhere except the extra regions.
 
 ### Controlling text size (`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit`)
 
