@@ -194,10 +194,13 @@ detector = "ctd"                # primary — keep a stroke detector for clean m
 secondary_detector = "rtdetr"   # booster — adds the regions ctd misses (needs `transformers`)
 secondary_box_threshold = 0.3   # rtdetr likes a lower confidence than ctd/dbnet
 fusion_iou = 0.4                # a secondary region is "new" only if it overlaps no primary box above this
+fusion_overlap_limit = 0.5      # also drop it as a duplicate if it covers/contains a primary box this much (see below)
 fusion_max_area_ratio = 0.1     # drop secondary boxes larger than this fraction of the page (see below)
 ```
 
 `secondary_detector = "none"` (the default) disables fusion entirely — behavior is unchanged. This is purely additive recall: the primary still owns the mask, so erase quality is the primary's everywhere except the extra regions.
+
+**Avoiding duplicate extraction.** A box detector returns large region-level boxes, while a stroke detector returns small per-line boxes — so a secondary box sitting *on top of* primary text lines has a low IoU and would slip through as "new", getting OCR'd a second time (often as a partial copy). `fusion_overlap_limit` also rejects a secondary box when it covers, or is covered by, that fraction of any primary box (intersection over the smaller box), so such overlaps are dropped before OCR. Lower it (e.g. `0.3`) if the same text still comes out twice.
 
 **Avoiding large false erasures.** A box detector can return one huge box for a stylized title or SFX that spans the artwork; since secondary regions are erased by box-fill, that would wipe a large area. `fusion_max_area_ratio` drops any secondary box covering more than that fraction of the page (default `0.1` = 10%), so oversized region boxes are neither translated nor erased — the art is left intact. Lower it (e.g. `0.06`) if you still see big rectangular wipes; set `0` to disable the cap.
 

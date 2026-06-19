@@ -72,6 +72,24 @@ def _iou_xyxy(a, b) -> float:
     return inter / union if union > 0 else 0.0
 
 
+def _overlap_min(a, b) -> float:
+    """Intersection over the *smaller* box's area — a containment score.
+
+    Unlike IoU, this stays high when one box sits inside a much larger one
+    (e.g. a small primary text line fully covered by a large box-detector
+    region), which is exactly the duplicate case IoU misses.
+    """
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    inter = max(0.0, min(ax2, bx2) - max(ax1, bx1)) * max(0.0, min(ay2, by2) - max(ay1, by1))
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    m = min(area_a, area_b)
+    return inter / m if m > 0 else 0.0
+
+
 async def _dispatch_det(cfg: Config, detector: Detector, img_rgb: np.ndarray, device: str,
                         verbose: bool, box_threshold: float):
     return await dispatch_detection(
@@ -111,9 +129,11 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
             cfg, secondary, img_rgb, device, verbose, sec_box_thr)
         primary_boxes = [tl.xyxy for tl in textlines]
         thr = cfg.detector.fusion_iou
+        overlap_limit = cfg.detector.fusion_overlap_limit
         page_area = float(img_rgb.shape[0] * img_rgb.shape[1])
         max_area = cfg.detector.fusion_max_area_ratio * page_area
         oversize = 0
+        dup = 0
         for s in sec_textlines:
             x1, y1, x2, y2 = s.xyxy
             # A box detector can return one huge box for a stylized title / SFX spanning the
@@ -121,12 +141,19 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
             if max_area > 0 and (x2 - x1) * (y2 - y1) > max_area:
                 oversize += 1
                 continue
-            if all(_iou_xyxy(s.xyxy, pb) < thr for pb in primary_boxes):
-                secondary_only.append(s)
+            # A region is genuinely "new" only if it neither overlaps a primary box (IoU) nor
+            # sits on top of / inside one (containment). The containment test catches a large
+            # secondary box covering small primary text lines — low IoU but a clear duplicate,
+            # which would otherwise be OCR'd again as a partial copy.
+            if any(_iou_xyxy(s.xyxy, pb) >= thr or _overlap_min(s.xyxy, pb) >= overlap_limit
+                   for pb in primary_boxes):
+                dup += 1
+                continue
+            secondary_only.append(s)
         textlines = textlines + secondary_only
         logger.info(f"detector fusion: {cfg.detector.detector.value}={len(primary_boxes)} "
                     f"+{len(secondary_only)} new from {secondary.value} "
-                    f"(of {len(sec_textlines)}; {oversize} oversize dropped)")
+                    f"(of {len(sec_textlines)}; {dup} overlap, {oversize} oversize dropped)")
 
     return textlines, mask_raw, mask, secondary_only
 
