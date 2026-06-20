@@ -90,6 +90,8 @@ All commands are invoked as `python -m manga_translator_lite <command> [options]
 | `work_dir` *(positional, required)* | Existing workspace directory. |
 | `--overwrite` | Re-translate blocks that already have translations. Hand-edited blocks (`edited: true`) are preserved. |
 | `--start-index <n>` | Start (re)translating from this page index; earlier pages are used as context only. |
+| `--reference-lang <code>` | Reference an already-translated language as a semantic/tone hint (repeatable). Omit for **auto** (every other human-reviewed language). See [Cross-language reference](#cross-language-reference-translation). |
+| `--no-reference` | Disable cross-language reference; translate purely from the source. |
 
 > **Per-language output:** `--target-lang` temporarily overrides the configured language without touching `config.toml`. Output is keyed by language code (`translations/CHS.json`, `translations/ENG.json`, …), so the same workspace can hold several languages side by side — translate once per language, no overwriting:
 >
@@ -110,7 +112,7 @@ All commands are invoked as `python -m manga_translator_lite <command> [options]
 
 ### `run` — extract + translate + render end-to-end
 
-Accepts the union of the options above: `-i/--input`, `-w/--work-dir`, `-o/--output` *(all required)*, plus `--overwrite`, `--check`, `--no-check`, `-y/--yes`.
+Accepts the union of the options above: `-i/--input`, `-w/--work-dir`, `-o/--output` *(all required)*, plus `--overwrite`, `--check`, `--no-check`, `-y/--yes`, and the translate-phase `--reference-lang`/`--no-reference`.
 
 ### `config-help` — print the JSON schema of the config file
 
@@ -157,6 +159,8 @@ api_key = ""                 # Or leave empty and set the OPENAI_API_KEY env var
 target_lang = "ENG"
 batch_chars = 1500           # ~1000–2000 chars per LLM request
 context_pages = 1            # number of past pages sent as tone context
+# reference_langs unset = auto (reference every human-reviewed language); [] = off;
+# ["CHS"] = reference exactly these. Referenced languages are read-only.
 
 [render]
 font_size_offset = 0
@@ -247,7 +251,7 @@ The editor is more than a translation textbox — it can fix layout and geometry
   - The **blue box** is the detected text region (where the translation is fitted); the **green dashed box** shows the actual rendered text extent, so you can size the box to control how big the text appears in the bubble. Untranslated blocks are tagged in amber.
   - A hand-adjusted box is marked *fixed* — at render time the text is fitted into exactly that box and is **never auto-expanded**.
 - **Render settings popover** — a gear button in the toolbar opens per-task render controls: **box scale**, **min font size**, and **expand limit** (written to `pages.json`; see [Controlling text size](#controlling-text-size-box_scale--font_size_minimum--font_size_minimum_expand_limit)).
-- **Per-block background** — each block card has a background toggle: **white** paints a white rectangle behind the text (covers leftover/original content), **transparent** renders text only. A delete button removes the block.
+- **Per-block background** — each block card has a background toggle that cycles **transparent → match → white**: **transparent** renders text only; **match** fills the block with its estimated region colour (`bg_color`) so the patch blends into a tinted / screentone background instead of a white scar; **white** paints a pure-white rectangle (covers leftover/original content). The match swatch on the button is tinted with the actual fill colour. A delete button removes the block.
 - **Page management** — each page row has an info button (file-path & metadata popup) and a delete button (removes the page and cleans up its blocks, translations in every language, and its clean image; double confirmation).
 - **Task merge** — click **Merge**, tick tasks in the order you want them joined (an order badge 1·2·3 appears), then **Confirm**. Pages are renamed sequentially so the merged output keeps one continuous reading order.
 - **Import / Export translations** — the import button diffs an external translations file (e.g. `translations/CHS.json`) against the current language entry-by-entry. **Only differences are shown** (identical entries are ignored); tick which to apply (current in red, imported in green) or select all; applied changes are saved automatically. It warns if the file's language differs from the one you're editing. In **server mode** an export button downloads the current language's translations as `<LANG>.json`.
@@ -313,6 +317,31 @@ Story context management has been fully integrated into the **Visual Editor (`ed
 
 ### 4. Anti-Censorship Disclaimer
 To prevent LLMs (e.g. DeepSeek, Gemini) from rejecting adult or mature manga during translation, a standard English disclaimer ("All characters depicted in the work are entirely fictional and over 18 years old...") is embedded in the system-level prompts, ensuring a smooth translation pipeline.
+
+---
+
+## Cross-language reference translation
+
+When you translate a chapter to several languages, the **first** language usually gets the most human attention — you proofread it, fix names, fix tone. That human judgement (who a pronoun refers to, a character's register, a recurring term) is largely language-independent, so it can give the **next** language a head start. This feature feeds an already-translated language to the LLM as a *reference* while it translates the next one.
+
+* **Source stays the original.** The model still translates from the original text (e.g. Japanese) — the reference is only a semantic / tone hint, never a pivot. The prompt explicitly tells it to disambiguate meaning, referents, names and register from the reference, but **not** to mirror its wording.
+* **Read-only & non-destructive.** Each language lives in its own `translations/<LANG>.json`; referencing a language only *reads* it. Translating a new language never touches existing ones, even partially-translated ones. Missing lines in the reference simply fall back to a plain source→target translation.
+* **Auto by default.** With no flag, every other language that has been **human-reviewed** (has a `<LANG>.reviewed` marker — see [Translation Review](#translation-review--story-context-management)) is used as reference. Translating the *first* language has nothing to reference, so behaviour is unchanged there.
+
+```bash
+# 1) Translate + review + hand-correct Chinese first
+python -m manga_translator_lite translate ./work --target-lang CHS
+#    ... proofread CHS in the editor ...
+
+# 2) Translate English — auto-references the reviewed Chinese
+python -m manga_translator_lite translate ./work --target-lang ENG
+
+# Reference a specific language only (repeatable); or disable entirely
+python -m manga_translator_lite translate ./work --target-lang ENG --reference-lang CHS
+python -m manga_translator_lite translate ./work --target-lang ENG --no-reference
+```
+
+Resolution (CLI overrides config): `--no-reference` → off; one or more `--reference-lang` → exactly those; neither → config `[translator] reference_langs` (default **auto**). In the **Visual Editor** the Pipeline tab exposes a **Reference Languages** control (Auto / Off / Custom) for the `translate` and `run` commands. Because references improve over time, re-running `translate --overwrite` refreshes only non-hand-edited blocks of the target language using the latest reference, while `edited: true` blocks are preserved.
 
 ---
 

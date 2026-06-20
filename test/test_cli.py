@@ -52,6 +52,24 @@ def test_translate_parsing(tmp_path):
     assert ns.work_dir == str(tmp_path)
     assert ns.start_index == 5
     assert ns.overwrite is True
+    # No reference flags → auto sentinel (None) + no_reference off.
+    assert ns.reference_lang is None and ns.no_reference is False
+
+
+def test_translate_reference_flags(tmp_path):
+    # --reference-lang is repeatable and accumulates into a list (manual mode).
+    ns = _build_parser().parse_args(
+        ["translate", str(tmp_path), "--reference-lang", "CHS", "--reference-lang", "KOR"])
+    assert ns.reference_lang == ["CHS", "KOR"]
+    assert ns.no_reference is False
+    # --no-reference is the explicit off switch.
+    ns2 = _build_parser().parse_args(["translate", str(tmp_path), "--no-reference"])
+    assert ns2.no_reference is True
+    # run also accepts the reference flags (its translate phase uses them).
+    ns3 = _build_parser().parse_args(
+        ["run", "-i", str(tmp_path), "-w", str(tmp_path / "w"),
+         "-o", str(tmp_path / "o"), "--reference-lang", "CHS"])
+    assert ns3.reference_lang == ["CHS"]
 
 
 def test_render_parsing(tmp_path):

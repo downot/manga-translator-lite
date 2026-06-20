@@ -8,6 +8,17 @@ from .config import Config
 from .utils import get_logger, init_logging, set_log_level
 
 
+def _resolve_reference_langs(args, cfg):
+    """Combine CLI flags and config into the reference-langs trichotomy:
+    None = auto, [] = off, [codes...] = manual. CLI overrides config."""
+    if getattr(args, 'no_reference', False):
+        return []                                  # CLI: explicit off
+    cli = getattr(args, 'reference_lang', None)
+    if cli:
+        return cli                                 # CLI: explicit manual list
+    return cfg.translator.reference_langs          # fall back to config (default None=auto)
+
+
 async def _dispatch(args) -> int:
     cfg = Config.load(args.config)
     if args.target_lang:
@@ -22,7 +33,8 @@ async def _dispatch(args) -> int:
     if args.cmd == 'translate':
         from .pipeline.translate import run_translate
         await run_translate(args.work_dir, cfg, overwrite=args.overwrite,
-                            target_lang=args.target_lang, start_index=args.start_index)
+                            target_lang=args.target_lang, start_index=args.start_index,
+                            reference_langs=_resolve_reference_langs(args, cfg))
         return 0
 
     if args.cmd == 'render':
@@ -39,7 +51,8 @@ async def _dispatch(args) -> int:
         from .pipeline.translate import run_translate
         await run_extract(args.input, args.work_dir, cfg, verbose=args.verbose,
                           target_lang=args.target_lang, overwrite=args.overwrite)
-        await run_translate(args.work_dir, cfg, target_lang=args.target_lang)
+        await run_translate(args.work_dir, cfg, target_lang=args.target_lang,
+                            reference_langs=_resolve_reference_langs(args, cfg))
         await run_render(args.work_dir, args.output, cfg,
                          check=getattr(args, 'check', False),
                          no_check=getattr(args, 'no_check', False),

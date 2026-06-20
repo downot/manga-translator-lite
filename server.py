@@ -441,6 +441,10 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         input_path = args.get('input')
         output_path = args.get('output')
         config_path = args.get('config')
+        # Cross-language reference: 'auto' (default) → None (all reviewed langs),
+        # 'off' → [] (no reference), or a list of codes → manual.
+        _ref = args.get('reference_langs', 'auto')
+        reference_langs = [] if _ref == 'off' else (_ref if isinstance(_ref, list) else None)
 
         if config_path:
             resolved_path = Path(config_path)
@@ -499,12 +503,14 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                 if cmd == 'extract':
                     await run_extract(input_path or str(task_path / "in"), task_path, cfg, overwrite=overwrite)
                 elif cmd == 'translate':
-                    await run_translate(task_path, cfg, overwrite=overwrite, target_lang=target_lang, start_index=start_index)
+                    await run_translate(task_path, cfg, overwrite=overwrite, target_lang=target_lang,
+                                        start_index=start_index, reference_langs=reference_langs)
                 elif cmd == 'render':
                     await run_render(task_path, output_path or str(task_path / "out"), cfg)
                 elif cmd == 'run':
                     await run_extract(input_path or str(task_path / "in"), task_path, cfg, overwrite=overwrite)
-                    await run_translate(task_path, cfg, overwrite=overwrite, target_lang=target_lang)
+                    await run_translate(task_path, cfg, overwrite=overwrite, target_lang=target_lang,
+                                        reference_langs=reference_langs)
                     await run_render(task_path, output_path or str(task_path / "out"), cfg)
                 send_log("--- Pipeline Finished ---", 'status')
             except Exception as e:

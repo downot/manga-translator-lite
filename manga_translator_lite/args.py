@@ -38,6 +38,21 @@ def file_path_type(string: str) -> str:
     return s
 
 
+def _add_reference_args(p: argparse.ArgumentParser) -> None:
+    """Cross-language reference options for the translate phase.
+
+    Resolution (CLI overrides config): --no-reference → off; one or more
+    --reference-lang → reference exactly those; neither → fall back to config
+    (default: auto = every other human-reviewed language).
+    """
+    p.add_argument('--reference-lang', action='append', default=None, dest='reference_lang',
+                   metavar='LANG',
+                   help='Reference an already-translated language code (CHS, ENG, ...) '
+                        'as a semantic/tone hint; repeatable. Omit for auto (all reviewed languages).')
+    p.add_argument('--no-reference', action='store_true',
+                   help='Disable cross-language reference (pure source → target translation).')
+
+
 def _add_common(p: argparse.ArgumentParser) -> None:
     p.add_argument('-c', '--config', default=None, type=file_path_type,
                    help='Path to the .toml or .json pipeline config file.')
@@ -71,6 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
                       help='Re-translate even blocks that already have translations.')
     p_tx.add_argument('--start-index', type=int, default=None,
                       help='Starting page index in pages.json to (re)translate from.')
+    _add_reference_args(p_tx)
     _add_common(p_tx)
 
     p_render = sub.add_parser('render',
@@ -102,6 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
                        help='Skip spelling and fluency proofreading check.')
     p_run.add_argument('-y', '--yes', action='store_true',
                        help='Automatically accept and apply all proofreading suggestions (requires --check or interactive confirmation).')
+    _add_reference_args(p_run)
     _add_common(p_run)
 
     sub.add_parser('config-help',

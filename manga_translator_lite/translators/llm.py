@@ -111,6 +111,10 @@ class TranslationItem:
     id: str
     text: str
     translation: str = ""
+    # Cross-language references for this block: {language code -> already-translated
+    # text in that language}. Used as a semantic/tone hint in the prompt, never copied
+    # verbatim. Empty when no reference languages apply to this block.
+    references: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -137,7 +141,9 @@ def make_batches(
     batches: List[TranslationBatch] = []
     current = TranslationBatch()
     for item in items:
-        item_len = len(item.text) + 8  # + tag overhead
+        # References are added to the prompt too, so count them toward the budget.
+        ref_len = sum(len(v) + 16 for v in item.references.values()) if item.references else 0
+        item_len = len(item.text) + 8 + ref_len  # + tag / label overhead
         if current.items and current.char_count + item_len > batch_chars:
             batches.append(current)
             current = TranslationBatch()
@@ -160,9 +166,22 @@ def _build_prompt(
     if context:
         parts.append("Recent translated context (for tone reference only, do not retranslate):")
         parts.append(context.strip())
+    # When any line carries a cross-language reference, explain how to use it.
+    has_refs = any(item.references for item in items)
+    if has_refs:
+        parts.append(
+            "Some lines include a human-reviewed translation in another language, marked "
+            "'ref[<language>]'. Use it ONLY to disambiguate meaning, referents, proper "
+            f"names, and register; then produce natural {to_lang_human}. Do NOT mirror its "
+            "wording or sentence structure, and never output the reference itself."
+        )
     parts.append("Lines to translate:")
     for i, item in enumerate(items, 1):
         parts.append(f"<|{i}|>{item.text}")
+        for code, ref_text in item.references.items():
+            ref_text = (ref_text or "").strip()
+            if ref_text:
+                parts.append(f"   ↳ ref[{_normalise_lang(code)}]: {ref_text}")
     return "\n".join(parts)
 
 

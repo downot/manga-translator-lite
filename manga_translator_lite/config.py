@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -129,6 +129,11 @@ class TranslatorConfig(BaseModel):
     """Maximum retry attempts per batch."""
     extra_instructions: Optional[str] = None
     """Extra instructions appended to the system prompt (e.g. tone, glossary)."""
+    reference_langs: Optional[List[str]] = None
+    """Cross-language reference for translation. None = auto (reference every other
+    language that has been human-reviewed, i.e. has a .reviewed marker); [] = off
+    (no reference); ["CHS", ...] = reference exactly these language codes. The
+    referenced languages are only read, never modified."""
 
 
 class RenderConfig(BaseModel):

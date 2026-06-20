@@ -18,10 +18,48 @@ from ..utils import get_logger
 from .schema import (
     Block, Page, Workspace, Translation,
     discover_tasks, load_workspace, save_workspace,
-    load_translations, save_translations
+    load_translations, save_translations, get_translations_dir
 )
 
 logger = get_logger('translate')
+
+# Sentinel: caller did not specify reference_langs, so fall back to config. This is
+# distinct from None (auto), [] (off) and an explicit list (manual).
+_USE_CONFIG = object()
+
+
+def _resolve_reference_lang_codes(root: str, target_lang: str,
+                                  reference_langs: Optional[List[str]]) -> List[str]:
+    """Resolve the reference-langs trichotomy into concrete language codes.
+
+    None  → auto: every other language with a ``<lang>.reviewed`` marker (human-finalised).
+    []    → off:  no references.
+    [...] → manual: exactly those codes (target excluded), regardless of review state.
+    """
+    if reference_langs is None:
+        tdir = get_translations_dir(root)
+        codes: List[str] = []
+        if os.path.isdir(tdir):
+            for fn in sorted(os.listdir(tdir)):
+                if fn.endswith('.reviewed'):
+                    code = fn[:-len('.reviewed')]
+                    if code and code != target_lang:
+                        codes.append(code)
+        return codes
+    return [c for c in reference_langs if c and c != target_lang]
+
+
+def _load_reference_maps(root: str, codes: List[str]) -> dict[str, dict[str, str]]:
+    """Load each reference language as a read-only {block_id: text} map."""
+    maps: dict[str, dict[str, str]] = {}
+    for code in codes:
+        tr = load_translations(root, code)
+        m = {bid: t.text for bid, t in tr.items() if t.text and t.text.strip()}
+        if m:
+            maps[code] = m
+        else:
+            logger.warning(f"Reference language '{code}' has no usable translations; ignoring.")
+    return maps
 
 
 def _load_story_description(root_dir: str) -> Optional[str]:
@@ -139,6 +177,7 @@ async def _translate_task(
     cfg: Config,
     overwrite: bool = False,
     start_index: Optional[int] = None,
+    reference_langs: Optional[List[str]] = None,
 ) -> Workspace:
     """Translate all blocks in a single task workspace."""
     translator = build_translator(cfg.translator)
@@ -147,6 +186,13 @@ async def _translate_task(
 
     # Load existing translations for the target language
     translations = load_translations(workspace.root, workspace.target_lang)
+
+    # Resolve cross-language references (other languages are read-only here).
+    ref_codes = _resolve_reference_lang_codes(workspace.root, workspace.target_lang, reference_langs)
+    ref_maps = _load_reference_maps(workspace.root, ref_codes) if ref_codes else {}
+    if ref_maps:
+        logger.info(f"[task: {workspace.task_name}] referencing {list(ref_maps.keys())} "
+                    f"→ {workspace.target_lang}")
 
     # Collect all blocks that need translation across all pages
     all_items: List[TranslationItem] = []
@@ -189,7 +235,8 @@ async def _translate_task(
             t = translations.get(blk.id)
             if t and t.text and (not overwrite or t.edited):
                 continue
-            all_items.append(TranslationItem(id=blk.id, text=blk.text))
+            refs = {code: m[blk.id] for code, m in ref_maps.items() if blk.id in m}
+            all_items.append(TranslationItem(id=blk.id, text=blk.text, references=refs))
             block_map[blk.id] = (page, blk)
 
     if all_items:
@@ -224,11 +271,18 @@ async def run_translate(
     overwrite: bool = False,
     target_lang: Optional[str] = None,
     start_index: Optional[int] = None,
+    reference_langs=_USE_CONFIG,
 ) -> List[Workspace]:
     """Translate all tasks under work_dir.
 
+    reference_langs: None = auto (all reviewed languages), [] = off, [codes] = manual.
+    Left unset (sentinel) → fall back to cfg.translator.reference_langs.
+
     Returns a list of updated Workspace objects.
     """
+    if reference_langs is _USE_CONFIG:
+        reference_langs = cfg.translator.reference_langs
+
     work_dir = os.path.abspath(os.path.expanduser(work_dir))
     tasks = discover_tasks(work_dir)
 
@@ -252,7 +306,8 @@ async def run_translate(
         else:
             cfg.translator.target_lang = workspace.target_lang
 
-        ws = await _translate_task(workspace, cfg, overwrite=overwrite, start_index=start_index)
+        ws = await _translate_task(workspace, cfg, overwrite=overwrite, start_index=start_index,
+                                   reference_langs=reference_langs)
         results.append(ws)
 
     logger.info(f"Translation complete for {len(results)} task(s).")
