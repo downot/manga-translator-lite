@@ -115,6 +115,11 @@ class TranslationItem:
     # text in that language}. Used as a semantic/tone hint in the prompt, never copied
     # verbatim. Empty when no reference languages apply to this block.
     references: dict = field(default_factory=dict)
+    # When set, `text` is NOT the original source but an existing translation in this
+    # language code (pivot): the block's OCR source was empty/symbol-only, so we
+    # translate from this instead. The prompt labels the line so the model knows the
+    # source language differs.
+    pivot_lang: str = ""
 
 
 @dataclass
@@ -175,9 +180,17 @@ def _build_prompt(
             f"names, and register; then produce natural {to_lang_human}. Do NOT mirror its "
             "wording or sentence structure, and never output the reference itself."
         )
+    # When any line is a pivot (its original source was missing), explain that too.
+    has_pivot = any(item.pivot_lang for item in items)
+    if has_pivot:
+        parts.append(
+            "A line tagged '[from <language>]' has no original text available; the text shown "
+            f"is its existing translation in that language. Translate that text into {to_lang_human}."
+        )
     parts.append("Lines to translate:")
     for i, item in enumerate(items, 1):
-        parts.append(f"<|{i}|>{item.text}")
+        tag = f" [from {_normalise_lang(item.pivot_lang)}]" if item.pivot_lang else ""
+        parts.append(f"<|{i}|>{item.text}{tag}")
         for code, ref_text in item.references.items():
             ref_text = (ref_text or "").strip()
             if ref_text:

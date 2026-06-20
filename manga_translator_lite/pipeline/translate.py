@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import json
+import unicodedata
 from typing import List, Optional
 
 from ..config import Config, LLMProvider
@@ -60,6 +61,30 @@ def _load_reference_maps(root: str, codes: List[str]) -> dict[str, dict[str, str
         else:
             logger.warning(f"Reference language '{code}' has no usable translations; ignoring.")
     return maps
+
+
+def _has_real_text(s: Optional[str]) -> bool:
+    """True if the string contains at least one letter or number in any script
+    (CJK ideographs and kana count). A string that is only punctuation, symbols
+    or whitespace (e.g. "…", "!?", "♪", "") returns False — its source carries no
+    translatable content, which is the reliable signal for a broken / missing OCR
+    source (hand-added or partial-recognition blocks)."""
+    if not s:
+        return False
+    return any(unicodedata.category(ch)[0] in ('L', 'N') for ch in s)
+
+
+def _pick_pivot(bid: str, ref_codes: List[str],
+                ref_maps: dict[str, dict[str, str]]) -> Optional[tuple[str, str]]:
+    """For a block with no usable source, choose an existing translation to
+    translate *from* (pivot). Picks by reference priority order: explicit
+    --reference-lang order, else the auto/reviewed order. Returns (lang_code, text)
+    or None when no reference has this block."""
+    for code in ref_codes:
+        m = ref_maps.get(code)
+        if m and bid in m:
+            return code, m[bid]
+    return None
 
 
 def _load_story_description(root_dir: str) -> Optional[str]:
@@ -236,6 +261,21 @@ async def _translate_task(
             if t and t.text and (not overwrite or t.edited):
                 continue
             refs = {code: m[blk.id] for code, m in ref_maps.items() if blk.id in m}
+            if not _has_real_text(blk.text):
+                # Source is empty / symbol-only (hand-added or partial-recognition
+                # block). If any reference language has this block, translate FROM
+                # that translation (pivot) instead of an empty source; the chosen
+                # pivot language is dropped from refs (it's now the source). With no
+                # pivot available, fall through to the normal path (translates the
+                # raw source as before — e.g. a "…" block stays "…").
+                pivot = _pick_pivot(blk.id, ref_codes, ref_maps)
+                if pivot is not None:
+                    pcode, ptext = pivot
+                    refs.pop(pcode, None)
+                    all_items.append(TranslationItem(id=blk.id, text=ptext,
+                                                     references=refs, pivot_lang=pcode))
+                    block_map[blk.id] = (page, blk)
+                    continue
             all_items.append(TranslationItem(id=blk.id, text=blk.text, references=refs))
             block_map[blk.id] = (page, blk)
 
