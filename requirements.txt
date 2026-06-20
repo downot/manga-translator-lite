@@ -26,7 +26,6 @@ tqdm
 tomli; python_version < "3.11"
 pydantic==2.5.0
 python-dotenv
-aiohttp  # async web server for server_auth.py (multi-user collaborative editor)
 py3langid==0.2.2
 langcodes[data]
 colorama

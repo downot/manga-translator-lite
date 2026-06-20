@@ -236,10 +236,9 @@ fusion_max_area_ratio = 0.1     # 丢弃面积超过整页此比例的次检测�
 - **快捷键智能焦点路由**：`↑`/`↓` 随当前区域自适应 —— 任务列表、页面列表、对话框编辑（切换文字块）、画布（放大时滚动）。
 
 ### 使用方法：
-支持以下三种方式打开编辑器：
+支持以下两种方式打开编辑器：
 1. **纯本地离线模式**：直接在浏览器中双击打开 `editor.html`，点击 **“打开”** 并选择您的 `work` 文件夹。（基于现代 HTML5 File System Access API，无需后端运行即可直接安全读写本地磁盘）。
 2. **联机后端模式**：运行 `python server.py -w ./work`，然后打开终端打印的任务链接（每个以 `?t=<token>` 结尾）。详见下文「独立后端 API 服务」。
-3. **登录鉴权多用户模式**：运行 `python server_auth.py -w ./work`，支持 X(Twitter)登录并按用户配置查看/编辑权限。详见下文「多用户登录服务」。
 
 ### 编辑器工具（区域 / 页面 / 合并）
 
@@ -275,24 +274,6 @@ fusion_max_area_ratio = 0.1     # 丢弃面积超过整页此比例的次检测�
 python server.py -w ./work -p 8000
 ```
 终端会为每个任务打印一个安全链接（以 `?t=<token>` 结尾），打开即可编辑该任务。服务端还会提供带缓存的页面缩略图（`api/thumb`），并向编辑器报告 Pipeline 是否可用（若服务端无法 import `manga_translator_lite`，Pipeline 标签会被禁用）。
-
----
-
-## 多用户登录服务 (`server_auth.py`)
-
-如果要多人共享部署、且不同用户只能查看（或编辑）特定任务，可用 `server_auth.py` 代替 `server.py`。它提供相同的编辑器与接口，并额外支持：
-
-* **X(Twitter)登录**：OAuth 2.0（授权码 + PKCE），Cookie 会话。
-* **按用户权限**：来自 `access.json` 文件——每个 X 用户名配置 `view` / `edit` 任务列表（`"*"` = 全部；edit 自动含 view；改动热重载）。
-* **服务端强制只读**：view 用户进入只读编辑器（隐藏修改类控件、显示「只读」徽章），任何写请求都会被服务端拒绝（403），与客户端无关。
-
-```bash
-export X_CLIENT_ID=...  X_CLIENT_SECRET=...  X_REDIRECT_URI=http://localhost:8000/auth/callback
-cp access.json.sample access.json    # 然后填入你的用户
-python server_auth.py -w ./work -p 8000
-```
-
-浏览器打开 `http://localhost:8000/` → **Login with X** → 选择你有权限的任务。完整搭建说明（X 应用、环境变量、权限文件、HTTPS 部署、权限模型）见 **[SERVER_AUTH.md](SERVER_AUTH.md)** 以及 `server_auth.py` 顶部的中文配置注释。`server.py` 仍是无鉴权选项。
 
 ---
 

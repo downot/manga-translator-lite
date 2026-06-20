@@ -8,6 +8,9 @@
          server_auth.py) override this line via the MTL_APP_NAME env var; in local
          (file://) mode it stays the default below. -->
     <script>window.MTL_APP_NAME = "Manga Translator";</script>
+    <!-- Optional brand logo URL. Empty by default (the built-in inline mark is used);
+         a deployment may inject a URL here to replace the header mark + favicon. -->
+    <script>window.MTL_APP_LOGO = "";</script>
     <title>Manga Translator Lite Editor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2514,6 +2517,25 @@
             document.title = APP_NAME;
             const brand = document.getElementById('app-brand');
             if (brand) brand.textContent = APP_NAME;
+        })();
+
+        // Optional brand logo (window.MTL_APP_LOGO, empty by default). When a URL is
+        // provided, swap the built-in inline mark for the image and set the favicon.
+        // Inert in local/OSS mode where the variable stays empty.
+        (function applyAppLogo() {
+            const url = (window.MTL_APP_LOGO || '').trim();
+            if (!url) return;
+            const mark = document.querySelector('.logo svg');
+            if (mark) {
+                const img = document.createElement('img');
+                img.src = url; img.alt = '';
+                img.style.cssText = 'height:26px;width:auto;display:block;border-radius:5px;';
+                img.onerror = () => { img.replaceWith(mark); };  // fall back to the inline mark
+                mark.replaceWith(img);
+            }
+            let link = document.querySelector('link[rel="icon"]');
+            if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+            link.href = url;
         })();
 
         // Login status badge (server_auth mode only). Queries /api/me — which needs no

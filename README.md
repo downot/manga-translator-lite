@@ -236,10 +236,9 @@ A lightweight web-based visual editor `editor.html` is provided for a better man
 - **Shortcut Focus Routing**: `↑`/`↓` adapt to the active pane — Tasks list, Pages list, dialogue editor (block navigation), or canvas (scroll when zoomed).
 
 ### How to Use:
-There are three ways to open the editor:
+There are two ways to open the editor:
 1. **Serverless Local Mode**: Open `editor.html` directly in your browser. Click **Open** to select your `work` folder. (Requires Chrome/Edge, uses the modern HTML5 File System Access API for local reads/writes).
 2. **Standalone Server Mode**: Run `python server.py -w ./work`, then open one of the per-task URLs the console prints (each ends with `?t=<token>`). See [Standalone Backend Server](#standalone-backend-server-serverpy).
-3. **Authenticated Multi-user Mode**: Run `python server_auth.py -w ./work` for X (Twitter) login with per-user view/edit permissions. See [Multi-user server](#multi-user-server-with-x-login-server_authpy).
 
 ### Editor tools (regions, pages, merge)
 
@@ -275,24 +274,6 @@ Run the server pointing to your active workspace:
 python server.py -w ./work -p 8000
 ```
 The console prints a secure URL for each task (each ends with `?t=<token>`); open one to edit that task. The server also serves cached page thumbnails (`api/thumb`) and reports pipeline availability to the editor (the Pipeline tab is disabled if `manga_translator_lite` isn't importable on the server).
-
----
-
-## Multi-user server with X login (`server_auth.py`)
-
-For a shared deployment where different people should only see (or edit) certain tasks, use `server_auth.py` instead of `server.py`. It serves the same editor and endpoints but adds:
-
-* **X (Twitter) login** via OAuth 2.0 (Authorization Code + PKCE), with cookie sessions.
-* **Per-user permissions** from an `access.json` file — each X handle gets `view` and/or `edit` task lists (`"*"` = all tasks; `edit` implies `view`; hot-reloaded on change).
-* **Server-enforced read-only**: view users get a read-only editor (mutating controls hidden, a *Read-only* badge shown) and every write request is rejected with `403` regardless of the client.
-
-```bash
-export X_CLIENT_ID=...  X_CLIENT_SECRET=...  X_REDIRECT_URI=http://localhost:8000/auth/callback
-cp access.json.sample access.json    # then list your users
-python server_auth.py -w ./work -p 8000
-```
-
-Open `http://localhost:8000/` → **Login with X** → pick a task you're permitted. Full setup (X app, env vars, access file, HTTPS deployment, permission model) is documented in **[SERVER_AUTH.md](SERVER_AUTH.md)** and in the Chinese config comments at the top of `server_auth.py`. `server.py` remains the no-auth option.
 
 ---
 
