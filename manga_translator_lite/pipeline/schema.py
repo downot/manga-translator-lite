@@ -65,7 +65,7 @@ class Block:
     direction: str = "auto"               # auto | h | v | hr | vr
     alignment: str = "auto"               # auto | left | center | right
     prob: float = 1.0
-    bg_fill: str = "none"                  # "none" (transparent, text only) | "white" (paint white behind text)
+    bg_fill: str = "none"                  # "none" (transparent) | "match" (fill bg_color) | "white" (fill white)
     user_added: bool = False               # manually drawn in the editor; preserved across re-extract
     fixed_region: bool = False             # box is user-controlled → render fits text into it, never auto-expands
     scale_exempt: bool = False             # reserved: when True this block ignores the task-level box_scale

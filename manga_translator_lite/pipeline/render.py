@@ -113,15 +113,22 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
         return None
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-    # White-fill pass: paint white behind blocks flagged bg_fill="white" (covers
+    # Background-fill pass: paint a solid color behind blocks flagged bg_fill (covers
     # residual/original content). Done before drawing text so the text sits on top.
-    white_blocks = [b for b in page.blocks
-                    if getattr(b, 'bg_fill', 'none') == 'white' and b.polygon]
-    for b in white_blocks:
+    #   "white" → pure white;  "match" → the block's estimated region color (bg_color),
+    # so the patch blends into a tinted / screentone background instead of a white scar.
+    fill_blocks = [b for b in page.blocks
+                   if getattr(b, 'bg_fill', 'none') in ('white', 'match') and b.polygon]
+    for b in fill_blocks:
         sc = 1.0 if b.scale_exempt else (ws.box_scale or 1.0)
         pts = _scale_poly(b.polygon, sc)
         if len(pts) >= 3:
-            cv2.fillPoly(img_rgb, [pts], (255, 255, 255))
+            if getattr(b, 'bg_fill', 'none') == 'match':
+                bc = b.bg_color or [255, 255, 255]
+                col = (int(bc[0]), int(bc[1]), int(bc[2]))   # bg_color is RGB, img_rgb is RGB
+            else:
+                col = (255, 255, 255)
+            cv2.fillPoly(img_rgb, [pts], col)
 
     blocks_to_render: List[tuple[Block, str]] = []
     for b in page.blocks:
@@ -130,13 +137,13 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
             blocks_to_render.append((b, t.text))
 
     if not blocks_to_render:
-        if not white_blocks:
+        if not fill_blocks:
             logger.info(f"[page {page.index}] no translated blocks, copying clean image as-is")
             shutil.copy2(clean_path, out_path)
             logger.info(f"[page {page.index}] → {out_path}")
             return out_path
-        # White fills changed the image but there is no text to draw → save the filled image.
-        logger.info(f"[page {page.index}] white-fill only ({len(white_blocks)} region(s)), no text")
+        # Background fills changed the image but there is no text to draw → save the filled image.
+        logger.info(f"[page {page.index}] bg-fill only ({len(fill_blocks)} region(s)), no text")
         rendered_rgb = img_rgb
     else:
         text_regions: List[TextBlock] = [
