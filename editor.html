@@ -4,6 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- App name shown in the tab title and header brand. Servers (server.py /
+         server_auth.py) override this line via the MTL_APP_NAME env var; in local
+         (file://) mode it stays the default below. -->
+    <script>window.MTL_APP_NAME = "Manga Translator";</script>
     <title>Manga Translator Lite Editor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1255,7 +1259,7 @@
                     <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
                     <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
                 </svg>
-                <span>Manga Translator</span>
+                <span id="app-brand">Manga Translator</span>
             </div>
 
             <!-- UI Language: interface chrome, set-once — lives on the left, separated
@@ -2448,13 +2452,23 @@
             }
         };
 
+        // Tool/app name. Defaults to "Manga Translator"; a server can override it by
+        // setting window.MTL_APP_NAME (see the script in <head>). Drives the tab title
+        // and the header brand so deployments can rename the tool.
+        const APP_NAME = (window.MTL_APP_NAME || 'Manga Translator');
+        (function applyAppName() {
+            document.title = APP_NAME;
+            const brand = document.getElementById('app-brand');
+            if (brand) brand.textContent = APP_NAME;
+        })();
+
         // Single source of truth for the unsaved-changes state: keeps state.isDirty, the
         // Save button's enabled/indicator state, and the title marker in sync.
         function setDirty(d) {
             state.isDirty = d;
             elements.btnSave.disabled = !d;
             elements.btnSave.classList.toggle('unsaved', d);
-            document.title = (d ? '• ' : '') + 'Manga Translator Lite Editor';
+            document.title = (d ? '• ' : '') + APP_NAME;
         }
 
         // Light/dark theme: sets the data-theme attribute (CSS variables do the rest),

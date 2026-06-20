@@ -43,3 +43,6 @@ ocrs/
 # Temporary files
 *.bak
 *.tmp
+# Runtime logs
+*.log
+server_auth.out

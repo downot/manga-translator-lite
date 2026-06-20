@@ -15,6 +15,10 @@ from pathlib import Path
 # Add project root to sys.path so manga_translator_lite can be imported *if present*.
 sys.path.append(str(Path(__file__).parent.absolute()))
 
+# Customizable tool name (tab title + header brand in editor.html). Empty = default.
+APP_NAME = os.environ.get("MTL_APP_NAME", "").strip()
+_EDITOR_NAME_MARKER = 'window.MTL_APP_NAME = "Manga Translator";'
+
 # The editor itself (view/edit translations, pages, images, story) runs WITHOUT the
 # manga_translator_lite package. Only the pipeline runner (/api/pipeline/run) needs it,
 # so those imports are deferred to that endpoint — letting the editor start standalone.
@@ -185,7 +189,7 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         is_api = "/api/" in parsed.path or parsed.path.startswith("api/")
 
         if not is_api:
-            self.serve_file(self.root_dir / "editor.html", "text/html")
+            self.serve_editor_html()
             return
 
         if not token:
@@ -688,6 +692,24 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "success"}).encode())
         except Exception as e:
             self.send_error(500, str(e))
+
+    def serve_editor_html(self):
+        """Serve editor.html, injecting a custom tool name (MTL_APP_NAME) if set."""
+        path = self.root_dir / "editor.html"
+        if not APP_NAME:
+            self.serve_file(path, "text/html")
+            return
+        try:
+            text = path.read_text(encoding="utf-8").replace(
+                _EDITOR_NAME_MARKER, f"window.MTL_APP_NAME = {json.dumps(APP_NAME)};", 1)
+            body = text.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception:
+            self.serve_file(path, "text/html")
 
     def serve_file(self, path, content_type):
         if not path.exists():
