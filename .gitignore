@@ -14,9 +14,7 @@ dist/
 
 # Environment and configuration
 .env
-server_auth.env
-sessions.json
-access.json
+/co-comic
 config.toml
 config.json
 *.local

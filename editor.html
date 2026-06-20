@@ -978,6 +978,12 @@
         .collab-avatar:hover {
             transform: scale(1.1);
         }
+        /* Real profile picture overlay for collaborator + chat-peer avatars. The img
+           is circular itself, so the parent keeps overflow visible (unread badge). */
+        .collab-avatar img, .chat-peer-avatar img {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            border-radius: 50%; object-fit: cover;
+        }
         .btn-collab-resolve {
             background: var(--accent);
             color: #fff;
@@ -1056,6 +1062,7 @@
             white-space: nowrap;
         }
         .chat-peer-avatar {
+            position: relative;
             width: 26px;
             height: 26px;
             border-radius: 50%;
@@ -1246,6 +1253,31 @@
             border-radius: 50%;
             line-height: 0;
         }
+
+        /* Login-status badge: collapsed to just the avatar (with a small platform
+           marker) + logout button; expands on hover to reveal name + provider. */
+        #user-badge { display: none; align-items: center; gap: 6px; margin-left: 8px; }
+        .user-avatar {
+            position: relative; width: 32px; height: 32px; border-radius: 50%;
+            flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+            background: var(--accent); color: #fff; font-size: 0.85rem; font-weight: 700;
+            text-transform: uppercase; user-select: none; overflow: visible;
+        }
+        .user-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .user-provider-marker {
+            position: absolute; right: -2px; bottom: -2px; width: 15px; height: 15px;
+            border-radius: 50%; background: var(--bg-elevated); border: 1.5px solid var(--bg-dark);
+            display: flex; align-items: center; justify-content: center; color: var(--text-secondary);
+        }
+        .user-provider-marker svg { width: 9px; height: 9px; }
+        .user-info {
+            display: flex; flex-direction: column; line-height: 1.15;
+            max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap;
+            transition: max-width .25s ease, opacity .2s ease, margin .25s ease;
+        }
+        #user-badge:hover .user-info { max-width: 160px; opacity: 1; margin: 0 2px; }
+        .user-info .user-name { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
+        .user-info .user-provider { font-size: 0.65rem; color: var(--text-secondary); text-transform: capitalize; }
     </style>
 </head>
 
@@ -1353,6 +1385,28 @@
                 </svg>
                 <span data-i18n="btnSave">Save</span>
             </button>
+
+            <!-- Login status (server_auth mode only; populated by /api/me). Collapsed
+                 to just the avatar (with a platform marker) + logout; hovering expands
+                 it to reveal the display name + provider. Hidden in local mode. -->
+            <div id="user-badge">
+                <span class="user-avatar" title="">
+                    <img id="user-avatar-img" alt="" style="display:none;">
+                    <span id="user-initial"></span>
+                    <span id="user-provider-icon" class="user-provider-marker"></span>
+                </span>
+                <span class="user-info">
+                    <span id="user-name" class="user-name"></span>
+                    <span id="user-provider" class="user-provider"></span>
+                </span>
+                <button id="btn-logout" class="secondary" data-i18n-title="btnLogout" title="Logout" style="padding:6px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -1624,9 +1678,9 @@
 
     <script>
         const i18n = {
-            zh: { btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelReference: "参考语言", refAuto: "自动（所有已校对语言）", refOff: "关闭（仅用原文）", refCustom: "自定义语言…", refLangsPlaceholder: "CHS, ENG", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页 of 该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为同色底）", tipBgMatch: "背景：同色底覆盖（按区域估计色，点击切为白底）", tipClone: "克隆此文字块（同尺寸·同颜色，位置偏移）", tipFontColor: "字体颜色（黑 / 白 / 任务现有颜色）", tipCopyOrig: "双击复制原文到剪贴板", copyOk: "原文已复制到剪贴板", copyFail: "复制失败", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）", authorLabel: "作者", authorManual: "校正用户", authorLLM: "LLM", collabSyncSuccess: "已同步协作者的最新译文", collabConflict: "部分文字块在服务器上已被他人修改，请在冲突卡片中处理", liveTyping: "正在输入", authExpired: '会话已过期。请 <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">点击此处在新标签页登录</a></b>，然后重新保存。' },
-            en: { btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelReference: "Reference Languages", refAuto: "Auto (all reviewed languages)", refOff: "Off (source only)", refCustom: "Custom languages…", refLangsPlaceholder: "CHS, ENG", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for region color)", tipBgMatch: "Background: region-color fill (click for white)", tipClone: "Clone this block (same size & colors, offset)", tipFontColor: "Font color (black / white / task colors)", tipCopyOrig: "Double-click to copy original to clipboard", copyOk: "Original copied to clipboard", copyFail: "Copy failed", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)", authorLabel: "Author", authorManual: "Manual", authorLLM: "LLM", collabSyncSuccess: "Synced collaborators' latest translations", collabConflict: "Some blocks changed on the server — resolve them in the conflict cards", liveTyping: "typing", authExpired: 'Session expired. Please <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">click here to log in in a new tab</a></b>, then save again.' },
-            ja: { btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelReference: "参照言語", refAuto: "自動（校正済みの全言語）", refOff: "オフ（原文のみ）", refCustom: "カスタム言語…", refLangsPlaceholder: "CHS, ENG", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで領域色）", tipBgMatch: "背景：領域色で塗りつぶし（クリックで白）", tipClone: "このブロックを複製（同サイズ・同色、位置をずらす）", tipFontColor: "文字色（黒 / 白 / タスク既存色）", tipCopyOrig: "ダブルクリックで原文をクリップボードにコピー", copyOk: "原文をクリップボードにコピーしました", copyFail: "コピーに失敗しました", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM", collabSyncSuccess: "共同編集者の最新の翻訳を同期しました", collabConflict: "一部のブロックがサーバー上で変更されました。競合カードで解決してください", liveTyping: "入力中", authExpired: 'セッションの期限が切れました。<b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">ここをクリックして新しいタブでログイン</a></b>し、再度保存してください。' }
+            zh: { btnLogout: "退出登录", btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelReference: "参考语言", refAuto: "自动（所有已校对语言）", refOff: "关闭（仅用原文）", refCustom: "自定义语言…", refLangsPlaceholder: "CHS, ENG", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页 of 该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为同色底）", tipBgMatch: "背景：同色底覆盖（按区域估计色，点击切为白底）", tipClone: "克隆此文字块（同尺寸·同颜色，位置偏移）", tipFontColor: "字体颜色（黑 / 白 / 任务现有颜色）", tipCopyOrig: "双击复制原文到剪贴板", copyOk: "原文已复制到剪贴板", copyFail: "复制失败", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）", authorLabel: "作者", authorManual: "校正用户", authorLLM: "LLM", collabSyncSuccess: "已同步协作者的最新译文", collabConflict: "部分文字块在服务器上已被他人修改，请在冲突卡片中处理", liveTyping: "正在输入", authExpired: '会话已过期。请 <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">点击此处在新标签页登录</a></b>，然后重新保存。' },
+            en: { btnLogout: "Logout", btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelReference: "Reference Languages", refAuto: "Auto (all reviewed languages)", refOff: "Off (source only)", refCustom: "Custom languages…", refLangsPlaceholder: "CHS, ENG", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for region color)", tipBgMatch: "Background: region-color fill (click for white)", tipClone: "Clone this block (same size & colors, offset)", tipFontColor: "Font color (black / white / task colors)", tipCopyOrig: "Double-click to copy original to clipboard", copyOk: "Original copied to clipboard", copyFail: "Copy failed", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)", authorLabel: "Author", authorManual: "Manual", authorLLM: "LLM", collabSyncSuccess: "Synced collaborators' latest translations", collabConflict: "Some blocks changed on the server — resolve them in the conflict cards", liveTyping: "typing", authExpired: 'Session expired. Please <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">click here to log in in a new tab</a></b>, then save again.' },
+            ja: { btnLogout: "ログアウト", btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelReference: "参照言語", refAuto: "自動（校正済みの全言語）", refOff: "オフ（原文のみ）", refCustom: "カスタム言語…", refLangsPlaceholder: "CHS, ENG", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで領域色）", tipBgMatch: "背景：領域色で塗りつぶし（クリックで白）", tipClone: "このブロックを複製（同サイズ・同色、位置をずらす）", tipFontColor: "文字色（黒 / 白 / タスク既存色）", tipCopyOrig: "ダブルクリックで原文をクリップボードにコピー", copyOk: "原文をクリップボードにコピーしました", copyFail: "コピーに失敗しました", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM", collabSyncSuccess: "共同編集者の最新の翻訳を同期しました", collabConflict: "一部のブロックがサーバー上で変更されました。競合カードで解決してください", liveTyping: "入力中", authExpired: 'セッションの期限が切れました。<b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">ここをクリックして新しいタブでログイン</a></b>し、再度保存してください。' }
         };
         // Tooltip shown when the Pipeline tab is disabled (local mode).
         i18n.zh.pipelineLocalOnly = 'Pipeline 仅在服务端模式可用';
@@ -2460,6 +2514,46 @@
             document.title = APP_NAME;
             const brand = document.getElementById('app-brand');
             if (brand) brand.textContent = APP_NAME;
+        })();
+
+        // Login status badge (server_auth mode only). Queries /api/me — which needs no
+        // task token — and, when a session exists, shows the display name + provider
+        // and wires the logout button. In local mode /api/me is absent, so the badge
+        // stays hidden.
+        (function initUserBadge() {
+            const PROVIDER_ICONS = {
+                x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+                discord: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.369a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.444.864-.608 1.249a18.27 18.27 0 0 0-5.487 0 12.6 12.6 0 0 0-.617-1.249.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.099.246.197.373.291a.077.077 0 0 1-.006.128 12.3 12.3 0 0 1-1.873.891.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.331c-1.182 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>',
+                telegram: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.329-.913.489-1.302.481-.428-.009-1.252-.242-1.865-.44-.752-.244-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>',
+            };
+            fetch('api/me', { credentials: 'same-origin' })
+                .then(r => r.ok ? r.json() : null)
+                .then(me => {
+                    if (!me || !me.authenticated) return;
+                    const badge = document.getElementById('user-badge');
+                    if (!badge) return;
+                    const name = me.name || me.username || '';
+                    const provider = (me.provider || '').toLowerCase();
+                    document.getElementById('user-name').textContent = name;
+                    document.getElementById('user-provider').textContent = provider || '';
+                    document.getElementById('user-initial').textContent =
+                        (name.trim()[0] || '?').toUpperCase();
+                    // Real avatar when available; on load failure fall back to the letter.
+                    if (me.avatar) {
+                        const img = document.getElementById('user-avatar-img');
+                        img.onload = () => { img.style.display = 'block'; };
+                        img.onerror = () => { img.style.display = 'none'; };
+                        img.src = me.avatar;
+                    }
+                    const iconEl = document.getElementById('user-provider-icon');
+                    if (PROVIDER_ICONS[provider]) iconEl.innerHTML = PROVIDER_ICONS[provider];
+                    // Tooltip on the avatar so the identity is reachable without expanding.
+                    badge.querySelector('.user-avatar').title = `@${me.username} · ${provider}`;
+                    badge.style.display = 'flex';
+                    const logout = document.getElementById('btn-logout');
+                    if (logout) logout.addEventListener('click', () => { window.location.href = 'auth/logout'; });
+                })
+                .catch(() => { /* local mode / no server — leave the badge hidden */ });
         })();
 
         // Single source of truth for the unsaved-changes state: keeps state.isDirty, the
@@ -4333,8 +4427,11 @@
             // Update drawer header
             const color = stringToColor(username);
             const initial = (displayName || username).charAt(0).toUpperCase();
+            const peer = (storage.activeCollaborators || []).find(u => u.username === username);
+            const peerImg = peer && peer.avatar
+                ? `<img alt="" src="${peer.avatar}" onerror="this.remove()">` : '';
             elements.chatPeerName.innerHTML =
-                `<span class="chat-peer-avatar" style="background:${color}">${initial}</span>` +
+                `<span class="chat-peer-avatar" style="background:${color}">${initial}${peerImg}</span>` +
                 `<span>${displayName || username}</span>` +
                 `<span class="peer-handle">@${username}</span>`;
 
@@ -4524,6 +4621,15 @@
                 avatar.className = 'collab-avatar';
                 avatar.style.backgroundColor = stringToColor(u.username);
                 avatar.textContent = (u.name || u.username || '?').charAt(0).toUpperCase();
+                // Overlay the real profile picture when present; on load failure the
+                // letter underneath stays visible.
+                if (u.avatar) {
+                    const img = document.createElement('img');
+                    img.alt = '';
+                    img.onerror = () => img.remove();
+                    img.src = u.avatar;
+                    avatar.appendChild(img);
+                }
 
                 const unread = storage.dmUnread[u.username] || 0;
                 if (unread > 0) {
