@@ -2529,7 +2529,7 @@
             if (mark) {
                 const img = document.createElement('img');
                 img.src = url; img.alt = '';
-                img.style.cssText = 'height:26px;width:auto;display:block;border-radius:5px;';
+                img.style.cssText = 'height:34px;width:auto;display:block;border-radius:5px;';
                 img.onerror = () => { img.replaceWith(mark); };  // fall back to the inline mark
                 mark.replaceWith(img);
             }
