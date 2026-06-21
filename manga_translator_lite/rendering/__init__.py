@@ -117,22 +117,28 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
         region_min = 4 if fixed else font_size_minimum
         sc = getattr(region, 'box_scale_applied', 1.0) or 1.0
 
-        # --- 1. Determine the font-size search range -----------------------
-        original_fs = region.font_size if region.font_size > 0 else region_min
-
-        if font_size_fixed is not None:
-            fs_upper = font_size_fixed   # explicit absolute override — not scaled by box_scale
-        else:
-            # box_scale lifts the font ceiling too, so enlarging the box actually
-            # magnifies the text instead of just adding whitespace.
-            fs_upper = (original_fs + font_size_offset) * sc
-        fs_upper = max(fs_upper, region_min, 1)
-
         # Region dimensions (unrotated)
         max_w, max_h = region.unrotated_size
         is_horiz = region.horizontal
         lang = getattr(region, "target_lang", "en_US")
         line_sp = region.line_spacing if hasattr(region, 'line_spacing') else 0.01
+
+        # --- 1. Determine the font-size search range -----------------------
+        original_fs = region.font_size if region.font_size > 0 else region_min
+
+        if font_size_fixed is not None:
+            fs_upper = font_size_fixed   # explicit absolute override — not scaled by box_scale
+        elif fixed and max_w > 0 and max_h > 0:
+            # User-drawn box: the font should adapt to the box the user sized, so the
+            # ceiling is the box itself (one line ≈ its height/width) rather than the
+            # original OCR font size. Enlarging the box then truly magnifies the text
+            # instead of just adding whitespace; the fit search below still bounds it.
+            fs_upper = max_h if is_horiz else max_w
+        else:
+            # box_scale lifts the font ceiling too, so enlarging the box actually
+            # magnifies the text instead of just adding whitespace.
+            fs_upper = (original_fs + font_size_offset) * sc
+        fs_upper = max(fs_upper, region_min, 1)
 
         # --- 2. Binary-search for optimal font size -----------------------
         if max_w > 0 and max_h > 0:

@@ -216,7 +216,7 @@ Three knobs decide how big the translated text is rendered, with distinct, non-o
 - **`font_size_minimum`** *(config `[render]`)* — a pure lower bound (pixels) for legibility. Text only shrinks below the box_scale'd size when a long translation must fit, and never below this floor (hand-adjusted boxes use a 4 px floor).
 - **`font_size_minimum_expand_limit`** *(config `[render]`)* — a fallback only. If a long translation still doesn't fit the box_scale'd box even at `font_size_minimum`, the box is expanded further, up to this ratio.
 
-Typical workflow: set `box_scale` per task for the overall size you want; leave `font_size_minimum` as a legibility floor and `font_size_minimum_expand_limit` as overflow headroom. Boxes you adjust by hand in the editor render exactly as drawn (never auto-expanded). The editor preview uses the same formulas, so what you see matches the output.
+Typical workflow: set `box_scale` per task for the overall size you want; leave `font_size_minimum` as a legibility floor and `font_size_minimum_expand_limit` as overflow headroom. To fix a single box, **resize** it in the editor: the box renders exactly as drawn (never auto-expanded) and the font scales to fill it — drag it bigger and the text grows, smaller and it shrinks (down to a 4 px floor). Merely **moving** a box only repositions it and keeps the automatic sizing. The editor preview uses the same formulas, so what you see matches the output.
 
 ## Visual Editor (Experimental)
 

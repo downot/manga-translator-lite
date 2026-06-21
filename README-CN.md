@@ -216,7 +216,7 @@ fusion_max_area_ratio = 0.1     # 丢弃面积超过整页此比例的次检测�
 - **`font_size_minimum`**（config `[render]`）——纯下限（像素），保证可读性。只有长译文必须塞下时才会缩到比 box_scale 后更小，且不会低于这个下限（手动调过的框下限为 4px）。
 - **`font_size_minimum_expand_limit`**（config `[render]`）——仅作兜底。若长译文在 box_scale 后的框里、缩到 `font_size_minimum` 仍塞不下，才把框进一步扩大，最多到这个倍数。
 
-典型用法：按任务设 `box_scale` 得到整体想要的大小；`font_size_minimum` 留作可读性下限、`font_size_minimum_expand_limit` 留作溢出兜底。在编辑器手动调过的框会严格按所画渲染（不自动扩框）。编辑器预览与渲染使用同一套公式，所见即所得。
+典型用法：按任务设 `box_scale` 得到整体想要的大小；`font_size_minimum` 留作可读性下限、`font_size_minimum_expand_limit` 留作溢出兜底。要修单个框就在编辑器里**缩放**它：该框严格按所画渲染（不自动扩框），字号自适应框大小——拉大框文字随之变大、缩小框文字随之变小以填满框（下限 4px）。仅仅**移动**框只是重定位，保留原来的自动字号。编辑器预览与渲染使用同一套公式，所见即所得。
 
 ## 可视化编辑器 (实验性)
 
