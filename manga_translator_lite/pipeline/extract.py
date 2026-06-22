@@ -28,6 +28,7 @@ from ..inpainting import dispatch as dispatch_inpainting, prepare as prepare_inp
 from ..mask_refinement import dispatch as dispatch_mask_refinement
 from ..ocr import dispatch as dispatch_ocr, prepare as prepare_ocr
 from ..textline_merge import dispatch as dispatch_textline_merge
+from .geometry import _compute_iou, _iou_xyxy, _overlap_min
 from ..utils import (
     TextBlock,
     cv2_imwrite,
@@ -55,39 +56,6 @@ def _select_device(use_gpu: bool) -> str:
     if torch.backends.mps.is_available():
         return 'mps'
     return 'cpu'
-
-
-def _iou_xyxy(a, b) -> float:
-    """IoU of two axis-aligned (x1, y1, x2, y2) boxes."""
-    ax1, ay1, ax2, ay2 = a
-    bx1, by1, bx2, by2 = b
-    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
-    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
-    inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
-    if inter <= 0:
-        return 0.0
-    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
-    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
-    union = area_a + area_b - inter
-    return inter / union if union > 0 else 0.0
-
-
-def _overlap_min(a, b) -> float:
-    """Intersection over the *smaller* box's area — a containment score.
-
-    Unlike IoU, this stays high when one box sits inside a much larger one
-    (e.g. a small primary text line fully covered by a large box-detector
-    region), which is exactly the duplicate case IoU misses.
-    """
-    ax1, ay1, ax2, ay2 = a
-    bx1, by1, bx2, by2 = b
-    inter = max(0.0, min(ax2, bx2) - max(ax1, bx1)) * max(0.0, min(ay2, by2) - max(ay1, by1))
-    if inter <= 0:
-        return 0.0
-    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
-    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
-    m = min(area_a, area_b)
-    return inter / m if m > 0 else 0.0
 
 
 async def _dispatch_det(cfg: Config, detector: Detector, img_rgb: np.ndarray, device: str,
@@ -388,21 +356,6 @@ async def _process_image(
         no_text=(not blocks and not erase_only_quads),
     )
 
-
-def _compute_iou(box1: List[int], box2: List[int]) -> float:
-    x1, y1, w1, h1 = box1
-    x2, y2, w2, h2 = box2
-    xi1 = max(x1, x2)
-    yi1 = max(y1, y2)
-    xi2 = min(x1 + w1, x2 + w2)
-    yi2 = min(y1 + h1, y2 + h2)
-    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
-    box1_area = w1 * h1
-    box2_area = w2 * h2
-    union_area = box1_area + box2_area - inter_area
-    if union_area == 0:
-        return 0.0
-    return inter_area / union_area
 
 def _merge_task_translations(workspace: Workspace, existing_pages: Dict[str, Page]) -> None:
     """Merge existing translations into the newly extracted workspace based on spatial IoU."""

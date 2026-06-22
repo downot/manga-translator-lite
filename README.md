@@ -337,7 +337,7 @@ To ensure translations are natural, direct, and free from awkward phrasing or ty
 
 ### 2. Interaction Modes
 When rendering (`render` or `run` command), you can choose how to review recommendations:
-* **Interactive Mode (Default on TTY)**: Prompts you to review each recommendation one by one. You can accept, reject, or manually edit (`e`) the inline text.
+* **Interactive Mode (Default on TTY)**: Prompts you to review each recommendation one by one. You can accept (`y`), reject (`n`), manually edit (`e`) the inline text, or quit the review (`q`) and keep the remaining translations as-is.
 * **Auto-Apply (`--check -y` or `--check --yes`)**: Automatically accepts and applies all LLM copyediting recommendations without prompting.
 * **Force / Bypass**: Use `--check` to force proofreading, or `--no-check` to bypass the proofreading step entirely.
 
