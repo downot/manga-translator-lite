@@ -52,7 +52,7 @@
 ```bash
 pip install -r requirements.txt          # Python >= 3.10 推奨
 cp config.toml.sample config.toml        # その後 [translator] api_key を記入（環境変数でも可）
-cp Example.env .env             # 任意: 代わりに .env の OPENAI_API_KEY / GEMINI_API_KEY を使用
+cp .env.sample .env             # 任意: 代わりに .env の OPENAI_API_KEY / GEMINI_API_KEY を使用
 
 # エンドツーエンド実行
 python -m manga_translator_lite run -i ./in -w ./work -o ./out
@@ -439,7 +439,7 @@ source venv/bin/activate      # Linux / macOS
 venv\Scripts\activate         # Windows
 
 pip install -r requirements.txt
-cp Example.env .env  # API キーを設定
+cp .env.sample .env  # API キーを設定
 ```
 
 ## ライセンス

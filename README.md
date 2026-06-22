@@ -52,7 +52,7 @@ Each task's `pages.json` is the single source of truth. Open it between `transla
 ```bash
 pip install -r requirements.txt          # Python >= 3.10
 cp config.toml.sample config.toml        # Then fill in [translator] api_key (or use an env var)
-cp Example.env .env             # Optional: OPENAI_API_KEY or GEMINI_API_KEY instead
+cp .env.sample .env             # Optional: OPENAI_API_KEY or GEMINI_API_KEY instead
 
 # Single command end-to-end
 python -m manga_translator_lite run -i ./in -w ./work -o ./out
@@ -440,7 +440,7 @@ source venv/bin/activate      # Linux / macOS
 venv\Scripts\activate         # Windows
 
 pip install -r requirements.txt
-cp Example.env .env  # Configure your API keys
+cp .env.sample .env  # Configure your API keys
 ```
 
 ## License
