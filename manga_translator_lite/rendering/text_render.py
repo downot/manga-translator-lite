@@ -11,7 +11,7 @@ from hyphen import Hyphenator
 from hyphen.dictools import LANGUAGES as HYPHENATOR_LANGUAGES
 from langcodes import standardize_tag
 
-from ..utils import BASE_PATH, is_punctuation
+from ..utils import BASE_PATH
 
 try:
     HYPHENATOR_LANGUAGES.remove('fr')
@@ -25,7 +25,6 @@ CJK_H2V = {
     "―": "|",
     "–": "︲",
     "_": "︳",
-    "_": "︴",
     "(": "︵",
     ")": "︶",
     "（": "︵",
@@ -73,15 +72,11 @@ CJK_H2V = {
     "⋯": "︙", 
     "⋰": "⋮",    
     "⋱": "⋮",           
-    """: "﹁",   
-    """: "﹂",   
-    "'": "﹁",   
     "'": "﹂",   
     "″": "﹂",   
     "‴": "﹂",   
     "‶": "﹁",   
     "‷": "﹁",   
-    "~": "︴",   
     "〜": "︴",   
     "～": "︴",   
     "~": "≀",
@@ -141,21 +136,6 @@ def compact_special_symbols(text: str) -> str:
     text = re.sub(pattern, r'\1', text) 
     return text
     
-def rotate_image(image, angle):
-    if angle == 0:
-        return image, (0, 0)
-    image_exp = np.zeros((round(image.shape[0] * 1.5), round(image.shape[1] * 1.5), image.shape[2]), dtype = np.uint8)
-    diff_i = (image_exp.shape[0] - image.shape[0]) // 2
-    diff_j = (image_exp.shape[1] - image.shape[1]) // 2
-    image_exp[diff_i:diff_i+image.shape[0], diff_j:diff_j+image.shape[1]] = image
-    # from https://stackoverflow.com/questions/9041681/opencv-python-rotate-image-by-x-degrees-around-specific-point
-    image_center = tuple(np.array(image_exp.shape[1::-1]) / 2)
-    rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
-    result = cv2.warpAffine(image_exp, rot_mat, image_exp.shape[1::-1], flags=cv2.INTER_LINEAR)
-    if angle == 90:
-        return result, (0, 0)
-    return result, (diff_i, diff_j)
-
 def add_color(bw_char_map, color, stroke_char_map, stroke_color):
     if bw_char_map.size == 0:
         fg = np.zeros((bw_char_map.shape[0], bw_char_map.shape[1], 4), dtype = np.uint8)
@@ -370,9 +350,6 @@ def put_char_vertical(font_size: int, cdpt: str, pen_l: Tuple[int, int], canvas_
     # Copy pen position to avoid modifying the original value  
     pen = pen_l.copy()  
 
-    # 检查是否是标点符号  
-    # Check if the character is a punctuation  
-    is_pun = is_punctuation(cdpt)  
     
     # 处理CJK兼容形式转换，并获取旋转角度  
     # Process CJK compatibility forms translation and get rotation degree  

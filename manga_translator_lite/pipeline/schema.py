@@ -183,13 +183,6 @@ class Workspace:
             out.extend(p.blocks)
         return out
 
-    def block_by_id(self, bid: str) -> Optional[Block]:
-        for b in self.all_blocks():
-            if b.id == bid:
-                return b
-        return None
-
-
 def save_workspace(ws: Workspace) -> str:
     os.makedirs(ws.root, exist_ok=True)
     with open(ws.pages_json_path, 'w', encoding='utf-8') as f:

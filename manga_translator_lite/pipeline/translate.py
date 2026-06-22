@@ -14,12 +14,11 @@ import unicodedata
 from typing import List, Optional
 
 from ..config import Config, LLMProvider
-from ..translators import LLMTranslator, NoneTranslator, TranslationItem, build_translator
+from ..translators import TranslationItem, build_translator
 from ..utils import get_logger
 from .schema import (
     Block, Page, Workspace, Translation,
-    discover_tasks, load_workspace, save_workspace,
-    load_translations, save_translations, get_translations_dir
+    discover_tasks, load_workspace, load_translations, save_translations, get_translations_dir
 )
 
 logger = get_logger('translate')

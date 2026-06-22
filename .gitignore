@@ -3,6 +3,7 @@
 *.pt
 *.onnx
 /models
+.agent/
 
 # Python runtime and build artifacts
 __pycache__/

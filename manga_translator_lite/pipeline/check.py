@@ -1,11 +1,10 @@
 import sys
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from rich.console import Console
-from rich.table import Table
 
 from ..config import Config, LLMProvider
 from ..translators import build_translator
-from ..pipeline.schema import Workspace, Translation, load_translations, save_translations
+from ..pipeline.schema import Workspace, load_translations, save_translations
 
 console = Console()
 

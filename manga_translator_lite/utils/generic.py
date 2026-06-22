@@ -10,8 +10,6 @@ import sys
 import hashlib
 import re
 import einops
-import json
-from shapely import affinity
 from shapely.geometry import Polygon, MultiPoint
 from .generic2 import *
 
@@ -82,17 +80,6 @@ def atoi(text: str) -> Union[int, str]:
 def natural_sort(l: List[str]):
     return sorted(l, key=lambda text: [atoi(c) for c in re.split(r'(\d+)', text)])
 
-def repeating_sequence(s: str):
-    """Extracts repeating sequence from string. Example: 'abcabca' -> 'abc'."""
-    for i in range(1, len(s) // 2 + 1):
-        seq = s[:i]
-        if seq * (len(s)//len(seq)) + seq[:len(s)%len(seq)] == s:
-            return seq
-    return s
-
-def count_valuable_text(text: str) -> int:
-    return sum([1 for ch in text if is_valuable_char(ch)])
-
 def replace_prefix(s: str, old: str, new: str):
     if s.startswith(old):
         s = new + s[len(old):]
@@ -115,29 +102,6 @@ def get_digest(file_path: str) -> str:
                 break
             h.update(chunk)
     return h.hexdigest()
-
-def get_image_md5(image) -> str:
-    """计算PIL Image对象的MD5哈希值，确保相同图片内容产生相同的哈希值"""
-    import io
-    from PIL import Image
-
-    try:
-        # 将PIL Image转换为字节数据进行MD5计算
-        img_byte_arr = io.BytesIO()
-        # 统一转换为RGB格式以确保一致性
-        if hasattr(image, 'mode') and image.mode != 'RGB':
-            image = image.convert('RGB')
-        image.save(img_byte_arr, format='PNG')
-        img_bytes = img_byte_arr.getvalue()
-
-        # 计算MD5哈希值
-        h = hashlib.md5()
-        h.update(img_bytes)
-        return h.hexdigest()[:8]  # 只取前8位，避免文件夹名过长
-    except Exception as e:
-        # 如果计算失败，返回基于时间戳的fallback值
-        import time
-        return f"fallback_{int(time.time() * 1000)}"
 
 def get_filename_from_url(url: str, default: str = '') -> str:
     m = re.search(r'/([^/?]+)[^/]*$', url)
@@ -238,16 +202,6 @@ def load_image(img: Image.Image) -> Tuple[np.ndarray, Optional[Image.Image]]:
     else:
         return np.array(img.convert('RGB')), None
 
-def dump_image(img_pil: Image.Image, img: np.ndarray, alpha_ch: Image.Image = None):
-    if alpha_ch is not None:
-        if img.shape[2] != 4 :
-            img = np.concatenate([img.astype(np.uint8), np.array(alpha_ch).astype(np.uint8)[..., None]], axis = 2)
-    else:
-        img = img.astype(np.uint8)
-    result = img_pil.convert('RGBA').resize((img.shape[1], img.shape[0]))
-    result.paste(Image.fromarray(img), mask = alpha_ch)
-    return result
-
 def cv2_imread(path: str, flags: int = cv2.IMREAD_COLOR) -> Optional[np.ndarray]:
     """Read an image from a path, supporting Unicode paths on Windows."""
     try:
@@ -304,12 +258,6 @@ def image_resize(image, width = None, height = None, inter = cv2.INTER_AREA):
 
     # return the resized image
     return resized
-
-def resize_polygon(pts, xfact, yfact, origin='center'):
-    poly = Polygon(pts)
-    poly = affinity.scale(poly, xfact=xfact, yfact=yfact, origin=origin)
-    dst_points = np.array(poly.exterior.coords[:4])
-    return dst_points
 
 class BBox(object):
     def __init__(self, x: int, y: int, w: int, h: int, text: str, prob: float, fg_r: int = 0, fg_g: int = 0, fg_b: int = 0, bg_r: int = 0, bg_g: int = 0, bg_b: int = 0):
@@ -508,7 +456,6 @@ class Quadrilateral(object):
         e1 = np.array([0, 1])
         e2 = np.array([1, 0])
         unit_vector_1 = v1 / np.linalg.norm(v1)
-        unit_vector_2 = v2 / np.linalg.norm(v2)
         if abs(np.dot(unit_vector_1, e1)) < 1e-2 or abs(np.dot(unit_vector_1, e2)) < 1e-2:
             return True
         return False
@@ -733,13 +680,6 @@ def quadrilateral_can_merge_region_coarse(a: Quadrilateral, b: Quadrilateral, di
         return False
     return True
 
-def findNextPowerOf2(n):
-    i = 0
-    while n != 0:
-        i += 1
-        n = n >> 1
-    return 1 << i
-
 class Point:
     def __init__(self, x = 0, y = 0):
         self.x = x
@@ -847,24 +787,9 @@ def gjk_distance(s1: List[Point], s2: List[Point]) -> float:
         s.append(c)
     return 0
 
-def rgb2hex(r,g,b):
-    return "#{:02x}{:02x}{:02x}".format(r,g,b)
-
 def hex2rgb(h):
     h = h.lstrip('#')
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-
-def get_color_name(rgb: List[int]) -> str:
-        try:
-            # TODO: Maybe replace with offline alternative
-            url = f'https://www.thecolorapi.com/id?format=json&rgb={rgb[0]},{rgb[1]},{rgb[2]}'
-            response = requests.get(url)
-            if response.status_code == 200:
-                return json.loads(response.text)['name']['value']
-            else:
-                return 'Unnamed'
-        except Exception:
-            return 'Unnamed'
 
 def square_pad_resize(img: np.ndarray, tgt_size: int):
     h, w = img.shape[:2]

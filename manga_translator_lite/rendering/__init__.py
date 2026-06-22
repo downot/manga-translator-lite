@@ -1,4 +1,3 @@
-import os
 import cv2
 import numpy as np
 from typing import List
@@ -17,30 +16,11 @@ from ..utils import (
 
 logger = get_logger('render')
 
-def parse_font_paths(path: str, default: List[str] = None) -> List[str]:
-    if path:
-        parsed = path.split(',')
-        parsed = list(filter(lambda p: os.path.isfile(p), parsed))
-    else:
-        parsed = default or []
-    return parsed
-
 def fg_bg_compare(fg, bg):
     fg_avg = np.mean(fg)
     if color_difference(fg, bg) < 30:
         bg = (255, 255, 255) if fg_avg <= 127 else (0, 0, 0)
     return fg, bg
-
-def count_text_length(text: str) -> float:
-    """Calculate text length, treating っッぁぃぅぇぉ as 0.5 characters"""
-    half_width_chars = 'っッぁぃぅぇぉ'  
-    length = 0.0
-    for char in text.strip():
-        if char in half_width_chars:
-            length += 0.5
-        else:
-            length += 1.0
-    return length
 
 def _text_fits_region(font_size: int, text: str, max_w: float, max_h: float,
                       is_horizontal: bool, lang: str = 'en_US',

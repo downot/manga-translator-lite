@@ -22,7 +22,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from ..config import Config, Detector, Inpainter, Ocr
+from ..config import Config, Detector, Inpainter
 from ..detection import dispatch as dispatch_detection, prepare as prepare_detection
 from ..inpainting import dispatch as dispatch_inpainting, prepare as prepare_inpainting
 from ..mask_refinement import dispatch as dispatch_mask_refinement
@@ -39,7 +39,7 @@ from ..utils import (
 )
 from .schema import (
     Block, Page, Workspace, block_id, save_workspace, load_workspace,
-    load_translations, save_translations, get_translations_dir, Translation
+    load_translations, save_translations, get_translations_dir
 )
 
 logger = get_logger('extract')

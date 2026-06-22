@@ -2,7 +2,6 @@ import os
 import sys
 import tempfile
 import cv2 as cv
-import numpy as np
 import requests
 import subprocess
 from urllib.parse import urlparse

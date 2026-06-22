@@ -3,7 +3,6 @@ import shutil
 import argparse
 from PIL import Image
 import cv2
-import numpy as np
 
 from manga_translator_lite.pipeline.schema import load_workspace, save_workspace
 from manga_translator_lite.utils import cv2_imread, cv2_imwrite
