@@ -16,6 +16,11 @@ from pathlib import Path
 # Add project root to sys.path so manga_translator_lite can be imported *if present*.
 sys.path.append(str(Path(__file__).parent.absolute()))
 
+# Generic, transport-agnostic base logic shared with downstream editor servers.
+# It's a plain top-level module (not under manga_translator_lite), so importing it
+# never pulls the package's heavy ML deps — the editor still starts standalone.
+import server_common as sc
+
 # Customizable tool name (tab title + header brand in editor.html). Empty = default.
 APP_NAME = os.environ.get("MTL_APP_NAME", "").strip()
 _EDITOR_NAME_MARKER = 'window.MTL_APP_NAME = "Manga Translator";'
@@ -23,72 +28,6 @@ _EDITOR_NAME_MARKER = 'window.MTL_APP_NAME = "Manga Translator";'
 # The editor itself (view/edit translations, pages, images, story) runs WITHOUT the
 # manga_translator_lite package. Only the pipeline runner (/api/pipeline/run) needs it,
 # so those imports are deferred to that endpoint — letting the editor start standalone.
-
-
-def _pipeline_available() -> bool:
-    """Whether the pipeline (extract/translate/render) can run at all.
-
-    Cheap presence check: is the manga_translator_lite package importable *by
-    location*? Uses find_spec so we DON'T import its heavy ML deps just to probe.
-    The editor stays standalone; this only decides whether the editor shows the
-    Pipeline tab as usable. The actual run still guards with try/except ImportError
-    (so a package that's present but has missing deps degrades to a clear message).
-    """
-    try:
-        import importlib.util
-        return importlib.util.find_spec("manga_translator_lite") is not None
-    except Exception:
-        return False
-
-
-def _read_config_as_json(path: str) -> str:
-    """Return the config file as a JSON string for the editor's render preview.
-
-    Prefers manga_translator_lite.Config (applies defaults/validation); falls back
-    to a plain stdlib TOML/JSON parse so the editor works without the package.
-    Never raises — returns "{}" if nothing can be read (editor uses its defaults).
-    """
-    try:
-        from manga_translator_lite.config import Config
-        cfg = Config.load(path)
-        return cfg.model_dump_json() if hasattr(cfg, "model_dump_json") else cfg.json()
-    except Exception:
-        pass
-    try:
-        ext = os.path.splitext(path)[1].lower()
-        with open(path, "r", encoding="utf-8") as f:
-            content = f.read()
-        if ext == ".toml":
-            try:
-                import tomllib
-            except ImportError:
-                import tomli as tomllib
-            return json.dumps(tomllib.loads(content))
-        return json.dumps(json.loads(content))
-    except Exception:
-        return "{}"
-
-
-def _is_safe_lang(lang: str) -> bool:
-    """Validate that language name only contains alphanumeric characters, hyphens or underscores.
-
-    Prevents directory traversal attacks via query parameters.
-    """
-    import re
-    return bool(re.match(r"^[a-zA-Z0-9_-]+$", lang))
-
-
-def _is_safe_config_path(path_str: str, root_dir: Path) -> bool:
-    """Ensure that the resolved configuration path resides within the root directory.
-
-    Prevents reading arbitrary configuration files on the system.
-    """
-    try:
-        resolved = Path(path_str).resolve()
-        base = root_dir.resolve()
-        return base in resolved.parents or resolved == base
-    except Exception:
-        return False
 
 
 class LogQueueHandler(logging.Handler):
@@ -132,6 +71,7 @@ class TokenManager:
         return links
 
 _COLLAB_LOCK = threading.Lock()
+_SAVE_LOCK = threading.Lock()
 _LISTENERS = {}      # task_name -> list of queue.Queue
 _ACTIVE_USERS = {}   # task_name -> username -> dict of collab details
 _CHAT_HISTORIES = {} # task_name -> list of chat events (capped at 30)
@@ -210,7 +150,7 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         elif parsed.path.endswith("/api/translations"):
             lang = params.get('lang', [None])[0]
             if lang:
-                if not _is_safe_lang(lang):
+                if not sc.is_safe_lang(lang):
                     self.send_error(400, "Invalid language format")
                     return
                 trans_path = task_path / "translations" / f"{lang}.json"
@@ -252,7 +192,7 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         elif parsed.path.endswith("/api/image"):
             img_name = params.get('name', [None])[0]
             if img_name:
-                if "/" in img_name or "\\" in img_name:
+                if "/" in img_name or "\\" in img_name or not img_name.lower().endswith((".png", ".jpg", ".jpeg")):
                     self.send_error(403, "Invalid image name")
                     return
                 # Check different possible image locations
@@ -270,22 +210,18 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"pipeline": _pipeline_available()}).encode())
+            self.wfile.write(json.dumps({"pipeline": sc.pipeline_available()}).encode())
         elif parsed.path.endswith("/api/config"):
-            config_path = params.get('config', [None])[0]
-            if not config_path:
-                config_path = "config.toml"
-            resolved_path = Path(config_path)
-            if not resolved_path.is_absolute():
-                resolved_path = self.root_dir / resolved_path
-            
-            if not _is_safe_config_path(str(resolved_path), self.root_dir):
-                self.send_error(403, "Access to configuration file denied")
-                return
+            config_path = params.get('config', [None])[0] or "config.toml"
+            p = Path(config_path)
+            if not p.is_absolute():
+                p = self.root_dir / p
+            allowed = [self.root_dir, task_path]
+            safe = sc.resolve_within(str(p), allowed)
 
-            if resolved_path.exists() and resolved_path.is_file():
+            if safe and safe.is_file():
                 try:
-                    json_str = _read_config_as_json(str(resolved_path))
+                    json_str = sc.read_config_as_json(str(safe))
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -335,12 +271,14 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
 
         if parsed.path.endswith("/api/save"):
             lang = params.get('lang', [None])[0]
-            if lang and not _is_safe_lang(lang):
+            if lang and not sc.is_safe_lang(lang):
                 self.send_error(400, "Invalid language format")
                 return
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
             try:
+                content_length = int(self.headers.get('Content-Length', 0) or 0)
+                if content_length > 64 * 1024 * 1024:
+                    raise ValueError("Payload too large")
+                post_data = self.rfile.read(content_length)
                 data = json.loads(post_data)
                 if lang:
                     trans_dir = task_path / "translations"
@@ -349,8 +287,9 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                 else:
                     target_file = task_path / "pages.json"
 
-                with open(target_file, "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
+                with _SAVE_LOCK:
+                    with open(target_file, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
 
                 mtime = 0
                 if lang:
@@ -366,12 +305,15 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_error(500, str(e))
         elif parsed.path.endswith("/api/story/save"):
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
             try:
+                content_length = int(self.headers.get('Content-Length', 0) or 0)
+                if content_length > 64 * 1024 * 1024:
+                    raise ValueError("Payload too large")
+                post_data = self.rfile.read(content_length)
                 target_file = task_path / "story.txt"
-                with open(target_file, "wb") as f:
-                    f.write(post_data)
+                with _SAVE_LOCK:
+                    with open(target_file, "wb") as f:
+                        f.write(post_data)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -379,9 +321,11 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_error(500, str(e))
         elif parsed.path.endswith("/api/page/delete"):
-            content_length = int(self.headers.get('Content-Length', 0) or 0)
-            post_data = self.rfile.read(content_length) if content_length else b'{}'
             try:
+                content_length = int(self.headers.get('Content-Length', 0) or 0)
+                if content_length > 64 * 1024 * 1024:
+                    raise ValueError("Payload too large")
+                post_data = self.rfile.read(content_length) if content_length else b'{}'
                 payload = json.loads(post_data or b'{}')
                 clean_name = payload.get('clean')
                 block_ids = set(payload.get('block_ids', []))
@@ -414,10 +358,11 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                             continue
                         removed = [bid for bid in block_ids if bid in data]
                         if removed:
-                            for bid in removed:
-                                data.pop(bid, None)
-                            with open(f, "w", encoding="utf-8") as fh:
-                                json.dump(data, fh, ensure_ascii=False, indent=2)
+                            with _SAVE_LOCK:
+                                for bid in removed:
+                                    data.pop(bid, None)
+                                with open(f, "w", encoding="utf-8") as fh:
+                                    json.dump(data, fh, ensure_ascii=False, indent=2)
                             result["langs_updated"].append(f.stem)
 
                 self.send_response(200)
@@ -427,9 +372,11 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_error(500, str(e))
         elif parsed.path.endswith("/api/pipeline/run"):
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
             try:
+                content_length = int(self.headers.get('Content-Length', 0) or 0)
+                if content_length > 64 * 1024 * 1024:
+                    raise ValueError("Payload too large")
+                post_data = self.rfile.read(content_length)
                 args = json.loads(post_data)
                 self.run_pipeline_task(args, task_path)
             except Exception as e:
@@ -446,19 +393,14 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         input_path = args.get('input')
         output_path = args.get('output')
         config_path = args.get('config')
-        # Cross-language reference: 'auto' (default) → None (all reviewed langs),
-        # 'off' → [] (no reference), or a list of codes → manual.
-        _ref = args.get('reference_langs', 'auto')
-        reference_langs = [] if _ref == 'off' else (_ref if isinstance(_ref, list) else None)
+        reference_langs = sc.parse_reference_langs(args.get('reference_langs', 'auto'))
 
-        if config_path:
-            resolved_path = Path(config_path)
-            if not resolved_path.is_absolute():
-                resolved_path = self.root_dir / resolved_path
-            if not _is_safe_config_path(str(resolved_path), self.root_dir):
-                self.send_error(403, "Access to configuration file denied")
-                return
-            config_path = str(resolved_path)
+        try:
+            input_path, output_path, config_path = sc.resolve_pipeline_paths(
+                input_path, output_path, config_path, task_path, self.root_dir)
+        except sc.PipelinePathError as e:
+            self.send_error(400, str(e))
+            return
 
         self.send_response(200)
         self.send_header('Content-Type', 'text/event-stream')
@@ -486,40 +428,12 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         pipeline_logger.addHandler(handler)
 
         async def execute():
-            # Pipeline features need the full package — import lazily so the editor
-            # itself can run without manga_translator_lite (and its ML deps) installed.
             try:
-                from manga_translator_lite.config import Config
-                from manga_translator_lite.pipeline.extract import run_extract
-                from manga_translator_lite.pipeline.translate import run_translate
-                from manga_translator_lite.pipeline.render import run_render
-            except ImportError as e:
-                send_log(f"Pipeline unavailable: manga_translator_lite is not importable ({e}). "
-                         f"The editor runs standalone, but extract/translate/render need the full package.",
-                         'error')
-                log_q.put(None)
-                return
-
-            cfg = Config.load(config_path or None)
-            if target_lang:
-                cfg.translator.target_lang = target_lang
-
-            try:
-                if cmd == 'extract':
-                    await run_extract(input_path or str(task_path / "in"), task_path, cfg, overwrite=overwrite)
-                elif cmd == 'translate':
-                    await run_translate(task_path, cfg, overwrite=overwrite, target_lang=target_lang,
-                                        start_index=start_index, reference_langs=reference_langs)
-                elif cmd == 'render':
-                    await run_render(task_path, output_path or str(task_path / "out"), cfg)
-                elif cmd == 'run':
-                    await run_extract(input_path or str(task_path / "in"), task_path, cfg, overwrite=overwrite)
-                    await run_translate(task_path, cfg, overwrite=overwrite, target_lang=target_lang,
-                                        reference_langs=reference_langs)
-                    await run_render(task_path, output_path or str(task_path / "out"), cfg)
-                send_log("--- Pipeline Finished ---", 'status')
-            except Exception as e:
-                send_log(f"Error: {str(e)}", 'error')
+                await sc.run_pipeline(
+                    cmd=cmd, task_path=task_path, config_path=config_path,
+                    target_lang=target_lang, overwrite=overwrite, start_index=start_index,
+                    reference_langs=reference_langs, input_path=input_path, output_path=output_path,
+                    log=lambda kind, msg: send_log(msg, kind))
             finally:
                 log_q.put(None)
 
@@ -547,9 +461,9 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
     def serve_thumb(self, task_path, img_name):
         """Serve a small, disk-cached JPEG thumbnail of a clean image.
 
-        Falls back to the original PNG if the name is missing/unsafe is rejected,
-        and — crucially — if Pillow isn't installed or decoding fails, so the editor
-        keeps working (just without the bandwidth savings) on a bare install.
+        Falls back to the original PNG if the name is missing/unsafe, and — crucially
+        — if Pillow isn't installed or decoding fails, so the editor keeps working
+        (just without the bandwidth savings) on a bare install.
         """
         if not img_name:
             self.send_error(400, "Image name required")
@@ -566,28 +480,10 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         if not src:
             self.send_error(404, "Image not found")
             return
-        try:
-            from PIL import Image
-            cache_dir = task_path / ".thumb_cache"
-            cache_path = cache_dir / (img_name + ".jpg")
-            # Regenerate when missing or older than the source image.
-            if (not cache_path.exists()) or cache_path.stat().st_mtime < src.stat().st_mtime:
-                cache_dir.mkdir(exist_ok=True)
-                with Image.open(src) as im:
-                    im = im.convert("RGB")
-                    im.thumbnail((self.THUMB_BOX, self.THUMB_BOX))
-                    # Write to a unique temp file then atomically rename, so a
-                    # concurrent request never reads a half-written thumbnail.
-                    import tempfile
-                    fd, tmp = tempfile.mkstemp(dir=str(cache_dir), suffix=".tmp")
-                    os.close(fd)
-                    im.save(tmp, "JPEG", quality=72)
-                    os.replace(tmp, cache_path)
-            self.serve_file(cache_path, "image/jpeg")
-        except Exception as e:
-            # Pillow absent or decode error → serve the full image instead.
-            if self.logger:
-                self.logger.info(f"Thumbnail fallback for {img_name}: {e}")
+        cache = sc.build_thumbnail(src, task_path / ".thumb_cache", self.THUMB_BOX, logger=self.logger)
+        if cache:
+            self.serve_file(cache, "image/jpeg")
+        else:
             self.serve_file(src, "image/png")
 
     def handle_collab_stream(self, task_name, user):
@@ -644,7 +540,8 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
 
     def handle_collab_action(self, params, task_name, user):
         try:
-            length = int(self.headers['Content-Length'])
+            length = int(self.headers.get('Content-Length', 0) or 0)
+            if length > 64 * 1024 * 1024: raise ValueError("Payload too large")
             action = json.loads(self.rfile.read(length))
 
             page = action.get("page", 0)
@@ -668,7 +565,8 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
 
     def handle_collab_chat(self, task_name, user):
         try:
-            length = int(self.headers['Content-Length'])
+            length = int(self.headers.get('Content-Length', 0) or 0)
+            if length > 64 * 1024 * 1024: raise ValueError("Payload too large")
             action = json.loads(self.rfile.read(length))
             text = action.get("text", "")
 
