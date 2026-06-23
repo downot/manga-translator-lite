@@ -106,3 +106,67 @@ def test_resolve_pipeline_paths_normalizes_good_paths(tmp_path):
     (tmp_path / "config.toml").write_text("x = 1")
     inp, out, cfg = sc.resolve_pipeline_paths("in", "out", "config.toml", tmp_path, tmp_path)
     assert inp.endswith("/in") and cfg.endswith("/config.toml")
+
+
+# ---- validate_pages_payload (write-boundary guard) --------------------------
+def test_pages_payload_accepts_well_formed():
+    sc.validate_pages_payload({
+        "version": 4,
+        "pages": [{
+            "name": "0001.png", "original": "0001.png", "clean": "clean/0001.png",
+            "blocks": [{"id": "p0001_b000", "text": "hi", "bbox": [1, 2, 3, 4],
+                        "polygon": [[0, 0], [1, 0], [1, 1], [0, 1]]}],
+        }],
+    })
+
+
+def test_pages_payload_rejects_name_traversal():
+    for bad in ("../evil.png", "a/b.png", "/etc/passwd", "..\\evil.png"):
+        try:
+            sc.validate_pages_payload({"pages": [{"name": bad}]})
+            assert False, f"expected PayloadError for name={bad!r}"
+        except sc.PayloadError:
+            pass
+
+
+def test_pages_payload_rejects_clean_escape():
+    for bad in ("../../etc/x.png", "/abs/x.png", "clean/../../x.png"):
+        try:
+            sc.validate_pages_payload({"pages": [{"clean": bad}]})
+            assert False, f"expected PayloadError for clean={bad!r}"
+        except sc.PayloadError:
+            pass
+
+
+def test_pages_payload_rejects_bad_bbox_and_oversized_text():
+    try:
+        sc.validate_pages_payload({"pages": [{"blocks": [{"id": "x", "bbox": [1, 2, 3]}]}]})
+        assert False, "expected PayloadError for short bbox"
+    except sc.PayloadError:
+        pass
+    big = "a" * (sc.MAX_BLOCK_TEXT + 1)
+    try:
+        sc.validate_pages_payload({"pages": [{"blocks": [{"id": "x", "text": big}]}]})
+        assert False, "expected PayloadError for oversized text"
+    except sc.PayloadError:
+        pass
+
+
+def test_pages_payload_allows_subdir_clean_but_not_dotdot():
+    sc.validate_pages_payload({"pages": [{"clean": "clean_v2/0001.png"}]})  # ok
+
+
+# ---- validate_translations_payload ------------------------------------------
+def test_translations_payload_legacy_and_collab2():
+    sc.validate_translations_payload({"p0001_b000": {"text": "hi", "edited": True}})
+    sc.validate_translations_payload({"changes": {"p0001_b000": {"text": "hi", "base": 0}},
+                                      "deletes": ["p0001_b001"]})
+
+
+def test_translations_payload_rejects_oversized():
+    big = "a" * (sc.MAX_BLOCK_TEXT + 1)
+    try:
+        sc.validate_translations_payload({"b": {"text": big}})
+        assert False, "expected PayloadError"
+    except sc.PayloadError:
+        pass

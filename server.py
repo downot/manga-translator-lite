@@ -280,6 +280,16 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                     raise ValueError("Payload too large")
                 post_data = self.rfile.read(content_length)
                 data = json.loads(post_data)
+                # Validate at the write boundary so malformed/hostile payloads never
+                # reach disk (and can't smuggle a traversal path into pages.json).
+                try:
+                    if lang:
+                        sc.validate_translations_payload(data)
+                    else:
+                        sc.validate_pages_payload(data)
+                except sc.PayloadError as e:
+                    self.send_error(400, f"Invalid payload: {e}")
+                    return
                 if lang:
                     trans_dir = task_path / "translations"
                     trans_dir.mkdir(exist_ok=True)

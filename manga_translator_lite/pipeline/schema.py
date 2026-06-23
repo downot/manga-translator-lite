@@ -129,9 +129,13 @@ class Page:
     def from_dict(cls, data: dict) -> "Page":
         return cls(
             index=int(data["index"]),
-            name=str(data.get("name", "")),
+            # name/original feed the render OUTPUT filename, so reduce them to a bare
+            # basename: a client-written pages.json must never steer writes with a path
+            # like "../../x.png" or "/etc/x". (page.clean is a workspace-relative READ
+            # path and is confined against the root at use; see safe_workspace_path.)
+            name=os.path.basename(str(data.get("name", ""))),
             size=tuple(data.get("size", [0, 0])),
-            original=str(data.get("original", "")).replace("\\", "/"),
+            original=os.path.basename(str(data.get("original", "")).replace("\\", "/")),
             clean=str(data.get("clean", "")).replace("\\", "/"),
             blocks=[Block.from_dict(b) for b in data.get("blocks", [])],
             no_text=bool(data.get("no_text", False)),
@@ -218,6 +222,24 @@ def save_translations(root: str, lang: str, translations: Dict[str, Translation]
     data = {bid: t.to_dict() for bid, t in translations.items()}
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def safe_workspace_path(root: str, rel: str) -> Optional[str]:
+    """Resolve a workspace-relative path under ``root``.
+
+    Returns the absolute path only if it stays inside ``root``; returns None for an
+    empty value or any path that escapes (``..`` segments, an absolute path, or a
+    symlink-free traversal). Used to confine client-writable fields such as
+    ``page.clean`` before they are opened/copied at render time, so a tampered
+    pages.json can't read/write files outside the task workspace.
+    """
+    if not rel:
+        return None
+    root_abs = os.path.abspath(root)
+    target = os.path.abspath(os.path.join(root_abs, rel))
+    if target == root_abs or target.startswith(root_abs + os.sep):
+        return target
+    return None
 
 
 def load_workspace(root: str) -> Workspace:

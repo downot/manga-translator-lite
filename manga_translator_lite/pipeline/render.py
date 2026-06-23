@@ -23,7 +23,7 @@ from PIL import Image
 from ..config import Config
 from ..rendering import dispatch as dispatch_rendering
 from ..utils import BASE_PATH, TextBlock, get_logger, cv2_imread
-from .schema import Block, Page, Workspace, discover_tasks, load_workspace, load_translations
+from .schema import Block, Page, Workspace, discover_tasks, load_workspace, load_translations, safe_workspace_path
 
 logger = get_logger('render')
 
@@ -89,22 +89,26 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
     - Pages with blocks but no translations → copy the clean image.
     - Normal pages → render translated text onto the clean image.
     """
-    out_path = os.path.join(out_dir, out_name)
+    # Defense in depth: the output name is already a basename via Page.from_dict,
+    # but never let a caller's name steer the write outside out_dir.
+    out_path = os.path.join(out_dir, os.path.basename(out_name))
+
+    # page.clean is workspace-relative and client-writable → confine it to ws.root
+    # before any read/copy, so a tampered pages.json can't reach outside the task.
+    clean_path = safe_workspace_path(ws.root, page.clean)
 
     # no_text pages — copy clean directly (which is a copy of original)
     if page.no_text:
-        clean_abs = os.path.join(ws.root, page.clean)
-        if os.path.exists(clean_abs):
-            shutil.copy2(clean_abs, out_path)
+        if clean_path and os.path.exists(clean_path):
+            shutil.copy2(clean_path, out_path)
             logger.info(f"[page {page.index}] no_text → copied original (from clean) → {out_path}")
         else:
-            logger.warning(f"[page {page.index}] no_text but clean image missing, skipping")
+            logger.warning(f"[page {page.index}] no_text but clean image missing/unsafe, skipping")
             return None
         return out_path
 
-    clean_path = os.path.join(ws.root, page.clean)
-    if not os.path.exists(clean_path):
-        logger.warning(f"[page {page.index}] clean image missing: {clean_path}, skipping")
+    if not clean_path or not os.path.exists(clean_path):
+        logger.warning(f"[page {page.index}] clean image missing/unsafe: {page.clean!r}, skipping")
         return None
 
     img_bgr = cv2_imread(clean_path, cv2.IMREAD_COLOR)

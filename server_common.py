@@ -10,11 +10,12 @@ the repo root (next to ``server.py``) ON PURPOSE:
   * Because it is a plain top-level module — not a submodule of the package —
     ``import server_common`` never triggers ``manga_translator_lite/__init__``.
 
-It contains the GENERIC base logic common to any editor backend: path-safety
-helpers, config reading, thumbnailing, and the pipeline command dispatch. It must
-stay free of product-specific concerns (auth, sessions, access control, branding)
-so that downstream/custom servers (e.g. an authenticated commercial variant) can
-reuse it without inheriting that project's customizations.
+It is the shared base for the MTL editor backends — path-safety helpers, config
+reading, thumbnailing, save-payload validation, and the pipeline command dispatch.
+It is MTL-aware (it knows the task/workspace/pipeline shape) but must stay free of
+DEPLOYMENT-specific concerns (auth, sessions, access control, branding) so that
+downstream/custom servers (e.g. an authenticated commercial variant) can reuse it
+without inheriting that project's customizations.
 """
 from __future__ import annotations
 
@@ -77,6 +78,111 @@ def is_safe_lang(lang: str) -> bool:
     to build ``translations/<lang>.json`` paths).
     """
     return bool(re.match(r"^[a-zA-Z0-9_-]+$", lang or ""))
+
+
+# ---------------------------------------------------------------------------
+# Save-payload validation
+# ---------------------------------------------------------------------------
+# /api/save writes client JSON straight to pages.json / translations/<lang>.json.
+# Validate at the WRITE boundary so malformed or hostile data never lands on disk
+# (where it would otherwise surface as a 500 deep in render/extract, or — for path
+# fields — as a read/write outside the workspace). Checks only the security/robustness
+# invariants the editor always satisfies; unknown/extra fields are left alone so the
+# editor's schema can evolve without server changes.
+MAX_BLOCK_TEXT = 50_000   # generous per-block text cap (a bubble is ~hundreds of chars)
+
+
+class PayloadError(ValueError):
+    """A save payload failed validation; carries a short, client-safe message."""
+
+
+def _is_num(x) -> bool:
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def _safe_name_field(s) -> bool:
+    """A bare-filename field (page.name / page.original): a string with no path
+    separator or ``..`` traversal — it must not be able to steer a write elsewhere.
+    Empty/"." are allowed (harmless, non-traversal; render basenames them anyway)."""
+    return isinstance(s, str) and s != ".." \
+        and "/" not in s and "\\" not in s and "\x00" not in s
+
+
+def _safe_relpath_field(s) -> bool:
+    """A workspace-relative path field (page.clean): a string that is not absolute,
+    has no ``..`` segment, and no NUL byte. May contain a sub-directory (e.g. clean/)."""
+    if not isinstance(s, str) or not s or "\x00" in s:
+        return False
+    norm = s.replace("\\", "/")
+    if norm.startswith("/"):
+        return False
+    return ".." not in norm.split("/")
+
+
+def _validate_block(b, where):
+    if not isinstance(b, dict):
+        raise PayloadError(f"{where} must be an object")
+    text = b.get("text", "")
+    if not isinstance(text, str):
+        raise PayloadError(f"{where}.text must be a string")
+    if len(text) > MAX_BLOCK_TEXT:
+        raise PayloadError(f"{where}.text exceeds {MAX_BLOCK_TEXT} chars")
+    bbox = b.get("bbox")
+    if bbox is not None and not (isinstance(bbox, list) and len(bbox) == 4 and all(_is_num(v) for v in bbox)):
+        raise PayloadError(f"{where}.bbox must be 4 numbers")
+    poly = b.get("polygon")
+    if poly is not None:
+        if not isinstance(poly, list) or not all(
+                isinstance(pt, list) and len(pt) == 2 and all(_is_num(v) for v in pt) for pt in poly):
+            raise PayloadError(f"{where}.polygon must be a list of [x, y] points")
+
+
+def validate_pages_payload(data) -> None:
+    """Validate a pages.json save body. Raises :class:`PayloadError` on the first
+    problem (path-field escape, malformed geometry, oversized text)."""
+    if not isinstance(data, dict):
+        raise PayloadError("pages.json must be a JSON object")
+    pages = data.get("pages", [])
+    if not isinstance(pages, list):
+        raise PayloadError("pages must be a list")
+    for i, page in enumerate(pages):
+        if not isinstance(page, dict):
+            raise PayloadError(f"page[{i}] must be an object")
+        for f in ("name", "original"):
+            if f in page and not _safe_name_field(page[f]):
+                raise PayloadError(f"page[{i}].{f} is not a safe filename")
+        if page.get("clean") and not _safe_relpath_field(page["clean"]):
+            raise PayloadError(f"page[{i}].clean escapes the workspace")
+        blocks = page.get("blocks", [])
+        if not isinstance(blocks, list):
+            raise PayloadError(f"page[{i}].blocks must be a list")
+        for j, b in enumerate(blocks):
+            _validate_block(b, f"page[{i}].block[{j}]")
+
+
+def validate_translations_payload(data) -> None:
+    """Validate a translations/<lang>.json save body — either the legacy whole-object
+    form ``{bid: {text, edited}}`` or the collab2 incremental form
+    ``{changes: {bid: {text,...}}, deletes: [bid,...]}``. Raises :class:`PayloadError`."""
+    if not isinstance(data, dict):
+        raise PayloadError("translations must be a JSON object")
+    if "changes" in data or "deletes" in data:          # collab2 incremental save
+        changes = data.get("changes", {})
+        if not isinstance(changes, dict):
+            raise PayloadError("changes must be an object")
+        for bid, ch in changes.items():
+            if not isinstance(ch, dict):
+                raise PayloadError(f"changes[{bid}] must be an object")
+            t = ch.get("text", "")
+            if not isinstance(t, str) or len(t) > MAX_BLOCK_TEXT:
+                raise PayloadError(f"changes[{bid}].text is invalid or too large")
+        if not isinstance(data.get("deletes", []), list):
+            raise PayloadError("deletes must be a list")
+        return
+    for bid, t in data.items():                          # legacy whole-object save
+        txt = t.get("text", "") if isinstance(t, dict) else t
+        if not isinstance(txt, str) or len(txt) > MAX_BLOCK_TEXT:
+            raise PayloadError(f"translation[{bid}] is invalid or too large")
 
 
 # ---------------------------------------------------------------------------

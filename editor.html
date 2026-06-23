@@ -4516,16 +4516,32 @@
             storage.chatPeer = username;
             storage.markRead(username);   // clears unread + persists last-read time
 
-            // Update drawer header
+            // Update drawer header. username/displayName/avatar come from other
+            // collaborators' sessions (attacker-controllable), so build the header with
+            // DOM APIs + textContent — never string-interpolate them into innerHTML.
             const color = stringToColor(username);
             const initial = (displayName || username).charAt(0).toUpperCase();
             const peer = (storage.activeCollaborators || []).find(u => u.username === username);
-            const peerImg = peer && peer.avatar
-                ? `<img alt="" src="${peer.avatar}" onerror="this.remove()">` : '';
-            elements.chatPeerName.innerHTML =
-                `<span class="chat-peer-avatar" style="background:${color}">${initial}${peerImg}</span>` +
-                `<span>${displayName || username}</span>` +
-                `<span class="peer-handle">@${username}</span>`;
+
+            const avatarSpan = document.createElement('span');
+            avatarSpan.className = 'chat-peer-avatar';
+            avatarSpan.style.background = color;
+            avatarSpan.textContent = initial;
+            // Only trust http(s) avatar URLs, and set .src as a property (no markup parse).
+            if (peer && peer.avatar && /^https?:\/\//i.test(peer.avatar)) {
+                const img = document.createElement('img');
+                img.alt = '';
+                img.src = peer.avatar;
+                img.onerror = () => img.remove();
+                avatarSpan.appendChild(img);
+            }
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = displayName || username;
+            const handleSpan = document.createElement('span');
+            handleSpan.className = 'peer-handle';
+            handleSpan.textContent = '@' + username;
+
+            elements.chatPeerName.replaceChildren(avatarSpan, nameSpan, handleSpan);
 
             // Enable input
             elements.chatInput.disabled = false;
