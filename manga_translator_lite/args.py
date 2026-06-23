@@ -94,6 +94,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_render.add_argument('work_dir', help='Existing workspace directory.')
     p_render.add_argument('-o', '--output', required=True,
                           help='Output directory for final images.')
+    p_render.add_argument('-t', '--task', action='append', metavar='NAME',
+                          help='Render only this task subdirectory. Repeatable, or pass a '
+                               'comma-separated list. Default: render all tasks.')
     p_render.add_argument('--check', action='store_true',
                           help='Force spelling and fluency proofreading check on translations.')
     p_render.add_argument('--no-check', action='store_true',

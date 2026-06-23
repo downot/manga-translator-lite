@@ -415,13 +415,20 @@
             border-radius: 3px; border: 1px solid var(--border); vertical-align: middle;
         }
         .bg-swatch.bg-white { background: #fff; border-color: #cbd5e1; }
-        /* "match" = fill with the region's own color. A fixed violet marker is easier to
-           recognize as a mode than the per-block estimated color (which varies). */
-        .bg-swatch.bg-match { background: #a855f7; border-color: #9333ea; }
         /* transparent / no fill → a diagonal slash over an empty square */
         .bg-swatch.bg-none {
             background:
                 linear-gradient(to top right, transparent 0 45%, var(--text-secondary) 45% 55%, transparent 55% 100%);
+        }
+        /* Transparent option inside the background-color popover (a larger fg-swatch). */
+        .fg-swatch.is-transparent {
+            background:
+                linear-gradient(to top right, transparent 0 44%, var(--text-secondary) 44% 56%, transparent 56% 100%);
+        }
+        /* Eyedropper option: sample a color straight from the page image. */
+        .fg-swatch.eyedrop-swatch {
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--bg-hover); color: var(--text-primary);
         }
         /* Fixed/auto badge: a click-to-toggle chip. Solid emerald = fixed (user-sized),
            dashed-outline muted = auto (auto-fit), matching the canvas border style. */
@@ -1728,9 +1735,9 @@
 
     <script>
         const i18n = {
-            zh: { btnLogout: "退出登录", btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelReference: "参考语言", refAuto: "自动（所有已校对语言）", refOff: "关闭（仅用原文）", refCustom: "自定义语言…", refLangsPlaceholder: "CHS, ENG", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页 of 该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "背景：白底覆盖（点击切为透明）", tipBgNone: "背景：透明/仅文字（点击切为同色底）", tipBgMatch: "背景：同色底覆盖（按区域估计色，点击切为白底）", tipClone: "克隆此文字块（同尺寸·同颜色，位置偏移）", tipFontColor: "字体颜色（黑 / 白 / 任务现有颜色）", tipCopyOrig: "双击复制原文到剪贴板", copyOk: "原文已复制到剪贴板", copyFail: "复制失败", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）", badgeFixed: "固定", badgeAuto: "自动", tipPinFixed: "固定框：字号填满框（点击转为自动框）", tipPinAuto: "自动框：自动适配字号（点击固定为手动框）", rsBoxTitle: "文本框", btnConvertPageAuto: "本页固定框 → 自动", btnConvertTaskAuto: "整个任务固定框 → 自动", msgConvertedAuto: "已将 {n} 个固定框转为自动框", msgNoFixed: "没有需要转换的固定框", authorLabel: "作者", authorManual: "校正用户", authorLLM: "LLM", collabSyncSuccess: "已同步协作者的最新译文", collabConflict: "部分文字块在服务器上已被他人修改，请在冲突卡片中处理", liveTyping: "正在输入", authExpired: '会话已过期。请 <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">点击此处在新标签页登录</a></b>，然后重新保存。' },
-            en: { btnLogout: "Logout", btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelReference: "Reference Languages", refAuto: "Auto (all reviewed languages)", refOff: "Off (source only)", refCustom: "Custom languages…", refLangsPlaceholder: "CHS, ENG", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "Background: white fill (click for transparent)", tipBgNone: "Background: transparent / text only (click for region color)", tipBgMatch: "Background: region-color fill (click for white)", tipClone: "Clone this block (same size & colors, offset)", tipFontColor: "Font color (black / white / task colors)", tipCopyOrig: "Double-click to copy original to clipboard", copyOk: "Original copied to clipboard", copyFail: "Copy failed", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)", badgeFixed: "Fixed", badgeAuto: "Auto", tipPinFixed: "Fixed box: font fills the box (click to make auto)", tipPinAuto: "Auto box: font auto-fits (click to fix it)", rsBoxTitle: "Boxes", btnConvertPageAuto: "Page fixed → auto", btnConvertTaskAuto: "All pages fixed → auto", msgConvertedAuto: "Converted {n} fixed box(es) to auto", msgNoFixed: "No fixed boxes to convert", authorLabel: "Author", authorManual: "Manual", authorLLM: "LLM", collabSyncSuccess: "Synced collaborators' latest translations", collabConflict: "Some blocks changed on the server — resolve them in the conflict cards", liveTyping: "typing", authExpired: 'Session expired. Please <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">click here to log in in a new tab</a></b>, then save again.' },
-            ja: { btnLogout: "ログアウト", btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelReference: "参照言語", refAuto: "自動（校正済みの全言語）", refOff: "オフ（原文のみ）", refCustom: "カスタム言語…", refLangsPlaceholder: "CHS, ENG", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "背景：白で塗りつぶし（クリックで透明）", tipBgNone: "背景：透明／文字のみ（クリックで領域色）", tipBgMatch: "背景：領域色で塗りつぶし（クリックで白）", tipClone: "このブロックを複製（同サイズ・同色、位置をずらす）", tipFontColor: "文字色（黒 / 白 / タスク既存色）", tipCopyOrig: "ダブルクリックで原文をクリップボードにコピー", copyOk: "原文をクリップボードにコピーしました", copyFail: "コピーに失敗しました", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", badgeFixed: "固定", badgeAuto: "自動", tipPinFixed: "固定枠：フォントが枠を埋めます（クリックで自動枠に）", tipPinAuto: "自動枠：フォント自動調整（クリックで固定枠に）", rsBoxTitle: "テキスト枠", btnConvertPageAuto: "このページの固定枠 → 自動", btnConvertTaskAuto: "全ページの固定枠 → 自動", msgConvertedAuto: "{n} 個の固定枠を自動枠に変換しました", msgNoFixed: "変換する固定枠がありません", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM", collabSyncSuccess: "共同編集者の最新の翻訳を同期しました", collabConflict: "一部のブロックがサーバー上で変更されました。競合カードで解決してください", liveTyping: "入力中", authExpired: 'セッションの期限が切れました。<b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">ここをクリックして新しいタブでログイン</a></b>し、再度保存してください。' }
+            zh: { btnLogout: "退出登录", btnSave: "保存", titleTasks: "任务", titlePages: "页面", titleEditor: "编辑器", btnReload: "刷新", btnOpen: "打开", saveSuccess: "已保存", msgLoading: "加载中...", labelBlock: "块", placeholderEdit: "输入译文...", confirmSwitch: "有未保存的修改，确定要切换吗？", emptyOpenDir: "请先打开目录", emptySelectPage: "选择一个页面开始", pagePrefix: "第", titlePipeline: "流水线", btnRun: "运行任务", labelCmd: "命令", labelInput: "输入路径", labelOutput: "输出路径", labelOverwrite: "覆盖现有文件", labelStartIndex: "起始页码索引", labelReference: "参考语言", refAuto: "自动（所有已校对语言）", refOff: "关闭（仅用原文）", refCustom: "自定义语言…", refLangsPlaceholder: "CHS, ENG", labelConfig: "配置文件", btnMerge: "合并", btnConfirmMerge: "确认合并", msgSelectTasks: "请至少选择两个任务进行合并", msgMerging: "合并中...", mergeSuccess: "合并完成: {name}", zoomFit: "自适应", zoomWidth: "按宽度缩放", zoomOrig: "100%大小", titleStory: "剧本描述 (story.txt)", labelStoryTemplate: "选择模板背景", labelStoryContent: "故事描述内容", btnSaveStory: "保存剧本 (story.txt)", mergeOrderTip: "合并顺序（按勾选先后）", btnDeletePage: "删除此页面", confirmDeletePage: "确定要删除 {label} 吗？\n\n将一并清理：该页 of 该页的原文区块、所有语言的译文，以及对应的 clean 图片。\n此操作不可撤销！", confirmDeletePage2: "请再次确认：彻底删除 {label}？\n删除后无法恢复。", msgPageDeleted: "页面已删除（原文、译文、图片均已清理）", msgPageDeletedServer: "页面已删除（原文与当前语言译文已清理；图片及其他语言译文请在本地模式下清理）", msgPageDeleteFailed: "删除失败: ", btnPageInfo: "查看页面信息", infoTitle: "页面信息", infoPage: "页码", infoTask: "任务", infoOriginal: "原始文件", infoClean: "清理图路径", infoFullPath: "完整路径", infoSize: "尺寸", infoBlocks: "文字块", infoErase: "可疑擦除区", infoNoText: "无文字页", infoClose: "关闭", btnEditRegion: "编辑区域边界", editModeOn: "编辑模式：拖手柄缩放 / 拖框体移动 / 空白处拖拽新建", editModeOff: "已退出编辑模式", btnDeleteBlock: "删除此块", confirmDeleteBlock: "确定删除此文字块及其译文吗？", tipBgWhite: "白底覆盖", tipBgNone: "透明 / 仅文字", tipBgMatch: "同色底覆盖", tipBgPick: "背景填充：透明 / 白 / 任务颜色 / 图片取色", tipEyedrop: "从图片取色", tipEyedropHint: "点击图片任意位置取背景色（Esc 取消）", msgEyedropFail: "取色失败（图片可能跨域受限）", tipClone: "克隆此文字块（同尺寸·同颜色，位置偏移）", tipFontColor: "字体颜色（黑 / 白 / 任务现有颜色）", tipCopyOrig: "双击复制原文到剪贴板", copyOk: "原文已复制到剪贴板", copyFail: "复制失败", btnImportTrans: "导入译文并对比差异", importTitle: "导入译文差异", importCurrent: "现有译文", importNew: "导入新值", importSelectAll: "全选", importApply: "应用所选", importCancel: "取消", importNoDiff: "没有差异：当前译文与导入文件一致", importApplied: "已应用 {n} 处差异并保存", importBadFile: "无效的译文文件（应为 translations/*.json）", importOrphan: "无对应文字块", importLangMismatch: "导入文件语言为 {file}，与当前编辑语言 {cur} 不一致。仍要继续对比吗？", tipBoxScale: "文本框统一缩放比例（写入 pages.json，渲染时生效）", tipMinFont: "本任务最小字号（留空=用 config.toml）", tipExpandLimit: "本任务扩框上限倍数（留空=用 config.toml）", badgeFixed: "固定", badgeAuto: "自动", tipPinFixed: "固定框：字号填满框（点击转为自动框）", tipPinAuto: "自动框：自动适配字号（点击固定为手动框）", rsBoxTitle: "文本框", btnConvertPageAuto: "本页固定框 → 自动", btnConvertTaskAuto: "整个任务固定框 → 自动", msgConvertedAuto: "已将 {n} 个固定框转为自动框", msgNoFixed: "没有需要转换的固定框", authorLabel: "作者", authorManual: "校正用户", authorLLM: "LLM", collabSyncSuccess: "已同步协作者的最新译文", collabConflict: "部分文字块在服务器上已被他人修改，请在冲突卡片中处理", liveTyping: "正在输入", authExpired: '会话已过期。请 <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">点击此处在新标签页登录</a></b>，然后重新保存。' },
+            en: { btnLogout: "Logout", btnSave: "Save", titleTasks: "Tasks", titlePages: "Pages", titleEditor: "Editor", btnReload: "Reload", btnOpen: "Open", saveSuccess: "Saved", msgLoading: "Loading...", labelBlock: "Block", placeholderEdit: "Enter translation...", confirmSwitch: "Unsaved changes! Switch anyway?", emptyOpenDir: "Open a directory first", emptySelectPage: "Select a page to start", pagePrefix: "Page", titlePipeline: "Pipeline", btnRun: "Run Task", labelCmd: "Command", labelInput: "Input Path", labelOutput: "Output Path", labelOverwrite: "Overwrite Existing", labelStartIndex: "Start Page Index", labelReference: "Reference Languages", refAuto: "Auto (all reviewed languages)", refOff: "Off (source only)", refCustom: "Custom languages…", refLangsPlaceholder: "CHS, ENG", labelConfig: "Config File", btnMerge: "Merge", btnConfirmMerge: "Confirm Merge", msgSelectTasks: "Select at least 2 tasks to merge", msgMerging: "Merging...", mergeSuccess: "Merged: {name}", zoomFit: "Fit Both", zoomWidth: "Fit Width", zoomOrig: "100% Size", titleStory: "Story Context (story.txt)", labelStoryTemplate: "Select Template", labelStoryContent: "Story Description", btnSaveStory: "Save story.txt", mergeOrderTip: "Merge order (by selection sequence)", btnDeletePage: "Delete this page", confirmDeletePage: "Delete {label}?\n\nThis also removes: the page's text blocks, translations in ALL languages, and the matching clean image.\nThis cannot be undone!", confirmDeletePage2: "Confirm again: permanently delete {label}?\nThis cannot be recovered.", msgPageDeleted: "Page deleted (text, translations and image cleaned up)", msgPageDeletedServer: "Page deleted (text & current-language translation cleaned; image and other languages need local mode)", msgPageDeleteFailed: "Delete failed: ", btnPageInfo: "View page info", infoTitle: "Page Info", infoPage: "Page", infoTask: "Task", infoOriginal: "Original file", infoClean: "Clean image", infoFullPath: "Full path", infoSize: "Size", infoBlocks: "Text blocks", infoErase: "Erase-only", infoNoText: "No-text page", infoClose: "Close", btnEditRegion: "Edit region boundaries", editModeOn: "Edit mode: drag handles to resize / body to move / empty area to add", editModeOff: "Edit mode off", btnDeleteBlock: "Delete this block", confirmDeleteBlock: "Delete this text block and its translation?", tipBgWhite: "White fill", tipBgNone: "Transparent / text only", tipBgMatch: "Region-color fill", tipBgPick: "Background fill (transparent / white / task colors / pick from image)", tipEyedrop: "Pick color from image", tipEyedropHint: "Click anywhere on the image to sample the background color (Esc to cancel)", msgEyedropFail: "Color pick failed (image may be cross-origin restricted)", tipClone: "Clone this block (same size & colors, offset)", tipFontColor: "Font color (black / white / task colors)", tipCopyOrig: "Double-click to copy original to clipboard", copyOk: "Original copied to clipboard", copyFail: "Copy failed", btnImportTrans: "Import & compare translations", importTitle: "Translation diff", importCurrent: "Current", importNew: "Imported", importSelectAll: "Select all", importApply: "Apply selected", importCancel: "Cancel", importNoDiff: "No differences: current matches the imported file", importApplied: "Applied {n} change(s) and saved", importBadFile: "Invalid translation file (expected translations/*.json)", importOrphan: "no matching block", importLangMismatch: "The imported file looks like {file}, but you're editing {cur}. Continue anyway?", tipBoxScale: "Uniform text-box scale (saved to pages.json, applied at render)", tipMinFont: "Min font size for this task (blank = use config.toml)", tipExpandLimit: "Box expand limit for this task (blank = use config.toml)", badgeFixed: "Fixed", badgeAuto: "Auto", tipPinFixed: "Fixed box: font fills the box (click to make auto)", tipPinAuto: "Auto box: font auto-fits (click to fix it)", rsBoxTitle: "Boxes", btnConvertPageAuto: "Page fixed → auto", btnConvertTaskAuto: "All pages fixed → auto", msgConvertedAuto: "Converted {n} fixed box(es) to auto", msgNoFixed: "No fixed boxes to convert", authorLabel: "Author", authorManual: "Manual", authorLLM: "LLM", collabSyncSuccess: "Synced collaborators' latest translations", collabConflict: "Some blocks changed on the server — resolve them in the conflict cards", liveTyping: "typing", authExpired: 'Session expired. Please <b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">click here to log in in a new tab</a></b>, then save again.' },
+            ja: { btnLogout: "ログアウト", btnSave: "保存", titleTasks: "タスク", titlePages: "ページ", titleEditor: "エディタ", btnReload: "再読込", btnOpen: "開く", saveSuccess: "保存済み", msgLoading: "読込中...", labelBlock: "ブロック", placeholderEdit: "翻訳を入力...", confirmSwitch: "未保存の変更があります。切り替えますか？", emptyOpenDir: "ディレクトリを開いてください", emptySelectPage: "ページを選択してください", pagePrefix: "第", titlePipeline: "パイプライン", btnRun: "タスク実行", labelCmd: "コマンド", labelInput: "入力パス", labelOutput: "出力パス", labelOverwrite: "既存ファイルを上書き", labelStartIndex: "開始ページ索引", labelReference: "参照言語", refAuto: "自動（校正済みの全言語）", refOff: "オフ（原文のみ）", refCustom: "カスタム言語…", refLangsPlaceholder: "CHS, ENG", labelConfig: "設定ファイル", btnMerge: "合併", btnConfirmMerge: "合併確認", msgSelectTasks: "合併するタスクを2つ以上選択してください", msgMerging: "合併中...", mergeSuccess: "合併完了: {name}", zoomFit: "全体表示", zoomWidth: "幅に合わせる", zoomOrig: "100%表示", titleStory: "ストーリー背景 (story.txt)", labelStoryTemplate: "テンプレート選択", labelStoryContent: "ストーリー記述内容", btnSaveStory: "ストーリー保存 (story.txt)", mergeOrderTip: "合併順序（選択順）", btnDeletePage: "このページを削除", confirmDeletePage: "{label} を削除しますか？\n\n原文ブロック、全言語の翻訳、対応する clean 画像も削除されます。\n元に戻せません！", confirmDeletePage2: "再確認：{label} を完全に削除しますか？\n復元できません。", msgPageDeleted: "ページを削除しました（原文・翻訳・画像を整理）", msgPageDeletedServer: "ページを削除しました（原文と現在の言語の翻訳を整理。画像と他言語はローカルモードで）", msgPageDeleteFailed: "削除に失敗しました: ", btnPageInfo: "ページ情報を表示", infoTitle: "ページ情報", infoPage: "ページ", infoTask: "タスク", infoOriginal: "元ファイル", infoClean: "クリーン画像", infoFullPath: "フルパス", infoSize: "サイズ", infoBlocks: "テキストブロック", infoErase: "消去のみ領域", infoNoText: "テキストなしページ", infoClose: "閉じる", btnEditRegion: "領域の境界を編集", editModeOn: "編集モード：ハンドルでサイズ変更 / 本体で移動 / 空白でドラッグして追加", editModeOff: "編集モード終了", btnDeleteBlock: "このブロックを削除", confirmDeleteBlock: "このテキストブロックと翻訳を削除しますか？", tipBgWhite: "白で塗りつぶし", tipBgNone: "透明／文字のみ", tipBgMatch: "領域色で塗りつぶし", tipBgPick: "背景の塗り（透明 / 白 / タスクの色 / 画像から取得）", tipEyedrop: "画像から色を取得", tipEyedropHint: "画像の任意の位置をクリックして背景色を取得（Escで取消）", msgEyedropFail: "色の取得に失敗しました（画像がクロスオリジン制限の可能性）", tipClone: "このブロックを複製（同サイズ・同色、位置をずらす）", tipFontColor: "文字色（黒 / 白 / タスク既存色）", tipCopyOrig: "ダブルクリックで原文をクリップボードにコピー", copyOk: "原文をクリップボードにコピーしました", copyFail: "コピーに失敗しました", btnImportTrans: "翻訳をインポートして差分比較", importTitle: "翻訳の差分", importCurrent: "現在の翻訳", importNew: "インポート値", importSelectAll: "すべて選択", importApply: "選択を適用", importCancel: "キャンセル", importNoDiff: "差分なし：現在の翻訳とインポートファイルは一致", importApplied: "{n} 件の差分を適用して保存しました", importBadFile: "無効な翻訳ファイル（translations/*.json が必要）", importOrphan: "対応ブロックなし", importLangMismatch: "インポートファイルは {file} のようですが、編集中は {cur} です。続行しますか？", tipBoxScale: "テキストボックスの一律スケール（pages.json に保存、描画時に適用）", tipMinFont: "このタスクの最小フォントサイズ（空=config.toml を使用）", tipExpandLimit: "このタスクの枠拡張上限（空=config.toml を使用）", badgeFixed: "固定", badgeAuto: "自動", tipPinFixed: "固定枠：フォントが枠を埋めます（クリックで自動枠に）", tipPinAuto: "自動枠：フォント自動調整（クリックで固定枠に）", rsBoxTitle: "テキスト枠", btnConvertPageAuto: "このページの固定枠 → 自動", btnConvertTaskAuto: "全ページの固定枠 → 自動", msgConvertedAuto: "{n} 個の固定枠を自動枠に変換しました", msgNoFixed: "変換する固定枠がありません", authorLabel: "作成者", authorManual: "手動修正", authorLLM: "LLM", collabSyncSuccess: "共同編集者の最新の翻訳を同期しました", collabConflict: "一部のブロックがサーバー上で変更されました。競合カードで解決してください", liveTyping: "入力中", authExpired: 'セッションの期限が切れました。<b><a href="/auth/login" target="_blank" style="color:#60a5fa;text-decoration:underline;">ここをクリックして新しいタブでログイン</a></b>し、再度保存してください。' }
         };
         // Tooltip shown when the Pipeline tab is disabled (local mode).
         i18n.zh.pipelineLocalOnly = 'Pipeline 仅在服务端模式可用';
@@ -1755,9 +1762,9 @@
         i18n.en.zoomFitShort = 'Fit'; i18n.en.zoomWidthShort = 'Width'; i18n.en.zoomOrigShort = '100%';
         i18n.ja.zoomFitShort = '全体'; i18n.ja.zoomWidthShort = '幅'; i18n.ja.zoomOrigShort = '100%';
         // Keyboard-shortcut help overlay.
-        i18n.zh.titleShortcuts = '快捷键'; i18n.zh.scPageNav = '上一页 / 下一页'; i18n.zh.scUpDown = '切换文字块 / 任务 / 页面（随当前焦点区域）'; i18n.zh.scAltArrow = '编辑译文时也能翻页'; i18n.zh.scClear = '清空当前译文'; i18n.zh.scHelp = '显示本快捷键帮助';
-        i18n.en.titleShortcuts = 'Keyboard Shortcuts'; i18n.en.scPageNav = 'Previous / next page'; i18n.en.scUpDown = 'Move between blocks / tasks / pages (by focus area)'; i18n.en.scAltArrow = 'Page nav even while editing text'; i18n.en.scClear = 'Clear the current translation'; i18n.en.scHelp = 'Show this shortcut help';
-        i18n.ja.titleShortcuts = 'キーボードショートカット'; i18n.ja.scPageNav = '前 / 次のページ'; i18n.ja.scUpDown = 'ブロック / タスク / ページ移動（フォーカス領域による）'; i18n.ja.scAltArrow = 'テキスト編集中でもページ移動'; i18n.ja.scClear = '現在の翻訳をクリア'; i18n.ja.scHelp = 'このショートカットヘルプを表示';
+        i18n.zh.titleShortcuts = '快捷键'; i18n.zh.scPageNav = '上一页 / 下一页'; i18n.zh.scHistory = '页面历史：返回 / 前进（回到刚才所在的页）'; i18n.zh.scUpDown = '切换文字块 / 任务 / 页面（随当前焦点区域）'; i18n.zh.scAltArrow = '编辑译文时也能翻页'; i18n.zh.scSave = '保存'; i18n.zh.scClear = '清空当前译文'; i18n.zh.scHelp = '显示本快捷键帮助';
+        i18n.en.titleShortcuts = 'Keyboard Shortcuts'; i18n.en.scPageNav = 'Previous / next page'; i18n.en.scHistory = 'Page history: back / forward (jump to the page you came from)'; i18n.en.scUpDown = 'Move between blocks / tasks / pages (by focus area)'; i18n.en.scAltArrow = 'Page nav even while editing text'; i18n.en.scSave = 'Save'; i18n.en.scClear = 'Clear the current translation'; i18n.en.scHelp = 'Show this shortcut help';
+        i18n.ja.titleShortcuts = 'キーボードショートカット'; i18n.ja.scPageNav = '前 / 次のページ'; i18n.ja.scHistory = 'ページ履歴：戻る / 進む（直前のページへ）'; i18n.ja.scUpDown = 'ブロック / タスク / ページ移動（フォーカス領域による）'; i18n.ja.scAltArrow = 'テキスト編集中でもページ移動'; i18n.ja.scSave = '保存'; i18n.ja.scClear = '現在の翻訳をクリア'; i18n.ja.scHelp = 'このショートカットヘルプを表示';
         // Side-by-side block-card column labels.
         i18n.zh.labelOrig = '原文'; i18n.zh.labelTrans = '译文';
         i18n.en.labelOrig = 'Original'; i18n.en.labelTrans = 'Translation';
@@ -2456,6 +2463,8 @@
             needsSort: false,
             editMode: false,        // region-edit mode (drag to resize/move/add boxes)
             activeFocusArea: 'pages', // which pane arrow keys navigate: tasks/pages/editor/canvas
+            // Browser-style page navigation history (back/forward), per task.
+            pageHistory: [], histPos: -1, histTaskKey: null, _histNavigating: false,
         };
 
         const elements = {
@@ -2509,7 +2518,8 @@
             moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>',
             copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
             eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>',
-            eyeOff: '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'
+            eyeOff: '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>',
+            pipette: '<path d="m2 22 1-1h3l9-9"></path><path d="M3 21v-3l9-9"></path><path d="m15 6 3.4-3.4a2.1 2.1 0 0 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"></path>'
         };
         // Build an <svg> element from trusted static markup. The markup constants in
         // ICONS are not user data, so innerHTML here is safe.
@@ -3838,9 +3848,35 @@
             }
         }
 
+        // --- Page navigation history (browser-style back/forward) -----------------
+        // Every page visit is recorded; back/forward retrace your path so you can hop
+        // from page 3 → 10, jump straight back to 3, then forward to 10 again.
+        function recordPageHistory(index) {
+            const key = storage.currentTask ? (storage.currentTask.name || '?') : '?';
+            if (state.histTaskKey !== key) {        // switched task → start fresh
+                state.histTaskKey = key; state.pageHistory = []; state.histPos = -1;
+            }
+            if (state._histNavigating) return;       // moving within history: don't mutate it
+            if (state.pageHistory[state.histPos] === index) return;   // no-op revisit
+            state.pageHistory = state.pageHistory.slice(0, state.histPos + 1);   // drop forward tail
+            state.pageHistory.push(index);
+            const MAX = 100;
+            if (state.pageHistory.length > MAX) state.pageHistory.shift();
+            state.histPos = state.pageHistory.length - 1;
+        }
+        function pageHistoryGo(delta) {
+            const np = state.histPos + delta;
+            if (np < 0 || np >= state.pageHistory.length) return;   // nothing further this way
+            state.histPos = np;
+            state._histNavigating = true;            // selectPage's record call is a no-op
+            selectPage(state.pageHistory[np]);       // runs its sync prefix before any await
+            state._histNavigating = false;
+        }
+
         async function selectPage(index) {
             if (index < 0 || index >= storage.currentTask.data.pages.length) return;
             state.currentPageIndex = index;
+            recordPageHistory(index);
             if (storage.collabActive) {
                 storage.sendCollabAction();
                 redrawActiveCollaborators();
@@ -4248,19 +4284,17 @@
 
                 const bgBtn = document.createElement('button');
                 bgBtn.className = 'blk-bg-btn';
-                bgBtn.title = bgFill === 'white' ? t('tipBgWhite')
-                            : bgFill === 'match' ? t('tipBgMatch') : t('tipBgNone');
+                bgBtn.title = t('tipBgPick');
                 bgBtn.setAttribute('aria-label', bgBtn.title);
-                // The swatch reads each mode at a glance:
+                // The swatch shows the current fill at a glance:
                 //   none  → bordered square with a slash (no fill / transparent)
                 //   white → a literally white square
-                //   match → a fixed violet swatch standing for "fill with region color"
-                //           (a fixed marker is clearer than the per-block estimated color,
-                //            which varies and can look near-white/near-transparent)
+                //   match → the chosen fill color (picked from the task palette)
                 const bgSwatch = document.createElement('span');
-                bgSwatch.className = 'bg-swatch bg-' + bgFill;
+                bgSwatch.className = 'bg-swatch' + (bgFill === 'none' ? ' bg-none' : bgFill === 'white' ? ' bg-white' : '');
+                if (bgFill === 'match') bgSwatch.style.background = rgbCss(block.bg_color || [255, 255, 255]);
                 bgBtn.appendChild(bgSwatch);
-                bgBtn.onclick = (ev) => { ev.stopPropagation(); toggleBlockBg(bIndex); };
+                bgBtn.onclick = (ev) => { ev.stopPropagation(); openBgColorPicker(bIndex, bgBtn); };
                 actions.appendChild(bgBtn);
 
                 // Font-color picker: a swatch of the block's current fg_color; opens a
@@ -4960,12 +4994,133 @@
         function persistGeometry() {
             savePagesJson().catch(e => showToast('Save failed: ' + e.message));
         }
-        function toggleBlockBg(bIndex) {
+        // Background fill is a small palette, mirroring the font-color picker: transparent
+        // and white are always offered; every other choice is a real color sampled from
+        // this task's blocks — far more reliable than the per-block auto-estimate.
+        //   transparent → bg_fill='none';  white → bg_fill='white'
+        //   a task color → bg_fill='match' with bg_color set to the chosen color
+        function setBlockBg(bIndex, mode, color) {
             const b = storage.currentTask.data.pages[state.currentPageIndex].blocks[bIndex]; if (!b) return;
-            // Cycle: none (transparent) → match (region color) → white → none.
-            const next = { none: 'match', match: 'white', white: 'none' };
-            b.bg_fill = next[b.bg_fill] || 'match';
+            b.bg_fill = mode;
+            if (mode === 'match' && color) b.bg_color = color.slice(0, 3);
             persistGeometry(); render();
+        }
+        // The task's most-frequent, visually-distinct background colors (near-white is
+        // absorbed by the permanent White swatch). Same dedup approach as taskFontColors.
+        function taskBgColors() {
+            const TOP_N = 10, MIN_DIST = 45;
+            const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+            const counts = new Map();
+            for (const p of (storage.currentTask.data.pages || []))
+                for (const b of (p.blocks || [])) {
+                    const c = b.bg_color;
+                    if (Array.isArray(c) && c.length >= 3) {
+                        const k = c.slice(0, 3).join(',');
+                        const e = counts.get(k) || { color: c.slice(0, 3), n: 0 };
+                        e.n++; counts.set(k, e);
+                    }
+                }
+            const ranked = [...counts.values()].sort((a, b) => b.n - a.n);
+            const base = [[255, 255, 255]];   // white is already a permanent swatch
+            const reps = [];
+            for (const e of ranked) {
+                if (reps.length >= TOP_N) break;
+                if (base.some(b => dist(b, e.color) < MIN_DIST)) continue;
+                if (reps.some(r => dist(r, e.color) < MIN_DIST)) continue;
+                reps.push(e.color);
+            }
+            return reps;
+        }
+        let _bgOutsideHandler = null;
+        function closeBgColorPicker() {
+            const pop = document.getElementById('bg-color-popover');
+            if (pop) pop.remove();
+            if (_bgOutsideHandler) { document.removeEventListener('mousedown', _bgOutsideHandler); _bgOutsideHandler = null; }
+        }
+        function openBgColorPicker(bIndex, anchor) {
+            closeBgColorPicker();
+            const b = storage.currentTask.data.pages[state.currentPageIndex].blocks[bIndex]; if (!b) return;
+            const mode = b.bg_fill || 'none';
+            const curColor = (Array.isArray(b.bg_color) ? b.bg_color.slice(0, 3) : [255, 255, 255]).join(',');
+            const pop = document.createElement('div');
+            pop.className = 'fg-color-popover';
+            pop.id = 'bg-color-popover';
+
+            // Permanent: transparent + white.
+            const tSw = document.createElement('button');
+            tSw.className = 'fg-swatch is-transparent' + (mode === 'none' ? ' active' : '');
+            tSw.title = t('tipBgNone');
+            tSw.onclick = (e) => { e.stopPropagation(); setBlockBg(bIndex, 'none'); closeBgColorPicker(); };
+            pop.appendChild(tSw);
+
+            const wSw = document.createElement('button');
+            wSw.className = 'fg-swatch' + (mode === 'white' ? ' active' : '');
+            wSw.style.background = '#fff';
+            wSw.title = t('tipBgWhite');
+            wSw.onclick = (e) => { e.stopPropagation(); setBlockBg(bIndex, 'white'); closeBgColorPicker(); };
+            pop.appendChild(wSw);
+
+            // Eyedropper: sample any pixel straight off the page image — covers colors the
+            // task palette misses (gradients, screentones, etc.).
+            const eSw = document.createElement('button');
+            eSw.className = 'fg-swatch eyedrop-swatch';
+            eSw.title = t('tipEyedrop');
+            eSw.appendChild(svgIcon(ICONS.pipette, 15));
+            eSw.onclick = (e) => { e.stopPropagation(); closeBgColorPicker(); startEyedropper(bIndex); };
+            pop.appendChild(eSw);
+
+            // Task colors → "match" fill with the chosen color.
+            taskBgColors().forEach(c => {
+                const sw = document.createElement('button');
+                const isActive = mode === 'match' && c.join(',') === curColor;
+                sw.className = 'fg-swatch' + (isActive ? ' active' : '');
+                sw.style.background = rgbCss(c);
+                sw.title = rgbCss(c);
+                sw.onclick = (e) => { e.stopPropagation(); setBlockBg(bIndex, 'match', c); closeBgColorPicker(); };
+                pop.appendChild(sw);
+            });
+
+            document.body.appendChild(pop);
+            const r = anchor.getBoundingClientRect();
+            const pw = pop.offsetWidth, ph = pop.offsetHeight;
+            pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8)) + 'px';
+            pop.style.top = (r.bottom + ph + 8 > window.innerHeight ? r.top - ph - 4 : r.bottom + 4) + 'px';
+            _bgOutsideHandler = (e) => { if (!pop.contains(e.target) && e.target !== anchor) closeBgColorPicker(); };
+            setTimeout(() => document.addEventListener('mousedown', _bgOutsideHandler), 0);
+        }
+
+        // Eyedropper: the next click on the canvas samples that pixel and becomes the
+        // block's background fill. Intercepted in the capture phase so it pre-empts the
+        // region-edit / selection handlers; Esc cancels.
+        let _eyedropTarget = null;
+        function _eyedropEsc(e) { if (e.key === 'Escape') cancelEyedropper(); }
+        function _eyedropClick(e) {
+            e.preventDefault(); e.stopPropagation();
+            const bIndex = _eyedropTarget;
+            const { x, y } = canvasToImg(e);
+            const xi = Math.max(0, Math.min(elements.canvas.width - 1, Math.round(x)));
+            const yi = Math.max(0, Math.min(elements.canvas.height - 1, Math.round(y)));
+            cancelEyedropper();
+            let rgb;
+            try {
+                const d = ctx.getImageData(xi, yi, 1, 1).data;
+                rgb = [d[0], d[1], d[2]];
+            } catch (err) { showToast(t('msgEyedropFail'), 'error'); return; }
+            if (bIndex != null) setBlockBg(bIndex, 'match', rgb);
+        }
+        function startEyedropper(bIndex) {
+            _eyedropTarget = bIndex;
+            elements.canvas.style.cursor = 'crosshair';
+            showToast(t('tipEyedropHint'), 'info');
+            elements.canvas.addEventListener('mousedown', _eyedropClick, { capture: true });
+            document.addEventListener('keydown', _eyedropEsc);
+        }
+        function cancelEyedropper() {
+            if (_eyedropTarget == null) return;
+            _eyedropTarget = null;
+            elements.canvas.style.cursor = state.editMode ? 'crosshair' : 'default';
+            elements.canvas.removeEventListener('mousedown', _eyedropClick, { capture: true });
+            document.removeEventListener('keydown', _eyedropEsc);
         }
 
         // Render an [r,g,b] color array as a CSS color (defaults to black).
@@ -5133,8 +5288,10 @@
             if (document.getElementById('shortcuts-overlay')) return; // avoid stacking
             const rows = [
                 ['← / →', t('scPageNav')],
+                ['[ / ]', t('scHistory')],
                 ['↑ / ↓', t('scUpDown')],
                 ['Alt + ← / →', t('scAltArrow')],
+                ['Ctrl / ⌘ + S', t('scSave')],
                 ['Alt / Ctrl + Z', t('scClear')],
                 ['?', t('scHelp')],
             ];
@@ -5369,6 +5526,7 @@
         // Hover feedback: show resize cursors over the selected block's handles and a
         // move cursor over a block body, so small regions are easy to grab.
         function updateHoverCursor(e) {
+            if (_eyedropTarget != null) { elements.canvas.style.cursor = 'crosshair'; return; }
             if (!state.editMode || drag || !storage.currentTask || state.currentPageIndex < 0) return;
             const { x, y, scale } = canvasToImg(e);
             const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks || [];
@@ -5493,9 +5651,25 @@
         document.addEventListener('keydown', (e) => {
             const isInput = e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT';
 
+            // Save — works anywhere (even while editing a translation). No-op if the
+            // Save button is disabled (nothing unsaved) or hidden (view-only).
+            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                if (!elements.btnSave.disabled) elements.btnSave.click();
+                return;
+            }
+
             if (e.key === '?' && !isInput) {
                 e.preventDefault();
                 showShortcutsHelp();
+                return;
+            }
+
+            // Page history back / forward (jump back to where you came from). Plain
+            // brackets so it's a single keypress; suppressed while typing in a field.
+            if ((e.key === '[' || e.key === ']') && !isInput) {
+                e.preventDefault();
+                pageHistoryGo(e.key === '[' ? -1 : 1);
                 return;
             }
 

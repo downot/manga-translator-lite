@@ -245,20 +245,38 @@ async def run_render(
     check: bool = False,
     no_check: bool = False,
     yes: bool = False,
+    tasks: Optional[List[str]] = None,
 ) -> List[str]:
-    """Render all tasks under work_dir.
+    """Render tasks under work_dir.
 
     Mirrors the subdirectory structure: work_dir/<task>/ → out_dir/<task>/.
+    ``tasks`` optionally restricts rendering to specific task subdirectories
+    (each entry may be a single name or a comma-separated list); the default
+    renders every task.
     """
     work_dir = os.path.abspath(os.path.expanduser(work_dir))
     out_dir = os.path.abspath(os.path.expanduser(out_dir))
     os.makedirs(out_dir, exist_ok=True)
 
-    tasks = discover_tasks(work_dir)
-    if not tasks:
+    available = discover_tasks(work_dir)
+    if not available:
         raise FileNotFoundError(f"No task subdirectories found under {work_dir}")
 
-    logger.info(f"Found {len(tasks)} task(s) to render: {tasks}")
+    if tasks:
+        # Accept repeated flags and comma-separated values; preserve discovery order.
+        requested = [name.strip() for entry in tasks for name in entry.split(',') if name.strip()]
+        unknown = [name for name in requested if name not in available]
+        if unknown:
+            raise FileNotFoundError(
+                f"Task(s) not found under {work_dir}: {', '.join(unknown)}. "
+                f"Available: {', '.join(available)}"
+            )
+        wanted = set(requested)
+        tasks = [name for name in available if name in wanted]
+    else:
+        tasks = available
+
+    logger.info(f"Found {len(available)} task(s); rendering {len(tasks)}: {tasks}")
 
     from rich.console import Console
     console = Console()

@@ -42,7 +42,8 @@ async def _dispatch(args) -> int:
         await run_render(args.work_dir, args.output, cfg,
                          check=getattr(args, 'check', False),
                          no_check=getattr(args, 'no_check', False),
-                         yes=getattr(args, 'yes', False))
+                         yes=getattr(args, 'yes', False),
+                         tasks=getattr(args, 'task', None))
         return 0
 
     if args.cmd == 'run':
