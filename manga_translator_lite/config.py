@@ -144,6 +144,14 @@ class RenderConfig(BaseModel):
     font_size_offset: int = 0
     font_size_minimum: int = -1
     font_size_minimum_expand_limit: float = 1.5
+    font_size_readable_min: int = -1
+    """Readability floor (px) for user-sized / fixed boxes. A fixed box never
+    auto-expands, so when its translation is long the font shrinks to fit — this
+    is the smallest size it may shrink to. Below it the text would be unreadable,
+    so rendering stops at this floor and the (now slightly overflowing) block is
+    flagged for review in the editor instead of being silently shrunk to a few px.
+    ``-1`` = auto (page-relative ≈ (width+height)/300); a positive value is an
+    absolute pixel floor. Set a very small value (e.g. ``4``) for the old behavior."""
     line_spacing: Optional[int] = None
     direction: Direction = Direction.auto
     alignment: Alignment = Alignment.auto
@@ -170,12 +178,64 @@ class RenderConfig(BaseModel):
         return hex2rgb(self.font_color.split(':')[1])
 
 
+class SignaturePages(str, Enum):
+    none = "none"          # never draw
+    first = "first"        # only the first page of each work
+    last = "last"          # only the last page
+    first_last = "first_last"  # first AND last page (default)
+    every = "every"        # every page (watermark style)
+
+
+class SignaturePosition(str, Enum):
+    bottom_right = "bottom-right"
+    bottom_left = "bottom-left"
+    top_right = "top-right"
+    top_left = "top-left"
+
+
+class SignatureConfig(BaseModel):
+    """Translator credit baked into the output, plus a low-key mention of this
+    open-source system. Rendered as a small horizontal or vertical text box in a
+    page corner. Disabled by default; set ``enabled = true`` and a ``translator``."""
+    enabled: bool = False
+    translator: str = ""
+    """Translator name / handle shown in the credit."""
+    text: str = ""
+    """Custom template for the translator line. Placeholder: {translator} (and
+    {project} if you want the credit inline). Use \\n for line breaks. Empty →
+    default '译者：{translator}'. The fixed open-source project credit
+    (MTL.downot.moe) is always appended and cannot be changed or removed."""
+    pages: SignaturePages = SignaturePages.first_last
+    direction: Direction = Direction.auto
+    """horizontal | vertical | auto. auto = vertical for CJK target languages, else horizontal."""
+    position: SignaturePosition = SignaturePosition.bottom_right
+    font_size: int = -1
+    """Translator-name font size in px. -1 = auto (large, page-relative ≈ (W+H)/85).
+    The fixed project credit is drawn at ~half this, lighter, and the name overlaps it."""
+    color: str = "595959"
+    """Hex RGB of the translator name (clear but low-key grey). The project credit is auto-lightened well beyond this so the name stands out."""
+    opacity: float = 0.85
+    """0–1 overall opacity. The project credit uses about half of this so it recedes."""
+    margin: int = -1
+    """Inset from the page edge in px. -1 = auto (≈ (width+height)/120)."""
+    font_path: str = ""
+    """Optional separate font for the signature. Empty → render font / bundled default."""
+
+    @property
+    def color_rgb(self) -> Tuple[int, int, int]:
+        try:
+            return hex2rgb(self.color)
+        except Exception:
+            return (128, 128, 128)
+
+
 class Config(BaseModel):
     detector: DetectorConfig = DetectorConfig()
     ocr: OcrConfig = OcrConfig()
     inpainter: InpainterConfig = InpainterConfig()
     translator: TranslatorConfig = TranslatorConfig()
     render: RenderConfig = RenderConfig()
+    signature: SignatureConfig = SignatureConfig()
 
     kernel_size: int = 3
     """Convolution kernel size used to clean up text mask edges."""

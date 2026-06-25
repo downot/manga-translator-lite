@@ -165,6 +165,8 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
         eff_min = ws.font_size_minimum if ws.font_size_minimum is not None else cfg.render.font_size_minimum
         eff_expand = (ws.font_size_minimum_expand_limit if ws.font_size_minimum_expand_limit is not None
                       else cfg.render.font_size_minimum_expand_limit)
+        eff_readable = (ws.font_size_readable_min if ws.font_size_readable_min is not None
+                        else cfg.render.font_size_readable_min)
         rendered_rgb = await dispatch_rendering(
             img_rgb,
             text_regions,
@@ -173,6 +175,7 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
             font_size_offset=cfg.render.font_size_offset,
             font_size_minimum=eff_min,
             font_size_minimum_expand_limit=eff_expand,
+            font_size_readable_min=eff_readable,
             hyphenate=not cfg.render.no_hyphenation,
             line_spacing=cfg.render.line_spacing,
             disable_font_border=cfg.render.disable_font_border,
@@ -225,12 +228,26 @@ async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cf
     names = [p.name for p in workspace.pages]
     has_dupes = len(set(names)) != len(names)
 
+    # Translator signature: a low-key credit baked into the chosen pages (first/last/
+    # every) after the normal render, so it also lands on no_text pass-through pages.
+    from ..rendering.signature import needs_signature, apply_signature_to_file
+    sig = getattr(cfg, "signature", None)
+    sig_font = cfg.render.font_path or DEFAULT_FONT
+    sig_scale = workspace.signature_scale if workspace.signature_scale is not None else 1.0
+    sig_offset = tuple(workspace.signature_offset) if workspace.signature_offset else (0, 0)
+    total_pages = len(workspace.pages)
+
     written: List[str] = []
     for i, page in enumerate(workspace.pages):
         out_name = f"{i + 1:04d}_{page.name}" if has_dupes else page.name
         path = await _render_page(page, workspace, cfg, task_out_dir, translations, out_name)
         if path:
             written.append(path)
+            if needs_signature(sig, i, total_pages):
+                if apply_signature_to_file(path, sig, workspace.target_lang, sig_font, sig_scale, sig_offset):
+                    logger.info(f"[page {page.index}] signature added")
+                else:
+                    logger.warning(f"[page {page.index}] signature could not be added")
 
     no_text_count = sum(1 for p in workspace.pages if p.no_text)
     logger.info(f"[task: {task_name}] Wrote {len(written)} image(s) "

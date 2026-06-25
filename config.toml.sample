@@ -190,6 +190,11 @@ font_size_minimum = 34
 # 日  範囲 1.0–3.0 · 最小フォントを収める最大拡大率(1.0=拡大なし) · 長い訳が切れる時は上げ、枠同士の重なりを防ぐ時は下げる
 font_size_minimum_expand_limit = 2.5
 
+# EN  -1 = auto (page-relative ≈ (W+H)/300) · readability floor for fixed/user-sized boxes that never auto-expand · text below it would be unreadable, so rendering stops here and the block is flagged in the editor instead · set 4 for the old behavior
+# 中  -1=自动(随页面≈(宽+高)/300) · 固定/手画框(不自动扩框)的可读字号下限 · 低于它会看不清,渲染到此为止并在编辑器标记问题,不再悄悄缩成几像素 · 设 4 可恢复旧行为
+# 日  -1=自動(ページ相対≈(幅+高)/300) · 自動拡張しない固定/手描き枠の可読フォント下限 · これ未満は読めないため描画はここで止め、代わりにエディタで該当ブロックを警告表示 · 旧挙動は 4 を指定
+font_size_readable_min = -1
+
 # EN  range 0–10 px · extra space between wrapped lines; larger = airier, 0 = tightest (fits more text) · raise for readability, keep low to fit long text at a larger size
 # 中  范围 0–10 像素 · 换行的额外行距；调大更松，0=最紧(塞更多字) · 重可读性调大，想大字塞长文保持低值
 # 日  範囲 0–10px · 折り返し行の追加行間；大=ゆったり、0=最密(多く収まる) · 可読性なら上げ、大きな字で長文を収めるなら低めに
@@ -234,3 +239,66 @@ rtl = true
 # 中  十六进制 "FG" 或 "FG:描边" · 强制固定文字(及描边)颜色，覆盖逐块检测的颜色 · 纯黑白本可取消注释统一对比度；彩页保持注释
 # 日  16進 "FG" または "FG:STROKE" · 文字(と縁取り)色を固定し、ブロック毎の検出色を上書き · 白黒作品はコメント解除でコントラスト統一、カラーページはコメントのまま
 # font_color = "000000:FFFFFF"        # black text + white outline
+
+
+# ============================================================================
+# [signature] — Translator credit baked onto the output pages
+# 译者署名：把译者信息（含本开源系统的低调标注）烘焙到成品页角落
+# 翻訳者クレジット：訳者情報（本OSSの控えめな表記を含む）をページ隅に焼き込み
+# ----------------------------------------------------------------------------
+[signature]
+
+# EN  true|false · master switch; off by default so output is unchanged · set true and fill `translator` to bake a credit
+# 中  true|false · 总开关，默认关闭不影响输出 · 设 true 并填 `translator` 即可烘焙署名
+# 日  true|false · マスタースイッチ、既定はオフで出力は不変 · true にして `translator` を記入すると署名を焼き込み
+enabled = false
+
+# EN  translator name / handle shown in the credit
+# 中  显示在署名里的译者名 / ID
+# 日  クレジットに表示する訳者名 / ハンドル
+translator = ""
+
+# EN  custom template for the TRANSLATOR line; placeholder {translator}, use \n for line breaks · empty = default "译者：{translator}" · the fixed OSS credit "· MTL.downot.moe ·" is ALWAYS appended and cannot be changed
+# 中  自定义“译者”那一行的模板；占位符 {translator}，\n 换行 · 留空=默认「译者：{translator}」 · 固定开源标注「· MTL.downot.moe ·」始终自动附加且不可修改
+# 日  「訳者」行のテンプレート；プレースホルダ {translator}、\n で改行 · 空=既定「译者：{translator}」 · 固定のOSS表記「· MTL.downot.moe ·」は常に付加され変更不可
+text = ""
+
+# EN  none|first|last|first_last|every · which pages get the credit · first_last = first & last page of each work (recommended); every = watermark on all pages
+# 中  none|first|last|first_last|every · 哪些页加署名 · first_last=每部作品的首尾两页(推荐)；every=每页水印
+# 日  none|first|last|first_last|every · どのページに署名を付すか · first_last=各作品の最初と最後(推奨)；every=全ページ透かし
+pages = "first_last"
+
+# EN  auto|horizontal|vertical · signature text-box orientation · auto = vertical for CJK target langs, horizontal otherwise; pick one explicitly per taste
+# 中  auto|horizontal|vertical · 署名文本框朝向 · auto=CJK 目标语言用纵向、其他横向；可按喜好显式指定
+# 日  auto|horizontal|vertical · 署名テキストボックスの向き · auto=CJK言語は縦・他は横、好みで明示指定も可
+direction = "auto"
+
+# EN  bottom-right|bottom-left|top-right|top-left · which corner the credit sits in
+# 中  bottom-right|bottom-left|top-right|top-left · 署名放在哪个角落
+# 日  bottom-right|bottom-left|top-right|top-left · 署名を置く隅
+position = "bottom-right"
+
+# EN  signature font size in px · -1 = auto (page-relative ≈ (W+H)/85, large); a positive value is absolute
+# 中  署名字号(像素) · -1=自动(随页面≈(宽+高)/85，较大)；正数为绝对值
+# 日  署名フォントサイズ(px) · -1=自動(ページ相対≈(幅+高)/85、大きめ)、正数は絶対値
+font_size = -1
+
+# EN  hex RGB of the credit text; low-key grey by default · use a darker/lighter value to match your pages
+# 中  署名文字的十六进制 RGB；默认低调灰 · 可按页面明暗改深或改浅
+# 日  署名文字の16進RGB；既定は控えめなグレー · ページの明暗に合わせて調整
+color = "595959"
+
+# EN  0–1 overall opacity so the credit stays unobtrusive
+# 中  0–1 整体不透明度，让署名保持低调
+# 日  0–1 全体の不透明度、署名を控えめに保つ
+opacity = 0.85
+
+# EN  inset from the page edge in px · -1 = auto (≈ (W+H)/120)
+# 中  距页面边缘的内边距(像素) · -1=自动(≈(宽+高)/120)
+# 日  ページ端からの余白(px) · -1=自動(≈(幅+高)/120)
+margin = -1
+
+# EN  optional separate font file for the signature; empty = render font / bundled default
+# 中  署名专用字体文件(可选)；留空=渲染字体 / 内置默认
+# 日  署名専用フォント(任意)；空=描画フォント / 同梱既定
+font_path = ""

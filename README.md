@@ -208,15 +208,39 @@ fusion_max_area_ratio = 0.1     # drop secondary boxes larger than this fraction
 
 **Avoiding large false erasures.** A box detector can return one huge box for a stylized title or SFX that spans the artwork; since secondary regions are erased by box-fill, that would wipe a large area. `fusion_max_area_ratio` drops any secondary box covering more than that fraction of the page (default `0.1` = 10%), so oversized region boxes are neither translated nor erased — the art is left intact. Lower it (e.g. `0.06`) if you still see big rectangular wipes; set `0` to disable the cap.
 
-### Controlling text size (`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit`)
+### Controlling text size (`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit` · `font_size_readable_min`)
 
-Three knobs decide how big the translated text is rendered, with distinct, non-overlapping roles:
+Four knobs decide how big the translated text is rendered, with distinct, non-overlapping roles:
 
 - **`box_scale`** *(per-task — set in the editor, stored in `pages.json`)* — the main magnifier. It scales each text box **and** the font-size ceiling by the same factor, so `2.5` renders text ~2.5× the detected size and fills the enlarged box (not just adds whitespace). A per-block `scale_exempt` flag opts a single block out.
-- **`font_size_minimum`** *(config `[render]`)* — a pure lower bound (pixels) for legibility. Text only shrinks below the box_scale'd size when a long translation must fit, and never below this floor (hand-adjusted boxes use a 4 px floor).
+- **`font_size_minimum`** *(config `[render]`)* — a pure lower bound (pixels) for legibility on **auto** boxes. Text only shrinks below the box_scale'd size when a long translation must fit, and never below this floor.
 - **`font_size_minimum_expand_limit`** *(config `[render]`)* — a fallback only. If a long translation still doesn't fit the box_scale'd box even at `font_size_minimum`, the box is expanded further, up to this ratio.
+- **`font_size_readable_min`** *(config `[render]`, default `-1` = auto ≈ `(W+H)/300`)* — the readability floor for **fixed / user-sized** boxes, which never auto-expand. Previously these shrank to a 4 px hard floor (often unreadable); now the font stops at this floor and, if the text still doesn't fit, the block is **flagged in the editor** (see below) instead of being silently shrunk to a few pixels. Set `4` to restore the old behavior.
 
-Typical workflow: set `box_scale` per task for the overall size you want; leave `font_size_minimum` as a legibility floor and `font_size_minimum_expand_limit` as overflow headroom. To fix a single box, **resize** it in the editor: the box renders exactly as drawn (never auto-expanded) and the font scales to fill it — drag it bigger and the text grows, smaller and it shrinks (down to a 4 px floor). Merely **moving** a box only repositions it and keeps the automatic sizing. The editor preview uses the same formulas, so what you see matches the output.
+Typical workflow: set `box_scale` per task for the overall size you want; leave `font_size_minimum` as a legibility floor and `font_size_minimum_expand_limit` as overflow headroom. To fix a single box, **resize** it in the editor: the box renders exactly as drawn (never auto-expanded) and the font scales to fill it — drag it bigger and the text grows, smaller and it shrinks (down to `font_size_readable_min`). Merely **moving** a box only repositions it and keeps the automatic sizing. The editor preview uses the same formulas, so what you see matches the output.
+
+### Translator signature (`[signature]`)
+
+Each work can carry a translator credit baked into the output, with a low-key mention of this open-source system folded in. Turn it on in `[signature]`:
+
+```toml
+[signature]
+enabled    = true
+translator = "YourName"          # shown in the credit
+pages      = "first_last"        # none | first | last | first_last | every
+direction  = "auto"              # auto | horizontal | vertical
+position   = "bottom-right"      # which corner
+```
+
+The credit renders in a page corner as a **layered mark**: the translator's name is large, drawn on top of a smaller, lighter open-source credit it overlaps. **Both a horizontal and a vertical text box are implemented** — pick one explicitly, or leave `direction = "auto"` for vertical on CJK target languages and horizontal otherwise. By default it appears on the **first and last page** of each work; set `every` for a watermark on every page, or `first` / `last`.
+
+The name line has **no fixed prefix** — the translator decides exactly what to show. It defaults to just the `translator` value and is fully overridable via `text` (placeholder `{translator}`, `\n` for line breaks). The fixed open-source credit — `MTL.downot.moe` — is a separate, auto-lightened layer drawn beneath the name and **cannot be changed or removed**. Name colour, opacity, font size, corner, margin and font are configurable (the credit's lighter shade and smaller size are derived automatically). The signature is **baked at render time and also shown in the editor preview** on the matching pages, so what you see matches the output.
+
+**Resize / reposition in the editor.** Open the region-edit tool (the pencil), then on a page that shows the signature, click it to select it and **drag a corner handle to scale** it or **drag the body to move** it. The size multiplier and offset are saved **per task** in `pages.json` (`signature_scale`, `signature_offset`), so each work can have its own signature size and placement; `render` reads the same values so the baked output matches what you positioned.
+
+### Render QA — automatic problem-block flagging
+
+To make manual review fast at batch scale, the editor automatically flags blocks whose text **overflows** its box (won't fit even at the readability floor) or renders **far smaller** than the rest of the page. Flagged blocks get a red warning badge on their card and a red index tag on the canvas; the **page list shows a red count** of problem blocks per page so you can see at a glance which pages need attention. The **funnel button** in the editor header toggles *show only problem blocks* (with a live count), so you can jump straight to the ones that need a bigger box or a shorter translation. The CLI `render` step logs the same overflow blocks per page.
 
 ## Visual Editor (Experimental)
 
@@ -245,7 +269,8 @@ There are two ways to open the editor:
 The editor is more than a translation textbox — it can fix layout and geometry directly:
 
 - **Region editor** — click the pencil (region-edit) button in the bottom toolbar to unlock boundary editing; a hint banner stays on screen while it's active. Then:
-  - **Resize** a region by dragging its handles, **move** it by dragging the body — the cursor shows which action you'll get.
+  - **Resize** a region by dragging its handles, **move** it by dragging the body — the cursor shows which action you'll get. Handles and hit-testing follow the box's **rotation**, so tilted regions (from detection) are just as easy to grab.
+  - **Rotate** a region with the round knob above its top edge; the angle snaps near 0/90/180/270° for easy alignment. Rotation is available for every block and is stored per block (`angle`) in `pages.json`.
   - **Draw a new region** by dragging on an empty area (new regions get a white background by default).
   - The **blue box** is the detected text region (where the translation is fitted); the **green dashed box** shows the actual rendered text extent, so you can size the box to control how big the text appears in the bubble. Untranslated blocks are tagged in amber.
   - A hand-adjusted box is marked *fixed* — at render time the text is fitted into exactly that box and is **never auto-expanded**.

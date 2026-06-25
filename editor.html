@@ -311,6 +311,21 @@
         /* On the active (accent) row, keep the badge readable. */
         .list-item.active .page-prog { background: rgba(255, 255, 255, 0.18); color: #fff; }
 
+        /* Per-page QA badge: count of blocks that overflow their box or render far
+           smaller than the rest of the page. Hidden when the page is clean. */
+        .page-qa {
+            flex: 0 0 auto;
+            font-size: 0.66rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 8px;
+            line-height: 1.5;
+            color: #fff;
+            background: var(--danger);
+        }
+        .page-qa.none { display: none; }
+        .list-item.active .page-qa { background: rgba(255, 255, 255, 0.28); color: #fff; }
+
         .modal-overlay {
             position: fixed; inset: 0; z-index: 1000;
             background: rgba(0, 0, 0, 0.6);
@@ -634,6 +649,28 @@
             color: var(--warning);
             cursor: help;
             vertical-align: middle;
+        }
+        /* QA marker: this block will overflow its box, or renders far smaller than
+           the rest of the page (after the readability floor). Actionable — enlarge
+           the box or shorten the translation. */
+        .blk-qa {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 5px;
+            color: var(--danger);
+            cursor: help;
+            vertical-align: middle;
+        }
+        /* Header toggle that filters the list to only QA-flagged blocks. */
+        #btn-qa-filter.active {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: #fff;
+        }
+        #btn-qa-filter .qa-count {
+            font-size: 0.62rem;
+            font-weight: 700;
+            margin-left: 3px;
         }
 
         .block-info {
@@ -1642,6 +1679,13 @@
         <aside id="editor">
             <div class="section-title">
                 <span data-i18n="titleEditor">Editor</span>
+                <button id="btn-qa-filter" class="secondary" title="Show only problem blocks" style="padding: 3px 7px;" onclick="toggleQaFilter()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg><span class="qa-count"></span>
+                </button>
                 <button id="btn-search" class="secondary" data-i18n-title="titleSearch" title="Search & replace" style="padding: 3px 7px;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="7"></circle>
@@ -1757,6 +1801,22 @@
         i18n.zh.tipSuspectLen = '原文明显短于译文——可能识别不全。可复核，或清空原文让其他语言从译文转译。';
         i18n.en.tipSuspectLen = 'Source much shorter than translation — possible partial OCR. Review, or clear the source so other languages translate from this text.';
         i18n.ja.tipSuspectLen = '原文が訳文より大幅に短い——認識不全の可能性。確認するか、原文を空にすると他言語はこの訳文から翻訳します。';
+        // Render QA (auto quality check): tiny-font / overflow flags.
+        i18n.zh.qaFilterTitle = '只看问题块（字号过小或文字溢出）';
+        i18n.en.qaFilterTitle = 'Show only problem blocks (tiny font or overflow)';
+        i18n.ja.qaFilterTitle = '問題ブロックのみ表示（極小フォント / はみ出し）';
+        i18n.zh.qaOverflow = '文字溢出文本框（约 {px}px）——请放大此框或精简译文';
+        i18n.en.qaOverflow = 'Text overflows its box (~{px}px) — enlarge the box or shorten the translation';
+        i18n.ja.qaOverflow = 'テキストが枠からはみ出します（約{px}px）——枠を広げるか訳文を短く';
+        i18n.zh.qaTiny = '此块字号明显小于本页其他块（约 {px}px）——建议放大文本框';
+        i18n.en.qaTiny = 'Renders far smaller than the rest of the page (~{px}px) — consider enlarging the box';
+        i18n.ja.qaTiny = 'このページの他より大幅に小さく描画されます（約{px}px）——枠の拡大を検討';
+        i18n.zh.qaPageCount = '本页有 {n} 个问题块（字号过小 / 溢出）';
+        i18n.en.qaPageCount = '{n} problem block(s) on this page (tiny / overflow)';
+        i18n.ja.qaPageCount = 'このページに問題ブロックが {n} 個（極小 / はみ出し）';
+        i18n.zh.qaNoneOnPage = '本页没有问题块 🎉';
+        i18n.en.qaNoneOnPage = 'No problem blocks on this page 🎉';
+        i18n.ja.qaNoneOnPage = 'このページに問題ブロックはありません 🎉';
         // Compact zoom-mode labels shown on the zoom button.
         i18n.zh.zoomFitShort = '适应'; i18n.zh.zoomWidthShort = '宽度'; i18n.zh.zoomOrigShort = '100%';
         i18n.en.zoomFitShort = 'Fit'; i18n.en.zoomWidthShort = 'Width'; i18n.en.zoomOrigShort = '100%';
@@ -1782,7 +1842,7 @@
         i18n.ja.titleSearch = '検索 / 置換'; i18n.ja.searchFindPh = '訳文を検索…'; i18n.ja.searchReplacePh = '置換後…（空=削除）'; i18n.ja.searchInOrig = '原文も検索'; i18n.ja.searchReplaceSel = '選択を置換'; i18n.ja.searchReplaceAll = 'すべて置換'; i18n.ja.searchNoMatch = '一致なし'; i18n.ja.searchDone = '{n} 件を置換して保存';
 
         function parseSimpleToml(text) {
-            const config = { render: {} };
+            const config = { render: {}, signature: {} };
             let currentSection = null;
             const lines = text.split('\n');
             for (let line of lines) {
@@ -1813,6 +1873,8 @@
                     }
                     if (currentSection === 'render') {
                         config.render[key] = val;
+                    } else if (currentSection === 'signature') {
+                        config.signature[key] = val;
                     } else if (!currentSection) {
                         config[key] = val;
                     }
@@ -2465,6 +2527,9 @@
             activeFocusArea: 'pages', // which pane arrow keys navigate: tasks/pages/editor/canvas
             // Browser-style page navigation history (back/forward), per task.
             pageHistory: [], histPos: -1, histTaskKey: null, _histNavigating: false,
+            qaOnly: false,          // editor list filter: show only QA-flagged (overflow / tiny) blocks
+            sigSelected: false,     // translator signature selected for drag-resize/move (region-edit mode)
+            sigRect: null,          // last-drawn signature bounds {x,y,w,h,right,bottom} in image space
         };
 
         const elements = {
@@ -3435,6 +3500,16 @@
             badge.textContent = `${done}/${total}`;
             badge.className = 'page-prog ' + (done >= total ? 'done' : 'partial');
         }
+        // Fill the per-page QA badge with the count of problem blocks (overflow / tiny);
+        // hidden entirely when the page is clean.
+        function setPageQa(badge, page) {
+            if (!badge) return;
+            const n = pageQA(page).problems;
+            if (!n) { badge.className = 'page-qa none'; badge.textContent = ''; badge.title = ''; return; }
+            badge.className = 'page-qa';
+            badge.textContent = String(n);
+            badge.title = t('qaPageCount', { n });
+        }
         // Update just the current page's badge (cheap, used while typing).
         function updateCurrentPageProgress() {
             const item = elements.pageList.children[state.currentPageIndex];
@@ -3442,6 +3517,7 @@
             if (!item || !page) return;
             const badge = item.querySelector('.page-prog');
             if (badge) setPageProgress(badge, page);
+            setPageQa(item.querySelector('.page-qa'), page);
         }
         // Refresh every page badge in place (used after a language switch / import,
         // which change many blocks at once but keep the current selection).
@@ -3451,6 +3527,7 @@
             Array.from(elements.pageList.children).forEach((item, i) => {
                 const badge = item.querySelector('.page-prog');
                 if (badge && pages[i]) setPageProgress(badge, pages[i]);
+                if (pages[i]) setPageQa(item.querySelector('.page-qa'), pages[i]);
             });
         }
 
@@ -3518,6 +3595,11 @@
                 prog.title = t('tipPageProgress');
                 setPageProgress(prog, page);
                 item.appendChild(prog);
+
+                const qaBadge = document.createElement('span');
+                qaBadge.className = 'page-qa none';
+                setPageQa(qaBadge, page);
+                item.appendChild(qaBadge);
 
                 const info = document.createElement('button');
                 info.className = 'page-info-btn';
@@ -4037,7 +4119,99 @@
             return { cols, height: maxH };
         }
 
+        // ---- Render QA -------------------------------------------------------
+        // Flag blocks that will overflow their box, or render far smaller than the
+        // rest of the page, so problems are easy to find at batch scale. The font-fit
+        // math mirrors the Python renderer exactly (same floor / ceiling / search).
+        let qaCache = {};   // blockId -> { fs, overflow, tiny, problem, empty } for the page last computed
+
+        function _qaMedian(arr) {
+            if (!arr.length) return 0;
+            const s = [...arr].sort((a, b) => a - b);
+            const m = s.length >> 1;
+            return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+        }
+        // Auto-floor helpers parameterized by page dimensions so QA is correct for any
+        // page (the canvas only ever holds the current one).
+        function effMinFsFor(W, H) {
+            const d = storage.currentTask && storage.currentTask.data;
+            let v = (d && d.font_size_minimum != null) ? d.font_size_minimum
+                : (globalConfig && globalConfig.render ? globalConfig.render.font_size_minimum : undefined);
+            if (v === -1) return Math.max(1, Math.round((W + H) / 200));
+            if (v == null) return 8;
+            return Math.max(1, v);
+        }
+        function readableFloorFor(W, H) {
+            const d = storage.currentTask && storage.currentTask.data;
+            let v = (d && d.font_size_readable_min != null) ? d.font_size_readable_min
+                : (globalConfig && globalConfig.render ? globalConfig.render.font_size_readable_min : undefined);
+            if (v == null || v === -1) return Math.max(1, Math.round((W + H) / 300));
+            return Math.max(1, v);
+        }
+        // Mirror the renderer's font fit for one block → final px + overflow flag.
+        function blockFontInfo(block, W, H) {
+            const tr = storage.currentTask.translations[block.id];
+            const raw = tr && tr.text;
+            if (!raw || !raw.trim()) return { empty: true, fs: 0, overflow: false };
+            const text = compactSymbols(raw);
+            const r = effRect(block);
+            const w = r.maxX - r.minX, h = r.maxY - r.minY;
+            if (w <= 0 || h <= 0) return { empty: false, fs: 0, overflow: false };
+            const isVertical = block.direction === 'v';
+            const minFs = effMinFsFor(W, H);
+            const offset = (globalConfig && globalConfig.render && globalConfig.render.font_size_offset) || 0;
+            const fixedFs = (globalConfig && globalConfig.render && globalConfig.render.font_size) || null;
+            const sc = blockScale(block);
+            const floor = block.fixed_region ? readableFloorFor(W, H) : minFs;
+            let ceiling;
+            if (fixedFs) ceiling = Math.round(fixedFs * 1.2);
+            else if (block.fixed_region) ceiling = Math.round((isVertical ? w : h) * 1.2);
+            else ceiling = Math.round(((block.font_size || 24) + offset) * sc * 1.2);
+            ceiling = Math.max(ceiling, floor);
+            const fs = getOptimalFontSize(text, w, h, isVertical, floor, ceiling);
+            let overflow = false;
+            if (!checkTextFits(text, w, h, fs, isVertical)) {
+                if (block.fixed_region) {
+                    overflow = true;   // fixed boxes never auto-expand → it spills out
+                } else {
+                    const lim = effExpand();
+                    overflow = !checkTextFits(text, w * lim, h * lim, fs, isVertical);
+                }
+            }
+            return { empty: false, fs, overflow };
+        }
+        // QA over a whole page: per-block info + a problem count. Uses page.size so it
+        // is valid for any page, not just the one currently drawn on the canvas.
+        function pageQA(page) {
+            const out = { map: {}, problems: 0 };
+            if (!page || !page.blocks || page.no_text || !storage.currentTask) return out;
+            const W = (page.size && page.size[0]) || elements.canvas.width || 1000;
+            const H = (page.size && page.size[1]) || elements.canvas.height || 1400;
+            const fsList = [];
+            page.blocks.forEach(b => {
+                const info = blockFontInfo(b, W, H);
+                out.map[b.id] = info;
+                if (!info.empty && info.fs > 0) fsList.push(info.fs);
+            });
+            const med = _qaMedian(fsList);
+            page.blocks.forEach(b => {
+                const info = out.map[b.id];
+                if (info.empty) { info.problem = false; return; }
+                // "tiny": renders well below the page's typical size (looks broken).
+                info.tiny = med > 0 && info.fs > 0 && info.fs < med * 0.5;
+                info.problem = !!(info.overflow || info.tiny);
+                if (info.problem) out.problems++;
+            });
+            return out;
+        }
+        function qaReason(info) {
+            if (!info || !info.problem) return '';
+            return info.overflow ? t('qaOverflow', { px: Math.round(info.fs) })
+                                 : t('qaTiny', { px: Math.round(info.fs) });
+        }
+
         function renderOverlays(page) {
+            qaCache = pageQA(page).map;
             const blocks = page.blocks || [];
             blocks.forEach((block, bIndex) => {
                 const rect = effRect(block);
@@ -4082,7 +4256,9 @@
 
                 // 3. Draw block index tag (scaled with display so it stays legible).
                 const tagH = 22 * s, tagW = (12 + String(bIndex + 1).length * 9) * s, fz = 14 * s;
-                ctx.fillStyle = blockTranslated ? '#6366f1' : '#f59e0b'; ctx.fillRect(x, y - tagH, tagW, tagH);
+                const qaProb = qaCache[block.id] && qaCache[block.id].problem;
+                ctx.fillStyle = !blockTranslated ? '#f59e0b' : (qaProb ? '#ef4444' : '#6366f1');
+                ctx.fillRect(x, y - tagH, tagW, tagH);
                 ctx.fillStyle = '#fff'; ctx.font = `bold ${fz}px sans-serif`;
                 ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
                 ctx.fillText(`${bIndex + 1}`, x + 6 * s, y - tagH / 2);
@@ -4180,12 +4356,21 @@
                     }
                 }
 
-                // Resize handles for the selected block while editing boundaries.
+                // Resize + rotation handles for the selected block while editing boundaries.
+                // Drawn inside the rotated context so they sit on the rotated box edges.
                 if (state.editMode && bIndex === state.selectedBlockIndex) {
                     const hh = 6 * _dispScale();
+                    const accent = document.documentElement.getAttribute('data-theme') === 'light' ? '#e11d48' : '#f43f5e';
+                    // Rotation stud: a line up from the top-edge centre to a round knob.
+                    const rcx = x + w / 2, rty = y, rky = y - 22 * _dispScale();
+                    ctx.strokeStyle = accent; ctx.lineWidth = Math.max(1.5, 1.5 * _dispScale());
+                    ctx.beginPath(); ctx.moveTo(rcx, rty); ctx.lineTo(rcx, rky); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(rcx, rky, hh, 0, Math.PI * 2);
+                    ctx.fillStyle = accent; ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    // Resize handles.
                     const gxs = [x, x + w / 2, x + w], gys = [y, y + h / 2, y + h];
-                    ctx.fillStyle = document.documentElement.getAttribute('data-theme') === 'light' ? '#e11d48' : '#f43f5e';
-                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+                    ctx.fillStyle = accent; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
                     gxs.forEach(gx => gys.forEach(gy => {
                         if (gx === x + w / 2 && gy === y + h / 2) return; // skip center
                         ctx.fillRect(gx - hh, gy - hh, hh * 2, hh * 2);
@@ -4194,6 +4379,186 @@
                 }
                 ctx.restore();
             });
+            drawSignaturePreview(page);
+        }
+
+        // ---- Translator signature preview (mirrors rendering/signature.py) -------
+        const _SIG_CJK = new Set(['JPN','JA','JP','CHS','CHT','ZH','ZHO','CN']);
+        // Fixed open-source credit — NOT user-configurable; mirrors signature.py PROJECT_CREDIT.
+        const _SIG_PROJECT = 'MTL.downot.moe';
+        function _sigCfg() { return (globalConfig && globalConfig.signature) || {}; }
+        function _hexRgb(h) {
+            h = String(h || '808080').replace('#','');
+            if (h.length !== 6) return [128,128,128];
+            return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+        }
+        // The translator-controlled line(s): no fixed prefix — the translator decides
+        // what to show. Empty text → just the raw name. The project credit is a
+        // separate, lighter layer drawn underneath (see drawSignaturePreview).
+        function _sigName(s) {
+            const tr = s.translator || '';
+            if (s.text) return String(s.text).replace(/\\n/g,'\n').replace(/\{translator\}/g, tr).replace(/\{project\}/g, _SIG_PROJECT);
+            return tr;
+        }
+        function _sigLighten(rgb, t) { return rgb.map(c => Math.round(c + (255 - c) * t)); }
+        function _sigPageMatch(s, idx, total) {
+            const mode = s.pages || 'first_last';
+            if (mode === 'none') return false;
+            if (mode === 'every') return true;
+            const first = idx === 0, last = idx === total - 1;
+            if (mode === 'first') return first;
+            if (mode === 'last') return last;
+            return first || last; // first_last
+        }
+        function _sigDirection(s) {
+            const d = s.direction || 'auto';
+            if (d === 'horizontal' || d === 'h') return 'horizontal';
+            if (d === 'vertical' || d === 'v') return 'vertical';
+            const lang = String((storage.currentTask && storage.currentTask.data && storage.currentTask.data.target_lang) || '').toUpperCase();
+            return _SIG_CJK.has(lang) ? 'vertical' : 'horizontal';
+        }
+        // Per-task signature transform (set by dragging in the editor; saved to pages.json).
+        function _sigScale() { const d = storage.currentTask && storage.currentTask.data; const v = d && d.signature_scale; return (v && v > 0) ? v : 1; }
+        function _sigOffset() { const d = storage.currentTask && storage.currentTask.data; const o = d && d.signature_offset; return (o && o.length === 2) ? o : [0, 0]; }
+
+        // Layered preview, mirroring rendering/signature.py: a large translator name
+        // drawn on top of a smaller, lighter project credit that it overlaps. The drawn
+        // bounds are stored in state.sigRect so the signature can be dragged/resized.
+        function drawSignaturePreview(page) {
+            state.sigRect = null;
+            const s = _sigCfg();
+            if (!s || !(s.enabled === true || s.enabled === 'true')) return;
+            if (!(s.translator || s.text)) return;
+            const pages = storage.currentTask && storage.currentTask.data && storage.currentTask.data.pages;
+            if (!pages) return;
+            if (!_sigPageMatch(s, state.currentPageIndex, pages.length)) return;
+
+            const W = elements.canvas.width, H = elements.canvas.height;
+            const nameText = _sigName(s);
+            if (!nameText.trim()) return;
+            const showDomain = nameText.indexOf(_SIG_PROJECT) === -1;
+
+            const taskScale = _sigScale(), taskOff = _sigOffset();
+            const baseFs = (s.font_size && s.font_size > 0) ? s.font_size : Math.max(18, Math.round((W + H) / 85));
+            const nameFs = Math.max(8, Math.round(baseFs * taskScale));
+            const domainFs = Math.max(7, Math.round(nameFs * 0.5));
+            const margin = (s.margin && s.margin > 0) ? s.margin : Math.max(8, Math.round((W + H) / 110));
+            const dir = _sigDirection(s);
+            const rgb = _hexRgb(s.color || '595959');
+            let op = (s.opacity == null) ? 0.85 : Math.max(0, Math.min(1, parseFloat(s.opacity)));
+            const dRgb = _sigLighten(rgb, 0.68);
+            const pos = s.position || 'bottom-right';
+            const right = pos.indexOf('right') !== -1;
+            const bottom = pos.indexOf('top') === -1;
+            const nameFill = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${op})`;
+            const domainFill = `rgba(${dRgb[0]},${dRgb[1]},${dRgb[2]},${op*0.42})`;
+            const nameStroke = `rgba(${(rgb[0]+rgb[1]+rgb[2])/3 < 128 ? '255,255,255':'0,0,0'},${op*0.55})`;
+            const domStroke = `rgba(${(dRgb[0]+dRgb[1]+dRgb[2])/3 < 128 ? '255,255,255':'0,0,0'},${op*0.22})`;
+            const nameSW = Math.max(1, Math.round(nameFs/16)), domSW = Math.max(1, Math.round(domainFs/16));
+            const FONT = (fs) => `${fs}px "Noto Sans SC", "Inter", sans-serif`;
+            let bx, by, bw, bh;
+
+            ctx.save();
+            ctx.textBaseline = 'top';
+            ctx.lineJoin = 'round';
+
+            if (dir === 'horizontal') {
+                ctx.font = FONT(nameFs);
+                const lines = nameText.split('\n');
+                const lh = Math.round(nameFs * 1.18), gap = Math.round(nameFs * 0.10);
+                let nameW = 0; lines.forEach(l => nameW = Math.max(nameW, ctx.measureText(l).width));
+                const nameH = lines.length * lh + gap * Math.max(lines.length - 1, 0);
+                let dW = 0, dH = 0;
+                if (showDomain) { ctx.font = FONT(domainFs); dW = ctx.measureText(_SIG_PROJECT).width; dH = Math.round(domainFs * 1.18); }
+                const overlap = showDomain ? Math.round(dH * 0.55) : 0;
+                const blockW = Math.max(nameW, dW);
+                const blockH = nameH + (showDomain ? (dH - overlap) : 0);
+                const x0 = (right ? (W - blockW - margin) : margin) + taskOff[0];
+                const y0 = (bottom ? (H - blockH - margin) : margin) + taskOff[1];
+                if (showDomain) {
+                    ctx.font = FONT(domainFs);
+                    const dy = y0 + nameH - overlap;
+                    const dx = right ? (x0 + blockW - dW) : x0;
+                    ctx.lineWidth = domSW * 2; ctx.strokeStyle = domStroke; ctx.strokeText(_SIG_PROJECT, dx, dy);
+                    ctx.fillStyle = domainFill; ctx.fillText(_SIG_PROJECT, dx, dy);
+                }
+                ctx.font = FONT(nameFs);
+                let y = y0;
+                lines.forEach(l => {
+                    const w = ctx.measureText(l).width;
+                    const lx = right ? (x0 + blockW - w) : x0;
+                    ctx.lineWidth = nameSW * 2; ctx.strokeStyle = nameStroke; ctx.strokeText(l, lx, y);
+                    ctx.fillStyle = nameFill; ctx.fillText(l, lx, y);
+                    y += lh + gap;
+                });
+                bx = x0; by = y0; bw = blockW; bh = blockH;
+            } else {
+                const segs = nameText.split('\n');
+                const nCell = Math.round(nameFs * 1.12), nColW = Math.round(nameFs * 1.18);
+                const nameBlockW = Math.max(segs.length, 1) * nColW;
+                const nameBlockH = Math.max(...segs.map(s2 => s2.length), 1) * nCell;
+                let dColW = 0, domainH = 0, overlap = 0, dCell = 0;
+                if (showDomain) { dCell = Math.round(domainFs * 1.12); dColW = Math.round(domainFs * 1.18); domainH = _SIG_PROJECT.length * dCell; overlap = Math.round(dColW * 0.5); }
+                const blockW = nameBlockW + (showDomain ? (dColW - overlap) : 0);
+                const blockH = Math.max(nameBlockH, domainH);
+                const x0 = (right ? (W - blockW - margin) : margin) + taskOff[0];
+                const y0 = (bottom ? (H - blockH - margin) : margin) + taskOff[1];
+                const nameX0 = x0 + (blockW - nameBlockW);
+                ctx.textAlign = 'center';
+                if (showDomain) {
+                    ctx.font = FONT(domainFs);
+                    const dcx = nameX0 - dColW + overlap + dColW / 2;
+                    let cy = y0;
+                    for (const ch of _SIG_PROJECT) {
+                        ctx.lineWidth = domSW * 2; ctx.strokeStyle = domStroke; ctx.strokeText(ch, dcx, cy);
+                        ctx.fillStyle = domainFill; ctx.fillText(ch, dcx, cy);
+                        cy += dCell;
+                    }
+                }
+                ctx.font = FONT(nameFs);
+                segs.forEach((seg, ci) => {
+                    const cx = nameX0 + nameBlockW - (ci + 0.5) * nColW;
+                    let cy = y0;
+                    for (const ch of seg) {
+                        ctx.lineWidth = nameSW * 2; ctx.strokeStyle = nameStroke; ctx.strokeText(ch, cx, cy);
+                        ctx.fillStyle = nameFill; ctx.fillText(ch, cx, cy);
+                        cy += nCell;
+                    }
+                });
+                ctx.textAlign = 'left';
+                bx = x0; by = y0; bw = blockW; bh = blockH;
+            }
+            ctx.restore();
+
+            // Expose bounds for hit-testing; the anchor is the page-corner side that stays
+            // fixed while resizing.
+            state.sigRect = { x: bx, y: by, w: bw, h: bh, right, bottom };
+
+            // Selection chrome (only in region-edit mode).
+            if (state.editMode && state.sigSelected) {
+                const sc = _dispScale();
+                ctx.save();
+                ctx.strokeStyle = '#e11d48'; ctx.lineWidth = Math.max(1.5, 1.5 * sc); ctx.setLineDash([6 * sc, 4 * sc]);
+                ctx.strokeRect(bx, by, bw, bh); ctx.setLineDash([]);
+                const hh = 6 * sc;
+                ctx.fillStyle = '#e11d48'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * sc;
+                [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]].forEach(([hx, hy]) => {
+                    ctx.fillRect(hx - hh, hy - hh, hh * 2, hh * 2);
+                    ctx.strokeRect(hx - hh, hy - hh, hh * 2, hh * 2);
+                });
+                ctx.restore();
+            }
+        }
+        // Hit-test the signature's 4 corner handles; returns 'nw'|'ne'|'sw'|'se'|null.
+        function sigHitHandle(x, y, tol) {
+            const r = state.sigRect; if (!r) return null;
+            const C = { nw: [r.x, r.y], ne: [r.x + r.w, r.y], sw: [r.x, r.y + r.h], se: [r.x + r.w, r.y + r.h] };
+            for (const k in C) if (Math.abs(x - C[k][0]) <= tol && Math.abs(y - C[k][1]) <= tol) return k;
+            return null;
+        }
+        function sigHitBody(x, y) {
+            const r = state.sigRect; if (!r) return false;
+            return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
         }
 
         function drawChar(char, x, y, fs, fg, bg) {
@@ -4218,6 +4583,9 @@
         function renderBlockEditors() {
             elements.blocksContainer.innerHTML = '';
             const page = storage.currentTask.data.pages[state.currentPageIndex];
+            const qa = pageQA(page);
+            qaCache = qa.map;
+            updateQaFilterUI(qa.problems);
             if (!page.blocks?.length) {
                 const empty = document.createElement('div');
                 empty.className = 'empty-state';
@@ -4225,7 +4593,11 @@
                 elements.blocksContainer.appendChild(empty);
                 return;
             }
+            let shown = 0;
             page.blocks.forEach((block, bIndex) => {
+                // "Only problem blocks" filter: skip anything not QA-flagged.
+                if (state.qaOnly && !(qaCache[block.id] && qaCache[block.id].problem)) return;
+                shown++;
                 const card = document.createElement('div');
                 card.className = 'block-card' + (bIndex === state.selectedBlockIndex ? ' selected' : '');
                 card.dataset.blockId = block.id;
@@ -4256,6 +4628,16 @@
                     warn.title = t('tipSuspectLen');
                     warn.appendChild(svgIcon(ICONS.warn, 13));
                     titleSpan.appendChild(warn);
+                }
+                // QA marker: this block will overflow its box or render far smaller
+                // than the rest of the page. Shown in addition to the hints above.
+                const qaInfo = qaCache[block.id];
+                if (translated && qaInfo && qaInfo.problem) {
+                    const qa = document.createElement('span');
+                    qa.className = 'blk-qa';
+                    qa.title = qaReason(qaInfo);
+                    qa.appendChild(svgIcon(ICONS.warn, 13));
+                    titleSpan.appendChild(qa);
                 }
                 titleSpan.appendChild(document.createTextNode(`Block #${bIndex + 1}`));
                 if (block.user_added) {
@@ -4401,7 +4783,7 @@
                 textarea.onfocus = () => {
                     state.selectedBlockIndex = bIndex;
                     redraw();
-                    Array.from(elements.blocksContainer.children).forEach((c, i) => c.classList.toggle('selected', i === bIndex));
+                    Array.from(elements.blocksContainer.children).forEach((c) => c.classList.toggle('selected', c.dataset.blockId === block.id));
                     if (storage.collabActive) storage.sendCollabAction(block.id);
                     storage.sendCursor(block.id, textarea.value);   // show my cursor immediately
                 };
@@ -4475,7 +4857,28 @@
 
                 elements.blocksContainer.appendChild(card);
             });
+            if (state.qaOnly && shown === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = t('qaNoneOnPage');
+                elements.blocksContainer.appendChild(empty);
+            }
             updateEditingIndicators();
+        }
+
+        // Sync the header "only problem blocks" toggle: active styling + a live count.
+        function updateQaFilterUI(problems) {
+            const btn = document.getElementById('btn-qa-filter');
+            if (!btn) return;
+            const n = problems || 0;
+            btn.classList.toggle('active', !!state.qaOnly);
+            const cnt = btn.querySelector('.qa-count');
+            if (cnt) cnt.textContent = n ? String(n) : '';
+            btn.title = t('qaFilterTitle') + (n ? ` (${n})` : '');
+        }
+        function toggleQaFilter() {
+            state.qaOnly = !state.qaOnly;
+            renderBlockEditors();
         }
 
         function sortBlocks(blocks, imgWidth) {
@@ -4911,7 +5314,12 @@
             state.selectedBlockIndex = index;
             render();
 
-            const card = elements.blocksContainer.children[index];
+            // Look the card up by block id, not list position: the "only problem
+            // blocks" filter means rendered cards no longer map 1:1 to block indices.
+            const blk = page.blocks[index];
+            const card = blk
+                ? elements.blocksContainer.querySelector(`.block-card[data-block-id="${CSS.escape(blk.id)}"]`)
+                : elements.blocksContainer.children[index];
             if (card) {
                 card.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 // Focus the textarea, but with preventScroll so the browser's default
@@ -4936,6 +5344,29 @@
             const scale = r.width ? (elements.canvas.width / r.width) : 1;
             return { x: (e.clientX - r.left) * scale, y: (e.clientY - r.top) * (elements.canvas.height / r.height), scale };
         }
+        // Map a canvas/image point into a block's local (un-rotated) frame, rotating it
+        // by -angle around the block's centre. Selection boxes are drawn rotated, but
+        // geometry is stored axis-aligned — so all hit-testing happens in local space.
+        function blockAngleRad(block) { return ((block && block.angle) || 0) * Math.PI / 180; }
+        function toBlockLocal(block, x, y, center) {
+            const a = -blockAngleRad(block);
+            if (!a) return { x, y };
+            const r = effRect(block);
+            const cx = center ? center.cx : (r.minX + r.maxX) / 2;
+            const cy = center ? center.cy : (r.minY + r.maxY) / 2;
+            const dx = x - cx, dy = y - cy;
+            return { x: cx + dx * Math.cos(a) - dy * Math.sin(a), y: cy + dx * Math.sin(a) + dy * Math.cos(a) };
+        }
+        // Rotation handle position (local frame): a stud above the top edge centre.
+        function rotHandlePos(block) {
+            const r = effRect(block);
+            return { x: (r.minX + r.maxX) / 2, y: r.minY - 22 * _dispScale() };
+        }
+        function hitRotHandle(block, x, y, tol) {
+            const p = toBlockLocal(block, x, y);
+            const h = rotHandlePos(block);
+            return (Math.abs(p.x - h.x) <= tol && Math.abs(p.y - h.y) <= tol);
+        }
         function hitHandle(rect, x, y, tol) {
             const { minX, minY, maxX, maxY } = rect, cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
             const H = { nw: [minX, minY], n: [cx, minY], ne: [maxX, minY], w: [minX, cy], e: [maxX, cy], sw: [minX, maxY], s: [cx, maxY], se: [maxX, maxY] };
@@ -4945,7 +5376,8 @@
         function hitTestBlock(blocks, x, y) {
             for (let i = blocks.length - 1; i >= 0; i--) {
                 const r = effRect(blocks[i]);
-                if (x >= r.minX && x <= r.maxX && y >= r.minY && y <= r.maxY) return i;
+                const p = toBlockLocal(blocks[i], x, y);   // rotation-aware
+                if (p.x >= r.minX && p.x <= r.maxX && p.y >= r.minY && p.y <= r.maxY) return i;
             }
             return -1;
         }
@@ -5267,6 +5699,7 @@
         }
         function toggleEditMode() {
             state.editMode = !state.editMode;
+            if (!state.editMode) state.sigSelected = false;   // clear signature selection on exit
             elements.btnEditRegion.classList.toggle('active', state.editMode);
             elements.canvas.style.cursor = state.editMode ? 'crosshair' : 'default';
             const legend = document.getElementById('edit-mode-legend');
@@ -5531,8 +5964,20 @@
             const { x, y, scale } = canvasToImg(e);
             const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks || [];
             let cur = 'crosshair';
+            // Signature takes priority within its bounds so it's easy to grab in the corner.
+            if (state.sigRect) {
+                if (state.sigSelected) {
+                    const sh = sigHitHandle(x, y, 8 * scale);
+                    if (sh) { elements.canvas.style.cursor = HANDLE_CURSOR[sh]; return; }
+                }
+                if (sigHitBody(x, y)) { elements.canvas.style.cursor = 'move'; return; }
+            }
             if (state.selectedBlockIndex >= 0 && blocks[state.selectedBlockIndex]) {
-                const h = hitHandle(effRect(blocks[state.selectedBlockIndex]), x, y, 8 * scale);
+                const sb = blocks[state.selectedBlockIndex];
+                if (hitRotHandle(sb, x, y, 9 * scale)) { elements.canvas.style.cursor = 'grab'; return; }
+                const r = effRect(sb);
+                const lp = toBlockLocal(sb, x, y, { cx: (r.minX + r.maxX) / 2, cy: (r.minY + r.maxY) / 2 });
+                const h = hitHandle(r, lp.x, lp.y, 8 * scale);
                 if (h) cur = HANDLE_CURSOR[h];
             }
             if (cur === 'crosshair' && hitTestBlock(blocks, x, y) !== -1) cur = 'move';
@@ -5550,10 +5995,43 @@
                 return;
             }
             const tol = 8 * scale;
+            // --- Translator signature: drag-resize (handles) / drag-move (body) ---
+            if (state.sigRect) {
+                if (state.sigSelected) {
+                    const sh = sigHitHandle(x, y, tol);
+                    if (sh) {
+                        const r = state.sigRect;
+                        const ax = r.right ? (r.x + r.w) : r.x;   // page-corner anchor stays fixed
+                        const ay = r.bottom ? (r.y + r.h) : r.y;
+                        const d0 = Math.max(1, Math.hypot(x - ax, y - ay));
+                        drag = { type: 'sig-resize', anchorX: ax, anchorY: ay, startDist: d0, startScale: _sigScale() };
+                        e.preventDefault(); return;
+                    }
+                }
+                if (sigHitBody(x, y)) {
+                    state.sigSelected = true;
+                    state.selectedBlockIndex = -1;
+                    drag = { type: 'sig-move', startX: x, startY: y, startOff: _sigOffset().slice() };
+                    elements.canvas.style.cursor = 'move';
+                    redraw();
+                    e.preventDefault(); return;
+                }
+            }
+            if (state.sigSelected) { state.sigSelected = false; redraw(); }
             if (state.selectedBlockIndex >= 0 && blocks[state.selectedBlockIndex]) {
-                const r = effRect(blocks[state.selectedBlockIndex]);
-                const h = hitHandle(r, x, y, tol);
-                if (h) { drag = { type: 'resize', handle: h, blockIndex: state.selectedBlockIndex, orig: r }; elements.canvas.style.cursor = HANDLE_CURSOR[h]; e.preventDefault(); return; }
+                const sb = blocks[state.selectedBlockIndex];
+                const r = effRect(sb);
+                const cen = { cx: (r.minX + r.maxX) / 2, cy: (r.minY + r.maxY) / 2 };
+                // Rotation handle first (it sits just outside the box).
+                if (hitRotHandle(sb, x, y, 9 * scale)) {
+                    drag = { type: 'rotate', blockIndex: state.selectedBlockIndex, cx: cen.cx, cy: cen.cy };
+                    elements.canvas.style.cursor = 'grabbing';
+                    e.preventDefault(); return;
+                }
+                // Resize handles, hit-tested in the block's local (un-rotated) frame.
+                const lp = toBlockLocal(sb, x, y, cen);
+                const h = hitHandle(r, lp.x, lp.y, tol);
+                if (h) { drag = { type: 'resize', handle: h, blockIndex: state.selectedBlockIndex, orig: r, cx: cen.cx, cy: cen.cy }; elements.canvas.style.cursor = HANDLE_CURSOR[h]; e.preventDefault(); return; }
             }
             const f = hitTestBlock(blocks, x, y);
             if (f !== -1) {
@@ -5571,13 +6049,47 @@
             if (!drag) return;
             const { x, y } = canvasToImg(e);
             const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks;
-            if (drag.type === 'resize') {
+            if (drag.type === 'sig-resize') {
+                const d = Math.max(1, Math.hypot(x - drag.anchorX, y - drag.anchorY));
+                let sc = drag.startScale * (d / drag.startDist);
+                sc = Math.max(0.3, Math.min(5, sc));
+                storage.currentTask.data.signature_scale = Math.round(sc * 100) / 100;
+                redraw();
+            } else if (drag.type === 'sig-move') {
+                storage.currentTask.data.signature_offset = [
+                    Math.round(drag.startOff[0] + (x - drag.startX)),
+                    Math.round(drag.startOff[1] + (y - drag.startY)),
+                ];
+                redraw();
+            } else if (drag.type === 'rotate') {
+                const b = blocks[drag.blockIndex];
+                // Handle sits above the top edge → offset the pointer angle by +90°.
+                let deg = Math.atan2(y - drag.cy, x - drag.cx) * 180 / Math.PI + 90;
+                // Snap near the cardinal angles for easy alignment.
+                [0, 90, 180, 270, 360, -90, -180].forEach(a => { if (Math.abs(deg - a) < 3) deg = a; });
+                if (deg <= -180) deg += 360; if (deg > 180) deg -= 360;
+                b.angle = Math.round(deg * 10) / 10;
+                redraw();
+            } else if (drag.type === 'resize') {
+                const b = blocks[drag.blockIndex];
+                // Map the pointer into the block's local (un-rotated) frame about the
+                // fixed start centre, so rotated boxes resize along their own axes.
+                const lp = toBlockLocal(b, x, y, { cx: drag.cx, cy: drag.cy });
                 let { minX, minY, maxX, maxY } = drag.orig;
-                if (drag.handle.includes('w')) minX = x;
-                if (drag.handle.includes('e')) maxX = x;
-                if (drag.handle.includes('n')) minY = y;
-                if (drag.handle.includes('s')) maxY = y;
-                storeRectFromDisplay(blocks[drag.blockIndex], { minX: Math.min(minX, maxX), minY: Math.min(minY, maxY), maxX: Math.max(minX, maxX), maxY: Math.max(minY, maxY) });
+                if (blockAngleRad(b)) {
+                    // Rotated: resize symmetrically about the centre so the rotation pivot
+                    // (the block centre) stays put — otherwise the box would drift.
+                    const cx = drag.cx, cy = drag.cy;
+                    if (drag.handle.includes('w') || drag.handle.includes('e')) { const hw = Math.abs(lp.x - cx); minX = cx - hw; maxX = cx + hw; }
+                    if (drag.handle.includes('n') || drag.handle.includes('s')) { const hh2 = Math.abs(lp.y - cy); minY = cy - hh2; maxY = cy + hh2; }
+                } else {
+                    // Axis-aligned: keep the opposite edge fixed (classic behaviour).
+                    if (drag.handle.includes('w')) minX = lp.x;
+                    if (drag.handle.includes('e')) maxX = lp.x;
+                    if (drag.handle.includes('n')) minY = lp.y;
+                    if (drag.handle.includes('s')) maxY = lp.y;
+                }
+                storeRectFromDisplay(b, { minX: Math.min(minX, maxX), minY: Math.min(minY, maxY), maxX: Math.max(minX, maxX), maxY: Math.max(minY, maxY) });
                 redraw();
             } else if (drag.type === 'move') {
                 const dx = x - drag.startX, dy = y - drag.startY;
@@ -5595,6 +6107,12 @@
         document.addEventListener('mouseup', () => {
             if (!drag) return;
             const page = storage.currentTask.data.pages[state.currentPageIndex];
+            if (drag.type === 'sig-resize' || drag.type === 'sig-move') {
+                persistGeometry();   // save signature_scale / signature_offset to pages.json
+                drag = null;
+                if (state.editMode) elements.canvas.style.cursor = 'crosshair';
+                return;
+            }
             if (drag.type === 'new') {
                 const r = drag.cur;
                 if ((r.maxX - r.minX) > 5 && (r.maxY - r.minY) > 5) {
@@ -5617,6 +6135,9 @@
                     if (drag.type === 'resize') b.fixed_region = true;
                     persistGeometry(); renderBlockEditors();
                 }
+            } else if (drag.type === 'rotate') {
+                // Rotation only changes the angle — never flips an auto box into fixed mode.
+                persistGeometry(); renderBlockEditors();
             }
             drag = null;
             if (state.editMode) elements.canvas.style.cursor = 'crosshair';

@@ -65,7 +65,8 @@ def _find_optimal_font_size(text: str, max_w: float, max_h: float,
 
 def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock'],
                                 font_size_fixed: int, font_size_offset: int,
-                                font_size_minimum: int, font_size_minimum_expand_limit: float = 1.5):
+                                font_size_minimum: int, font_size_minimum_expand_limit: float = 1.5,
+                                font_size_readable_min: int = -1):
     """
     For each text region, find the optimal font size that fills the original
     detected area as completely as possible, then return the (possibly expanded)
@@ -86,15 +87,27 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
     if font_size_minimum == -1:
         font_size_minimum = round((img.shape[0] + img.shape[1]) / 200)
     font_size_minimum = max(1, font_size_minimum)
-    logger.debug(f"Page rendering: dimensions={img.shape[1]}x{img.shape[0]}, applied font_size_minimum={font_size_minimum}, expand_limit={font_size_minimum_expand_limit}x")
 
+    # Readability floor for user-sized (fixed) boxes: a fixed box never auto-expands,
+    # so a long translation shrinks the font to fit. Previously this floored at 4 px,
+    # which is unreadable. Now it stops at a readability floor and the (slightly
+    # overflowing) block is flagged instead. -1 → auto (page-relative).
+    if font_size_readable_min == -1:
+        readable_floor = round((img.shape[0] + img.shape[1]) / 300)
+    else:
+        readable_floor = font_size_readable_min
+    readable_floor = max(1, readable_floor)
+
+    logger.debug(f"Page rendering: dimensions={img.shape[1]}x{img.shape[0]}, applied font_size_minimum={font_size_minimum}, readable_floor={readable_floor}, expand_limit={font_size_minimum_expand_limit}x")
+
+    overflow_blocks = []
     dst_points_list = []
 
     for region in text_regions:
         # User-sized boxes must not be auto-expanded; shrink the font instead, down
         # to a small hard floor, so the text always fits the box the user drew.
         fixed = getattr(region, 'fixed_region', False)
-        region_min = 4 if fixed else font_size_minimum
+        region_min = readable_floor if fixed else font_size_minimum
         sc = getattr(region, 'box_scale_applied', 1.0) or 1.0
 
         # Region dimensions (unrotated)
@@ -142,6 +155,11 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
         scale_x = 1.0
         scale_y = 1.0
 
+        # QA: text that still does not fit at the floor will overflow its box. For a
+        # fixed box this is final (no expansion); for an auto box it overflows only if
+        # even the capped expansion below cannot contain it.
+        region_overflow = (not fits) and fixed
+
         if fits or fixed:
             # Text fits, or this is a user-fixed box we must never expand → keep the box.
             dst_points = region.min_rect
@@ -170,6 +188,10 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
                 scale_x = max(needed_w / max_w, 1.0) if max_w > 0 else 1.0
                 scale_y = max(needed_h / max_h, 1.0) if max_h > 0 else 1.0
 
+            # If even the uncapped expansion isn't enough the text will spill out → flag.
+            if scale_x > font_size_minimum_expand_limit + 1e-3 or scale_y > font_size_minimum_expand_limit + 1e-3:
+                region_overflow = True
+
             # Cap expansion to avoid very ugly overflow
             scale_x = min(scale_x, font_size_minimum_expand_limit)
             scale_y = min(scale_y, font_size_minimum_expand_limit)
@@ -190,8 +212,18 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
         # --- 4. Store results ---------------------------------------------
         dst_points_list.append(dst_points)
         region.font_size = int(target_font_size)
+        region.qa_overflow = bool(region_overflow)
         block_id = getattr(region, "block_id", "unknown")
-        logger.debug(f"  - Block {block_id}: final_font_size={region.font_size} (min_limit={font_size_minimum}), box_scale=(x:{scale_x:.2f}, y:{scale_y:.2f}), text='{region.translation[:15]}...'")
+        if region_overflow:
+            overflow_blocks.append(block_id)
+        logger.debug(f"  - Block {block_id}: final_font_size={region.font_size} (min_limit={font_size_minimum}), box_scale=(x:{scale_x:.2f}, y:{scale_y:.2f}), overflow={region_overflow}, text='{region.translation[:15]}...'")
+
+    if overflow_blocks:
+        logger.warning(
+            f"{len(overflow_blocks)} block(s) overflow their box even at the readability "
+            f"floor ({readable_floor}px) — enlarge the box or shorten the text. "
+            f"Blocks: {', '.join(map(str, overflow_blocks))}"
+        )
 
     return dst_points_list
 
@@ -203,6 +235,7 @@ async def dispatch(
     font_size_offset: int = 0,
     font_size_minimum: int = 0,
     font_size_minimum_expand_limit: float = 1.5,
+    font_size_readable_min: int = -1,
     hyphenate: bool = True,
     render_mask: np.ndarray = None,
     line_spacing: int = None,
@@ -214,7 +247,8 @@ async def dispatch(
 
     # Resize regions that are too small
     dst_points_list = resize_regions_to_font_size(
-        img, text_regions, font_size_fixed, font_size_offset, font_size_minimum, font_size_minimum_expand_limit
+        img, text_regions, font_size_fixed, font_size_offset, font_size_minimum,
+        font_size_minimum_expand_limit, font_size_readable_min
     )
 
     # TODO: Maybe remove intersections

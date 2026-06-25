@@ -155,6 +155,9 @@ class Workspace:
     box_scale: float = 1.0                 # task-level uniform text-box enlargement applied at render/preview
     font_size_minimum: Optional[int] = None              # per-task override; None → fall back to config.toml
     font_size_minimum_expand_limit: Optional[float] = None  # per-task override; None → fall back to config.toml
+    font_size_readable_min: Optional[int] = None         # per-task override for the fixed-box readability floor; None → config.toml
+    signature_scale: Optional[float] = None              # per-task signature size multiplier (editor drag-resize); None → 1.0
+    signature_offset: Optional[List[int]] = None         # per-task signature [dx, dy] px from its corner anchor (editor drag-move); None → [0, 0]
 
     @property
     def pages_json_path(self) -> str:
@@ -179,6 +182,12 @@ class Workspace:
             d["font_size_minimum"] = self.font_size_minimum
         if self.font_size_minimum_expand_limit is not None:
             d["font_size_minimum_expand_limit"] = self.font_size_minimum_expand_limit
+        if self.font_size_readable_min is not None:
+            d["font_size_readable_min"] = self.font_size_readable_min
+        if self.signature_scale is not None:
+            d["signature_scale"] = self.signature_scale
+        if self.signature_offset is not None:
+            d["signature_offset"] = self.signature_offset
         return d
 
     def all_blocks(self) -> List[Block]:
@@ -263,6 +272,10 @@ def load_workspace(root: str) -> Workspace:
         box_scale=float(data.get("box_scale", 1.0)),
         font_size_minimum=(int(data["font_size_minimum"]) if data.get("font_size_minimum") is not None else None),
         font_size_minimum_expand_limit=(float(data["font_size_minimum_expand_limit"]) if data.get("font_size_minimum_expand_limit") is not None else None),
+        font_size_readable_min=(int(data["font_size_readable_min"]) if data.get("font_size_readable_min") is not None else None),
+        signature_scale=(float(data["signature_scale"]) if data.get("signature_scale") is not None else None),
+        signature_offset=([int(data["signature_offset"][0]), int(data["signature_offset"][1])]
+                          if data.get("signature_offset") else None),
         pages=[Page.from_dict(p) for p in data.get("pages", [])],
     )
 
