@@ -192,14 +192,20 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         elif parsed.path.endswith("/api/image"):
             img_name = params.get('name', [None])[0]
             if img_name:
-                if "/" in img_name or "\\" in img_name or not img_name.lower().endswith((".png", ".jpg", ".jpeg")):
+                ext = os.path.splitext(img_name)[1].lower()
+                # webp is a first-class clean/output format and must be allowed,
+                # else the main canvas image 403s while its thumbnail still loads.
+                CONTENT_TYPES = {".png": "image/png", ".jpg": "image/jpeg",
+                                 ".jpeg": "image/jpeg", ".webp": "image/webp",
+                                 ".gif": "image/gif", ".bmp": "image/bmp"}
+                if "/" in img_name or "\\" in img_name or ext not in CONTENT_TYPES:
                     self.send_error(403, "Invalid image name")
                     return
                 # Check different possible image locations
                 for sub in ["clean", "clean_v2"]:
                     p = task_path / sub / img_name
                     if p.exists():
-                        self.serve_file(p, "image/png")
+                        self.serve_file(p, CONTENT_TYPES[ext])
                         return
                 self.send_error(404, "Image not found")
             else:
@@ -494,7 +500,11 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         if cache:
             self.serve_file(cache, "image/jpeg")
         else:
-            self.serve_file(src, "image/png")
+            # Fallback to the original: label it by its real format (e.g. webp),
+            # not a hardcoded PNG type.
+            ct = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                  ".webp": "image/webp", ".gif": "image/gif", ".bmp": "image/bmp"}
+            self.serve_file(src, ct.get(os.path.splitext(img_name)[1].lower(), "image/png"))
 
     def handle_collab_stream(self, task_name, user):
         q = queue.Queue()
