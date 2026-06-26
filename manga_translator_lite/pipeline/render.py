@@ -23,6 +23,7 @@ from PIL import Image
 from ..config import Config
 from ..rendering import dispatch as dispatch_rendering
 from ..utils import BASE_PATH, TextBlock, get_logger, cv2_imread
+from ..utils.textblock import rotate_polygons
 from .schema import Block, Page, Workspace, discover_tasks, load_workspace, load_translations, safe_workspace_path
 
 logger = get_logger('render')
@@ -40,6 +41,30 @@ def _scale_poly(pts, scale: float) -> np.ndarray:
     arr[:, 0] = cx + (arr[:, 0] - cx) * scale
     arr[:, 1] = cy + (arr[:, 1] - cy) * scale
     return arr.astype(np.int32)
+
+
+def _oriented_box(pts: np.ndarray, angle: float) -> np.ndarray:
+    """Return the rotated quad the renderer actually draws text onto.
+
+    Geometry is stored axis-aligned with a separate ``angle`` (applied at render
+    time). This replicates ``TextBlock.min_rect`` exactly — unrotate the box by
+    ``+angle``, take its axis-aligned bounds, then rotate that back by ``-angle``
+    — so a background fill lands on the same rotated/oriented region as the text
+    instead of staying flat at 0°.
+    """
+    if not angle:
+        return pts.astype(np.int32)
+    arr = np.array(pts, dtype=np.float64).reshape(-1, 2)
+    cx = (arr[:, 0].min() + arr[:, 0].max()) / 2.0
+    cy = (arr[:, 1].min() + arr[:, 1].max()) / 2.0
+    center = (cx, cy)
+    flat = arr.reshape(1, -1)
+    unrot = rotate_polygons(center, flat.copy(), angle, to_int=False)
+    min_x, max_x = unrot[:, ::2].min(), unrot[:, ::2].max()
+    min_y, max_y = unrot[:, 1::2].min(), unrot[:, 1::2].max()
+    bbox = np.array([[min_x, min_y, max_x, min_y, max_x, max_y, min_x, max_y]], dtype=np.float64)
+    rot = rotate_polygons(center, bbox, -angle, to_int=False).reshape(-1, 2)
+    return rot.astype(np.int32)
 
 
 def _block_to_textblock(block: Block, translation_text: str, target_lang: str, render_cfg, box_scale: float = 1.0) -> TextBlock:
@@ -126,6 +151,9 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
     for b in fill_blocks:
         sc = 1.0 if b.scale_exempt else (ws.box_scale or 1.0)
         pts = _scale_poly(b.polygon, sc)
+        # Rotate the fill to the same oriented quad the text is drawn on, so a
+        # tilted block's background tracks the text instead of staying flat at 0°.
+        pts = _oriented_box(pts, getattr(b, 'angle', 0.0) or 0.0)
         if len(pts) >= 3:
             if getattr(b, 'bg_fill', 'none') == 'match':
                 bc = b.bg_color or [255, 255, 255]
