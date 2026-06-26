@@ -1686,6 +1686,14 @@
                         <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg><span class="qa-count"></span>
                 </button>
+                <button id="btn-qa-enlarge" class="secondary" data-i18n-title="qaEnlargeTitle" title="Enlarge problem boxes on this page" style="padding: 3px 7px;" onclick="enlargeProblemBoxes()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                </button>
                 <button id="btn-search" class="secondary" data-i18n-title="titleSearch" title="Search & replace" style="padding: 3px 7px;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="7"></circle>
@@ -1817,6 +1825,22 @@
         i18n.zh.qaNoneOnPage = '本页没有问题块 🎉';
         i18n.en.qaNoneOnPage = 'No problem blocks on this page 🎉';
         i18n.ja.qaNoneOnPage = 'このページに問題ブロックはありません 🎉';
+        // One-click enlarge: grow every problem box on THIS page so the text just fits.
+        i18n.zh.qaEnlargeTitle = '一键放大本页问题框（让溢出/过小的文字刚好放下）';
+        i18n.en.qaEnlargeTitle = 'Enlarge problem boxes on this page (fit overflowing / tiny text)';
+        i18n.ja.qaEnlargeTitle = 'このページの問題枠を一括拡大（はみ出し/極小の文字を収める）';
+        i18n.zh.qaEnlargeNone = '本页没有需要放大的问题框';
+        i18n.en.qaEnlargeNone = 'No problem boxes to enlarge on this page';
+        i18n.ja.qaEnlargeNone = 'このページに拡大が必要な枠はありません';
+        i18n.zh.qaEnlargeDone = '已放大 {n} 个文本框';
+        i18n.en.qaEnlargeDone = 'Enlarged {n} text box(es)';
+        i18n.ja.qaEnlargeDone = '{n} 個のテキスト枠を拡大しました';
+        i18n.zh.qaEnlargeUndo = '撤销';
+        i18n.en.qaEnlargeUndo = 'Undo';
+        i18n.ja.qaEnlargeUndo = '元に戻す';
+        i18n.zh.qaEnlargeUndone = '已撤销本次放大';
+        i18n.en.qaEnlargeUndone = 'Reverted the enlargement';
+        i18n.ja.qaEnlargeUndone = '拡大を元に戻しました';
         // Compact zoom-mode labels shown on the zoom button.
         i18n.zh.zoomFitShort = '适应'; i18n.zh.zoomWidthShort = '宽度'; i18n.zh.zoomOrigShort = '100%';
         i18n.en.zoomFitShort = 'Fit'; i18n.en.zoomWidthShort = 'Width'; i18n.en.zoomOrigShort = '100%';
@@ -4208,6 +4232,113 @@
             if (!info || !info.problem) return '';
             return info.overflow ? t('qaOverflow', { px: Math.round(info.fs) })
                                  : t('qaTiny', { px: Math.round(info.fs) });
+        }
+
+        // --- One-click enlarge -------------------------------------------------
+        // For a single problem block, compute the box-growth factor that makes the
+        // text "just fit". Mirrors renderOverlays' fit math but UNCAPPED (the render
+        // stretch is capped at effExpand(); here we bake the real factor into the box
+        // geometry so at scale 1 the text fits). Works in effRect (display) space.
+        const QA_ENLARGE_MAX = 5;   // safety ceiling so a box never balloons absurdly
+        function qaEnlargeFactor(block, W, H, med) {
+            const tr = storage.currentTask.translations[block.id];
+            const raw = tr && tr.text;
+            if (!raw || !raw.trim()) return null;
+            const text = compactSymbols(raw);
+            const r = effRect(block);
+            const w = r.maxX - r.minX, h = r.maxY - r.minY;
+            if (w <= 0 || h <= 0) return null;
+            const isVertical = block.direction === 'v';
+            const minFs = effMinFs();
+            const offset = (globalConfig && globalConfig.render && globalConfig.render.font_size_offset) || 0;
+            const fixedFs = (globalConfig && globalConfig.render && globalConfig.render.font_size) || null;
+            const sc = blockScale(block);
+            const floor = block.fixed_region ? 4 : minFs;
+            let ceiling;
+            if (fixedFs) ceiling = Math.round(fixedFs * 1.2);
+            else if (block.fixed_region) ceiling = Math.round((isVertical ? w : h) * 1.2);
+            else ceiling = Math.round(((block.font_size || 24) + offset) * sc * 1.2);
+            ceiling = Math.max(ceiling, floor);
+            const fs = getOptimalFontSize(text, w, h, isVertical, floor, ceiling);
+            let fx = 1, fy = 1;
+            // Overflow: grow the box by exactly the unrotated text extent / box size.
+            if (!checkTextFits(text, w, h, fs, isVertical)) {
+                if (isVertical) {
+                    const { cols, height } = layoutVertical(text, h, fs);
+                    const neededW = cols.length * fs * 1.1;
+                    fx = w > 0 ? Math.max(neededW / w, 1) : 1;
+                    fy = h > 0 ? Math.max(height / h, 1) : 1;
+                } else {
+                    const { lines, width } = layoutHorizontal(text, w, fs);
+                    const neededH = lines.length * fs * 1.1;
+                    fx = w > 0 ? Math.max(width / w, 1) : 1;
+                    fy = h > 0 ? Math.max(neededH / h, 1) : 1;
+                }
+            }
+            // Tiny: scale the box uniformly so the font approaches the page median.
+            if (med > 0 && fs > 0 && fs < med * 0.5) {
+                const targ = Math.min(med / fs, QA_ENLARGE_MAX);
+                fx = Math.max(fx, targ); fy = Math.max(fy, targ);
+            }
+            fx = Math.min(fx, QA_ENLARGE_MAX); fy = Math.min(fy, QA_ENLARGE_MAX);
+            // Treat sub-2% growth as noise — nothing actionable.
+            if (fx < 1.02 && fy < 1.02) return null;
+            return { fx, fy };
+        }
+
+        // Snapshot used to undo the most recent batch enlarge (deep copies of geometry).
+        let qaEnlargeUndoSnapshot = null;
+        function enlargeProblemBoxes() {
+            if (!storage.currentTask) return;
+            const page = storage.currentTask.data.pages[state.currentPageIndex];
+            if (!page || !page.blocks || page.no_text) { showToast(t('qaEnlargeNone'), 'info'); return; }
+            const W = (page.size && page.size[0]) || elements.canvas.width || 1000;
+            const H = (page.size && page.size[1]) || elements.canvas.height || 1400;
+            const qa = pageQA(page);
+            const med = _qaMedian(page.blocks.map(b => qa.map[b.id]).filter(i => i && !i.empty && i.fs > 0).map(i => i.fs));
+            const snapshot = [];
+            let changed = 0;
+            page.blocks.forEach(b => {
+                const info = qa.map[b.id];
+                if (!info || !info.problem) return;
+                const f = qaEnlargeFactor(b, W, H, med);
+                if (!f) return;
+                // Save original geometry before mutating (for undo).
+                snapshot.push({ id: b.id, polygon: JSON.parse(JSON.stringify(b.polygon)),
+                    lines: JSON.parse(JSON.stringify(b.lines)), bbox: b.bbox ? b.bbox.slice() : null });
+                // Grow about the box center in display space, then store base geometry.
+                const r = effRect(b);
+                const cx = (r.minX + r.maxX) / 2, cy = (r.minY + r.maxY) / 2;
+                const hw = (r.maxX - r.minX) / 2 * f.fx, hh = (r.maxY - r.minY) / 2 * f.fy;
+                storeRectFromDisplay(b, { minX: cx - hw, minY: cy - hh, maxX: cx + hw, maxY: cy + hh });
+                changed++;
+            });
+            if (!changed) { showToast(t('qaEnlargeNone'), 'info'); return; }
+            qaEnlargeUndoSnapshot = { pageIndex: state.currentPageIndex, blocks: snapshot };
+            persistGeometry();
+            render();
+            updateCurrentPageProgress();   // refresh the left page-list QA badge too
+            const undoLink = `<a href="#" onclick="undoEnlargeBoxes();return false;" style="color:#fff;text-decoration:underline;margin-left:10px;font-weight:700;">${t('qaEnlargeUndo')}</a>`;
+            showToast(t('qaEnlargeDone', { n: changed }) + undoLink, 'success', true);
+        }
+
+        function undoEnlargeBoxes() {
+            const snap = qaEnlargeUndoSnapshot;
+            if (!snap) return;
+            const page = storage.currentTask && storage.currentTask.data.pages[snap.pageIndex];
+            if (!page || !page.blocks) return;
+            snap.blocks.forEach(s => {
+                const b = page.blocks.find(x => x.id === s.id);
+                if (!b) return;
+                b.polygon = s.polygon; b.lines = s.lines; if (s.bbox) b.bbox = s.bbox;
+            });
+            qaEnlargeUndoSnapshot = null;
+            persistGeometry();
+            // If we're on another page now, jump back so the user sees the revert.
+            if (state.currentPageIndex !== snap.pageIndex) { state.currentPageIndex = snap.pageIndex; }
+            render();
+            updateCurrentPageProgress();   // refresh the left page-list QA badge too
+            showToast(t('qaEnlargeUndone'), 'info');
         }
 
         function renderOverlays(page) {

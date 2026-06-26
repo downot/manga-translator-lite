@@ -56,6 +56,11 @@ box_threshold = 0.6
 # 日  範囲 1.2–2.5 · 大きいほど各枠を外側に拡張(字全体を囲む/隣と結合しやすい)、小さいほど密着 · 文字端が切れる時は上げ、隣の文字に被る時は下げる
 unclip_ratio = 1.5
 
+# EN  true|false · true applies auto gamma correction before detection, brightening toward mid-tone so faint text on dark/low-contrast pages is found · enable for dark or washed-out scans, leave false for normal pages
+# 中  true|false · true 在检测前做自动 gamma 校正，把画面拉向中间调，让暗底/低对比页上的浅字更易检出 · 暗调或发灰的扫图开启，普通页保持 false
+# 日  true|false · true は検出前に自動ガンマ補正を行い中間調へ寄せ、暗い/低コントラストのページの薄い文字を拾いやすくする · 暗い/眠いスキャンで有効化、通常ページは false
+det_gamma_correct = false
+
 # --- Detector fusion (optional, off by default) ---------------------------------
 # Add a second detector to boost recall: its regions the primary misses are added
 # (OCR'd, translated, box-erased). Keep a stroke detector (ctd/default) as primary

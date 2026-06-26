@@ -1,6 +1,7 @@
 # from utils.yolov5_utils import scale_img
 from copy import deepcopy
 from .common import *
+from ..utils.yolov5_utils import make_divisible
 
 class Detect(nn.Module):
     stride = None  # strides computed during build
