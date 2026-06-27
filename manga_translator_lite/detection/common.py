@@ -118,10 +118,19 @@ class CommonDetector(InfererModule):
     def _add_gamma_correction(self, image: np.ndarray):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         mid = 0.5
-        mean = np.mean(gray)
+        mean = float(np.mean(gray))
+        # Guard the log: an all-black page (mean 0) or a uniform mid-grey page
+        # (mean 1 → log(1)=0 → division by zero) would otherwise yield inf/nan.
+        if mean <= 1.0:
+            return image
         gamma = np.log(mid * 255) / np.log(mean)
-        img_gamma = np.power(image, gamma).clip(0,255).astype(np.uint8)
-        return img_gamma
+        # Apply gamma through a 256-entry uint8 lookup table instead of raising the
+        # whole image to the power. np.power(image, gamma) built a (H, W, 3) float64
+        # temporary (~140 MB for a 2880 px page) that intermittently failed to
+        # allocate ("Unable to allocate … float64"); the LUT is identical per-pixel
+        # (out[v] = clip(v**gamma, 0, 255)) but costs 256 bytes.
+        lut = np.clip(np.power(np.arange(256, dtype=np.float64), gamma), 0, 255).astype(np.uint8)
+        return cv2.LUT(image, lut)
 
     def _add_histogram_equalization(self, image: np.ndarray):
         img_yuv = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
