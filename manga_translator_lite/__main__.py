@@ -34,7 +34,8 @@ async def _dispatch(args) -> int:
         from .pipeline.translate import run_translate
         await run_translate(args.work_dir, cfg, overwrite=args.overwrite,
                             target_lang=args.target_lang, start_index=args.start_index,
-                            reference_langs=_resolve_reference_langs(args, cfg))
+                            reference_langs=_resolve_reference_langs(args, cfg),
+                            concurrency=getattr(args, 'concurrency', None))
         return 0
 
     if args.cmd == 'render':
@@ -53,7 +54,8 @@ async def _dispatch(args) -> int:
         await run_extract(args.input, args.work_dir, cfg, verbose=args.verbose,
                           target_lang=args.target_lang, overwrite=args.overwrite)
         await run_translate(args.work_dir, cfg, target_lang=args.target_lang,
-                            reference_langs=_resolve_reference_langs(args, cfg))
+                            reference_langs=_resolve_reference_langs(args, cfg),
+                            concurrency=getattr(args, 'concurrency', None))
         await run_render(args.work_dir, args.output, cfg,
                          check=getattr(args, 'check', False),
                          no_check=getattr(args, 'no_check', False),

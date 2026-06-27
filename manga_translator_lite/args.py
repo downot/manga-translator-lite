@@ -86,6 +86,11 @@ def build_parser() -> argparse.ArgumentParser:
                       help='Re-translate even blocks that already have translations.')
     p_tx.add_argument('--start-index', type=int, default=None,
                       help='Starting page index in pages.json to (re)translate from.')
+    p_tx.add_argument('-j', '--concurrency', type=int, default=None,
+                      help='Translate this many tasks in parallel (cloud LLMs only; '
+                           'a single task is never split, so context is preserved). '
+                           'Default: config [translator] concurrency (1 = sequential). '
+                           'Try 3-5; keep under your provider rate limits.')
     _add_reference_args(p_tx)
     _add_common(p_tx)
 
@@ -121,6 +126,10 @@ def build_parser() -> argparse.ArgumentParser:
                        help='Skip spelling and fluency proofreading check.')
     p_run.add_argument('-y', '--yes', action='store_true',
                        help='Automatically accept and apply all proofreading suggestions (requires --check or interactive confirmation).')
+    p_run.add_argument('-j', '--concurrency', type=int, default=None,
+                       help='Translate this many tasks in parallel (cloud LLMs only; '
+                            'a single task is never split). Default: config [translator] '
+                            'concurrency (1 = sequential).')
     _add_reference_args(p_run)
     _add_common(p_run)
 

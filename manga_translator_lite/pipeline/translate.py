@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import json
+import asyncio
 import unicodedata
 from typing import List, Optional
 
@@ -311,6 +312,7 @@ async def run_translate(
     target_lang: Optional[str] = None,
     start_index: Optional[int] = None,
     reference_langs=_USE_CONFIG,
+    concurrency: Optional[int] = None,
 ) -> List[Workspace]:
     """Translate all tasks under work_dir.
 
@@ -329,25 +331,53 @@ async def run_translate(
         raise FileNotFoundError(f"No task subdirectories found under {work_dir}")
 
     logger.info(f"Found {len(tasks)} task(s) to translate: {tasks}")
-    results: List[Workspace] = []
 
-    for task_name in tasks:
+    # Concurrency is per TASK, never within a task: each task builds its own
+    # translator and keeps its full cross-page context, so parallel tasks don't
+    # split or interleave any single work's context. CLI -j overrides the config.
+    conc = concurrency if concurrency is not None else getattr(cfg.translator, "concurrency", 1)
+    conc = max(1, int(conc or 1))
+
+    async def _run_one(task_name: str) -> Optional[Workspace]:
         task_dir = os.path.join(work_dir, task_name)
         try:
             workspace = load_workspace(task_dir)
         except FileNotFoundError:
             logger.warning(f"[task: {task_name}] No pages.json found, skipping.")
-            continue
-
+            return None
+        # Per-task copy of the config so concurrent tasks never race on the shared
+        # cfg.translator.target_lang (each work may target a different language).
+        task_cfg = cfg.model_copy(deep=True)
         if target_lang:
             workspace.target_lang = target_lang
-            cfg.translator.target_lang = target_lang
+            task_cfg.translator.target_lang = target_lang
         else:
-            cfg.translator.target_lang = workspace.target_lang
+            task_cfg.translator.target_lang = workspace.target_lang
+        return await _translate_task(workspace, task_cfg, overwrite=overwrite,
+                                     start_index=start_index, reference_langs=reference_langs)
 
-        ws = await _translate_task(workspace, cfg, overwrite=overwrite, start_index=start_index,
-                                   reference_langs=reference_langs)
-        results.append(ws)
+    results: List[Workspace] = []
+    if conc == 1:
+        # Sequential (default) — unchanged behavior, one task at a time.
+        for task_name in tasks:
+            ws = await _run_one(task_name)
+            if ws is not None:
+                results.append(ws)
+    else:
+        logger.info(f"Translating up to {conc} task(s) concurrently")
+        sem = asyncio.Semaphore(conc)
+
+        async def _worker(name: str) -> Optional[Workspace]:
+            async with sem:
+                try:
+                    return await _run_one(name)
+                except Exception as e:
+                    # Isolate failures: one task erroring out must not abort the rest.
+                    logger.error(f"[task: {name}] translation failed: {e.__class__.__name__}: {e}")
+                    return None
+
+        gathered = await asyncio.gather(*(_worker(n) for n in tasks))
+        results = [ws for ws in gathered if ws is not None]
 
     logger.info(f"Translation complete for {len(results)} task(s).")
     return results

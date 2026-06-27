@@ -127,6 +127,12 @@ class TranslatorConfig(BaseModel):
     """Request timeout in seconds."""
     max_retries: int = 3
     """Maximum retry attempts per batch."""
+    concurrency: int = 1
+    """How many tasks to translate in parallel. Each task keeps its own translator
+    and full cross-page context, so concurrency never splits a single task — it only
+    runs several independent tasks (works) at once. 1 = sequential (default). For
+    cloud LLMs, 3-5 cuts wall-clock time a lot; raise carefully to stay under your
+    provider's rate limits. Local/GPU models usually see little benefit."""
     extra_instructions: Optional[str] = None
     """Extra instructions appended to the system prompt (e.g. tone, glossary)."""
     reference_langs: Optional[List[str]] = None

@@ -92,6 +92,7 @@ All commands are invoked as `python -m manga_translator_lite <command> [options]
 | `--start-index <n>` | Start (re)translating from this page index; earlier pages are used as context only. |
 | `--reference-lang <code>` | Reference an already-translated language as a semantic/tone hint (repeatable). Omit for **auto** (every other human-reviewed language). See [Cross-language reference](#cross-language-reference-translation). |
 | `--no-reference` | Disable cross-language reference; translate purely from the source. |
+| `-j, --concurrency <n>` | Translate this many **tasks** in parallel (overrides `[translator] concurrency`). A single task is never split, so each keeps its full cross-page context — concurrency only runs several independent works at once. `1` = sequential (default). For cloud LLMs, `3–5` cuts wall-clock time; stay under your provider's rate limits. Local/GPU models gain little. |
 
 > **Per-language output:** `--target-lang` temporarily overrides the configured language without touching `config.toml`. Output is keyed by language code (`translations/CHS.json`, `translations/ENG.json`, …), so the same workspace can hold several languages side by side — translate once per language, no overwriting:
 >

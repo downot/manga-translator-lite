@@ -92,6 +92,7 @@ python -m manga_translator_lite render ./work -o ./out
 | `--start-index <n>` | 从该页索引开始（重新）翻译；之前的页面仅作为上下文。 |
 | `--reference-lang <代码>` | 以某个已翻译语言作为语义/语气参考（可重复指定）。省略即为**自动**（参考所有经人工校对的语言）。见[跨语言参考翻译](#跨语言参考翻译)。 |
 | `--no-reference` | 关闭跨语言参考，仅依据原文翻译。 |
+| `-j, --concurrency <n>` | 同时并行翻译多少个**任务**（覆盖 `[translator] concurrency`）。**单个任务绝不拆开**，各自保留完整跨页上下文——并发只是同时跑多个独立作品。`1`=串行（默认）。云端 LLM 可设 `3–5` 大幅缩短耗时，注意别超提供方限流；本地/GPU 模型收益不大。 |
 
 > **按语言分文件输出：** `--target-lang` 只临时覆盖配置语言，不会改动 `config.toml`。译文按语言代码命名（`translations/CHS.json`、`translations/ENG.json` ……），因此同一个工作区可以并存多种语言——每种语言翻译一次,互不覆盖：
 >
