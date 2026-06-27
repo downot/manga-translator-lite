@@ -73,12 +73,14 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
     destination polygon for rendering.
 
     Strategy (in priority order):
-    1. **Fit-to-region** – binary-search for the largest font size ≤ the OCR
-       font size (+ offset) that makes the translated text fit inside the
-       original bounding box.  This keeps the output clean by respecting the
-       inpainted area.
-    2. **Expand box** – if the text cannot fit even at ``font_size_minimum``,
-       the bounding box is expanded just enough to contain the text.
+    1. **Fit-to-region** – binary-search for the largest font size that makes the
+       translated text fit inside the box. The ceiling is the box itself (so the
+       text fills the region) for both fixed and auto boxes; the search brings it
+       down to whatever actually fits, keeping the output within the inpainted area.
+    2. **Expand box** – auto boxes only: if the text cannot fit even at
+       ``font_size_minimum``, the bounding box is expanded just enough to contain
+       the text. Fixed boxes never expand — they shrink to the readable floor and
+       are flagged as overflow instead.
 
     Returns:
         List of destination point arrays (one per region).
@@ -121,15 +123,21 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
 
         if font_size_fixed is not None:
             fs_upper = font_size_fixed   # explicit absolute override — not scaled by box_scale
-        elif fixed and max_w > 0 and max_h > 0:
-            # User-drawn box: the font should adapt to the box the user sized, so the
-            # ceiling is the box itself (one line ≈ its height/width) rather than the
-            # original OCR font size. Enlarging the box then truly magnifies the text
-            # instead of just adding whitespace; the fit search below still bounds it.
-            fs_upper = max_h if is_horiz else max_w
+        elif max_w > 0 and max_h > 0:
+            # Both fixed AND auto boxes let the font grow to fill the box (ceiling ≈ one
+            # line at the box's height/width); the binary-search fit below caps it to
+            # what actually fits. Previously only fixed boxes did this — auto boxes were
+            # pinned to the original OCR font size, so they rendered small and looked
+            # markedly worse than fixed boxes whenever the detected region had spare room
+            # (the common case for compact CJK→CHS text or under-measured OCR sizes).
+            # The auto/fixed distinction is preserved downstream: an auto box still
+            # EXPANDS when the text can't fit at the min floor, while a fixed box never
+            # expands (it shrinks to the readable floor and is flagged as overflow).
+            # box_scale is already baked into max_w/max_h (lines are pre-scaled), so it
+            # must NOT be multiplied in again here.
+            fs_upper = (max_h if is_horiz else max_w) + (0 if fixed else font_size_offset)
         else:
-            # box_scale lifts the font ceiling too, so enlarging the box actually
-            # magnifies the text instead of just adding whitespace.
+            # Degenerate region with no area → fall back to the OCR size (× box_scale).
             fs_upper = (original_fs + font_size_offset) * sc
         fs_upper = max(fs_upper, region_min, 1)
 
@@ -196,6 +204,27 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
             scale_x = min(scale_x, font_size_minimum_expand_limit)
             scale_y = min(scale_y, font_size_minimum_expand_limit)
 
+            # Graceful fallback (mirrors fixed boxes): when the capped expansion still
+            # can't hold the text at font_size_minimum, SHRINK the font to fit the
+            # (expanded) box down to the readability floor, instead of pinning it at the
+            # minimum and letting it spill out. This is what made fixed boxes look so
+            # much better than auto boxes — fixed boxes shrink to fit (floor=readable),
+            # auto boxes were stuck at font_size_minimum and overflowed. Only text that
+            # can't fit even at the readability floor stays flagged.
+            if region_overflow:
+                exp_w, exp_h = max_w * scale_x, max_h * scale_y
+                fitted = _find_optimal_font_size(
+                    region.translation, exp_w, exp_h, is_horiz,
+                    readable_floor, max(target_font_size, readable_floor),
+                    lang, line_sp or 0.01
+                )
+                if fitted < target_font_size:
+                    target_font_size = fitted
+                region_overflow = not _text_fits_region(
+                    target_font_size, region.translation, exp_w, exp_h,
+                    is_horiz, lang, line_sp or 0.01
+                )
+
             if scale_x > 1.001 or scale_y > 1.001:
                 try:
                     poly = Polygon(region.unrotated_min_rect[0])
@@ -216,7 +245,9 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
         block_id = getattr(region, "block_id", "unknown")
         if region_overflow:
             overflow_blocks.append(block_id)
-        logger.debug(f"  - Block {block_id}: final_font_size={region.font_size} (min_limit={font_size_minimum}), box_scale=(x:{scale_x:.2f}, y:{scale_y:.2f}), overflow={region_overflow}, text='{region.translation[:15]}...'")
+        _raw_dir = getattr(region, '_direction', '?')
+        _res_dir = getattr(region, 'direction', '?')
+        logger.debug(f"  - Block {block_id}: fs={region.font_size} (min={font_size_minimum}) exp=(x:{scale_x:.2f},y:{scale_y:.2f}) overflow={region_overflow} | DIAG box={max_w:.0f}x{max_h:.0f} dir_raw={_raw_dir} dir_resolved={_res_dir} is_horiz={is_horiz} fixed={fixed} region_min={region_min} fs_upper={fs_upper:.0f} | text='{region.translation[:12]}'")
 
     if overflow_blocks:
         logger.warning(

@@ -4189,17 +4189,23 @@
             const floor = block.fixed_region ? readableFloorFor(W, H) : minFs;
             let ceiling;
             if (fixedFs) ceiling = Math.round(fixedFs * 1.2);
-            else if (block.fixed_region) ceiling = Math.round((isVertical ? w : h) * 1.2);
-            else ceiling = Math.round(((block.font_size || 24) + offset) * sc * 1.2);
+            else ceiling = Math.round(((isVertical ? w : h) + (block.fixed_region ? 0 : offset)) * 1.2);   // both fixed & auto fill the box
             ceiling = Math.max(ceiling, floor);
-            const fs = getOptimalFontSize(text, w, h, isVertical, floor, ceiling);
+            let fs = getOptimalFontSize(text, w, h, isVertical, floor, ceiling);
             let overflow = false;
             if (!checkTextFits(text, w, h, fs, isVertical)) {
                 if (block.fixed_region) {
                     overflow = true;   // fixed boxes never auto-expand → it spills out
                 } else {
                     const lim = effExpand();
-                    overflow = !checkTextFits(text, w * lim, h * lim, fs, isVertical);
+                    if (!checkTextFits(text, w * lim, h * lim, fs, isVertical)) {
+                        // Graceful shrink: fit the (expanded) box down to the readable
+                        // floor instead of overflowing — mirrors the renderer so auto
+                        // boxes degrade like fixed boxes (WYSIWYG with the export).
+                        const rfloor = readableFloorFor(W, H);
+                        fs = getOptimalFontSize(text, w * lim, h * lim, isVertical, rfloor, fs);
+                        overflow = !checkTextFits(text, w * lim, h * lim, fs, isVertical);
+                    }
                 }
             }
             return { empty: false, fs, overflow };
@@ -4256,8 +4262,7 @@
             const floor = block.fixed_region ? 4 : minFs;
             let ceiling;
             if (fixedFs) ceiling = Math.round(fixedFs * 1.2);
-            else if (block.fixed_region) ceiling = Math.round((isVertical ? w : h) * 1.2);
-            else ceiling = Math.round(((block.font_size || 24) + offset) * sc * 1.2);
+            else ceiling = Math.round(((isVertical ? w : h) + (block.fixed_region ? 0 : offset)) * 1.2);   // both fixed & auto fill the box
             ceiling = Math.max(ceiling, floor);
             const fs = getOptimalFontSize(text, w, h, isVertical, floor, ceiling);
             let fx = 1, fy = 1;
@@ -4419,8 +4424,7 @@
                     // height/width), while auto boxes stay capped near the detected size.
                     let ceiling;
                     if (fixedFs) ceiling = Math.round(fixedFs * 1.2);
-                    else if (block.fixed_region) ceiling = Math.round((isVertical ? w : h) * 1.2);
-                    else ceiling = Math.round(((block.font_size || 24) + offset) * sc * 1.2);
+                    else ceiling = Math.round(((isVertical ? w : h) + (block.fixed_region ? 0 : offset)) * 1.2);   // both fixed & auto fill the box
                     ceiling = Math.max(ceiling, floor);
                     fs = getOptimalFontSize(text, w, h, isVertical, floor, ceiling);
 
@@ -4446,6 +4450,14 @@
                         let expandLimit = effExpand();   // per-task override else config.toml
                         scaleX = Math.min(scaleX, expandLimit);
                         scaleY = Math.min(scaleY, expandLimit);
+                        // Graceful shrink: if the capped expansion still can't hold the
+                        // text, shrink the font to fit the expanded box (down to the
+                        // readable floor) instead of overflowing — mirrors the renderer.
+                        const expW = w * scaleX, expH = h * scaleY;
+                        if (!checkTextFits(text, expW, expH, fs, isVertical)) {
+                            const rfloor = readableFloorFor(elements.canvas.width, elements.canvas.height);
+                            fs = getOptimalFontSize(text, expW, expH, isVertical, rfloor, fs);
+                        }
                     }
 
                     const renderW = w * scaleX;

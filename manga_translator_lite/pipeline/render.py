@@ -69,7 +69,13 @@ def _oriented_box(pts: np.ndarray, angle: float) -> np.ndarray:
 
 def _block_to_textblock(block: Block, translation_text: str, target_lang: str, render_cfg, box_scale: float = 1.0) -> TextBlock:
     """Reconstruct a TextBlock for the rendering layer."""
-    lines = np.array(block.lines, dtype=np.int32) if block.lines else np.array([block.polygon], dtype=np.int32)
+    # Size & place the text from the *box* (`polygon`) — exactly what the editor
+    # shows and edits (its effRect is the polygon). The detector's per-line `lines`
+    # are tight around the *original* text and, after unclip, smaller than the
+    # polygon; sizing from them made original (un-resized) blocks render smaller
+    # here than in the editor preview, so the font collapsed to the floor and
+    # overflowed. polygon is always a 4-point box, so this is safe for every block.
+    lines = np.array([block.polygon], dtype=np.int32)
     # Apply the task-level uniform box enlargement (unless this block opts out).
     scale = 1.0 if block.scale_exempt else (box_scale or 1.0)
     if scale != 1.0 and lines.size:
