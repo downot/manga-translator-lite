@@ -58,6 +58,25 @@ def _select_device(use_gpu: bool) -> str:
     return 'cpu'
 
 
+def _free_vram(device: str) -> None:
+    """Return the caching allocator's unused blocks to the driver.
+
+    Detection (ctd at detection_size, e.g. 2560) and inpainting (lama at
+    inpainting_size, e.g. 2048) run sequentially but their big activation tensors
+    are sized very differently. PyTorch's caching allocator keeps the large
+    detection-sized blocks "reserved" after detection frees them, so when lama then
+    allocates differently-sized blocks the reserved pool grows / fragments and the
+    observed peak VRAM (and OOM risk) balloons. Emptying the cache between the two
+    heavy stages lets each allocate fresh, which keeps high-recall settings
+    (detection_size 2560 + a secondary detector) within budget instead of OOM-ing.
+    """
+    if device == 'cuda':
+        try:
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+
 async def _dispatch_det(cfg: Config, detector: Detector, img_rgb: np.ndarray, device: str,
                         verbose: bool, box_threshold: float):
     return await dispatch_detection(
@@ -222,6 +241,9 @@ async def _process_image(
     h, w = img_rgb.shape[:2]
 
     # 1. detection (optionally fused with a secondary detector to boost recall)
+    # Free the previous page's inpaint-sized reserved blocks before ctd allocates its
+    # (larger) detection_size activations, so peak VRAM stays flat across pages.
+    _free_vram(device)
     textlines, mask_raw, mask, secondary_only = await _detect_fused(cfg, img_rgb, device, verbose)
 
     _, ext = os.path.splitext(os.path.basename(img_path))
@@ -302,6 +324,10 @@ async def _process_image(
             cv2.rectangle(mask, (x1, y1), (x2, y2), 255, thickness=-1)
 
     # 5. inpainting
+    # Release the detection/OCR stage's reserved VRAM before lama allocates its own
+    # large activations — this is what keeps detection_size=2560 + secondary detector
+    # from inflating peak VRAM / OOM-ing on big pages.
+    _free_vram(device)
     inpaint_done = False
     if mask is not None and mask.any():
         inpainted = await dispatch_inpainting(

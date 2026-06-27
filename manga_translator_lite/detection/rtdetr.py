@@ -58,6 +58,17 @@ class RTDetrV2Detector(OfflineDetector):
         self.model = AutoModelForObjectDetection.from_pretrained(self._HF_MODEL_ID)
         self.model.to(device)
         self.model.eval()
+        # Run the (fp32) weights in half precision on CUDA to roughly halve this
+        # secondary detector's VRAM footprint — fp16 inference is fine for RT-DETR and
+        # leaves recall unchanged. CPU/MPS stay fp32 (fp16 is slow / unsupported there).
+        self._half = False
+        if device == 'cuda':
+            try:
+                self.model.half()
+                self._half = True
+                self.logger.debug("RT-DETR running in fp16 (CUDA).")
+            except Exception as e:
+                self.logger.warning(f"RT-DETR fp16 conversion failed ({e}); staying fp32.")
         self.logger.warning(
             "RT-DETR produces BOX-level masks (not stroke masks); inpainting will be "
             "coarser than dbnet/ctd. Recommended for detection/region-typing only."
@@ -78,6 +89,10 @@ class RTDetrV2Detector(OfflineDetector):
         conf = float(box_threshold)
 
         inputs = self.processor(images=rgb, return_tensors="pt").to(self.device)
+        # Match the model dtype when running fp16 — cast only the float pixel tensor,
+        # leaving any integer/bool tensors (e.g. pixel_mask) as-is.
+        if getattr(self, "_half", False) and "pixel_values" in inputs:
+            inputs["pixel_values"] = inputs["pixel_values"].half()
         with torch.no_grad():
             outputs = self.model(**inputs)
         target_sizes = torch.tensor([[im_h, im_w]], device=self.device)
