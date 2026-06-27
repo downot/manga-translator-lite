@@ -209,6 +209,20 @@ fusion_max_area_ratio = 0.1     # 丢弃面积超过整页此比例的次检测�
 
 **避免大面积误擦除。** 框检测器可能把一整块跨越画面的花字标题 / SFX 检成一个大框;由于次检测区域是按整框填充来擦除的,这会涂掉一大片画面。`fusion_max_area_ratio` 会丢弃任何面积超过整页该比例的次检测框(默认 `0.1` = 10%),这样超大区域框既不翻译也不擦除,画面保持原样。若仍看到大块矩形被擦,调低它(如 `0.06`);设为 `0` 则关闭该上限。
 
+#### 显存与速度
+
+每页的检测与修复(inpaint)会在不同尺寸的大张量间交替(如 `detection_size` 2560 后接 `inpainting_size` 2048),这会让 CUDA 显存碎片化。项目内置了几项措施，让"高召回设置"(大 `detection_size` **加** 次检测器)也能控制在预算内：
+
+- **RT-DETR 在 CUDA 上自动以 fp16 运行**——日志会显示 `RT-DETR running in fp16 (CUDA)`——次检测器显存约减半，且召回不变(CPU/MPS 保持 fp32)。
+- **每页在检测阶段与修复阶段之间释放显存**，两个阶段的峰值分配不再叠加、也不跨页碎片化。
+- **默认设置 `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`**(在包初始化、torch 初始化分配器之前),用于抑制碎片化。你可以在环境里 export 自己的值来覆盖；在不支持该选项的 Windows / 旧版 torch 上，torch 会直接忽略它。
+
+调节旋钮（从最安全到最影响质量）：
+
+- **`det_gamma_correct`**——普通(亮底高对比)漫画请**关闭**。它会把亮底页自动压暗成中灰，反而**降低**检测/擦除质量并增加每页开销；只有真正偏暗/发灰的扫图才该开。
+- **`inpainting_size`**(如 2048 → 1536)——压低修复阶段显存，对擦除后的文字几乎无可见影响；是"显存换质量"性价比最高的旋钮。
+- **`detection_size`** 与 **`secondary_detector`**——你最强的召回杠杆，所以**最后**才动它们：缩小 `detection_size` 或关掉次检测器能省显存，但识别率会明显下降。
+
 ### 控制文字大小（`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit` · `font_size_readable_min`）
 
 四个旋钮共同决定译文渲染多大，各司其职、互不重叠：

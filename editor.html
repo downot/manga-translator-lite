@@ -416,12 +416,31 @@
         }
         .block-actions { display: inline-flex; align-items: center; gap: 4px; }
         .blk-size { color: var(--text-secondary); font-size: 0.7rem; }
-        .blk-bg-btn, .blk-del-btn, .blk-clone-btn, .blk-fg-btn {
+        .blk-bg-btn, .blk-del-btn, .blk-clone-btn, .blk-fg-btn, .blk-ai-btn {
             border: none; background: transparent; cursor: pointer;
             font-size: 0.8rem; line-height: 1; padding: 1px 4px; border-radius: 4px;
             color: var(--text-secondary);
         }
-        .blk-bg-btn:hover, .blk-clone-btn:hover, .blk-fg-btn:hover { background: var(--bg-hover); }
+        .blk-bg-btn:hover, .blk-clone-btn:hover, .blk-fg-btn:hover, .blk-ai-btn:hover { background: var(--bg-hover); }
+        .blk-ai-btn { color: var(--accent); }
+        .blk-ai-btn:hover { color: var(--accent); filter: brightness(1.2); }
+        .blk-ai-btn:disabled, .blk-ai-btn.loading { opacity: 0.45; cursor: progress; }
+        .blk-ai-btn.loading svg { animation: ai-spin 0.9s linear infinite; }
+        @keyframes ai-spin { to { transform: rotate(360deg); } }
+        /* Onomatopoeia / SFX candidate chips shown above a block's translation box. */
+        .sfx-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 2px 0 4px; }
+        .sfx-lab { font-size: 0.66rem; color: var(--text-secondary); margin-right: 2px; }
+        .sfx-chip { font-size: 0.74rem; padding: 1px 8px; border: 1px solid var(--border); border-radius: 11px;
+            background: var(--bg-hover); color: var(--text-primary); cursor: pointer; line-height: 1.55;
+            display: inline-flex; align-items: center; }
+        .sfx-chip:hover { border-color: var(--accent); color: var(--accent); }
+        .sfx-chip.user { border-style: dashed; }
+        .sfx-chip .sfx-x { margin-left: 5px; opacity: 0.55; font-weight: 700; }
+        .sfx-chip .sfx-x:hover { opacity: 1; color: var(--danger); }
+        .sfx-add { font-size: 0.74rem; padding: 0 7px; border: 1px dashed var(--border); border-radius: 11px;
+            background: transparent; color: var(--text-secondary); cursor: pointer; line-height: 1.55; }
+        .sfx-add:hover { color: var(--accent); border-color: var(--accent); }
+        body.view-only .sfx-add, body.view-only .sfx-chip .sfx-x { display: none; }
         .blk-del-btn:hover { background: rgba(255, 80, 80, 0.18); color: #ff5b5b; }
         /* Background-fill swatch: shows the actual patch color painted behind the text.
            A border keeps white / light fills visible in both themes. */
@@ -937,6 +956,7 @@
         body.view-only .blk-del-btn,
         body.view-only .blk-clone-btn,
         body.view-only .blk-pin-btn,
+        body.view-only .blk-ai-btn,
         body.view-only .blk-fg-btn {
             display: none !important;
         }
@@ -1700,6 +1720,12 @@
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </button>
+                <button id="btn-ai-config" class="secondary" data-i18n-title="aiTitle" title="AI settings" style="padding: 3px 7px; color: var(--accent);" onclick="showAiConfig()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                        <path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8L12 3z"></path>
+                        <path d="M19 14l.7 1.9 1.9.7-1.9.7L19 19.2l-.7-1.9-1.9-.7 1.9-.7L19 14z"></path>
+                    </svg>
+                </button>
             </div>
             <div id="blocks-container" class="blocks-container"></div>
         </aside>
@@ -1841,6 +1867,57 @@
         i18n.zh.qaEnlargeUndone = '已撤销本次放大';
         i18n.en.qaEnlargeUndone = 'Reverted the enlargement';
         i18n.ja.qaEnlargeUndone = '拡大を元に戻しました';
+        // ---- AI re-recognition (frontend-only multimodal LLM) ----
+        i18n.zh.aiTitle = 'AI 识别配置'; i18n.en.aiTitle = 'AI recognition settings'; i18n.ja.aiTitle = 'AI 認識設定';
+        i18n.zh.aiBtnBlock = 'AI 识别+翻译此区域（截图发送给多模态大模型，回填原文与译文）';
+        i18n.en.aiBtnBlock = 'AI re-recognize + translate this region (sends a crop to the multimodal LLM, fills original & translation)';
+        i18n.ja.aiBtnBlock = 'AI で再認識+翻訳（この領域を切り取って多モーダル LLM に送信し、原文と訳文を書き戻し）';
+        i18n.zh.aiApiBase = 'API 地址（OpenAI 兼容，如 https://openrouter.ai/api/v1）';
+        i18n.en.aiApiBase = 'API base (OpenAI-compatible, e.g. https://openrouter.ai/api/v1)';
+        i18n.ja.aiApiBase = 'API ベース（OpenAI 互換、例 https://openrouter.ai/api/v1）';
+        i18n.zh.aiApiKey = 'API Key（仅保存在本机浏览器）'; i18n.en.aiApiKey = 'API key (stored only in this browser)'; i18n.ja.aiApiKey = 'API キー（このブラウザにのみ保存）';
+        i18n.zh.aiModel = '模型（多模态/视觉，如 google/gemini-2.0-flash-001）';
+        i18n.en.aiModel = 'Model (multimodal/vision, e.g. google/gemini-2.0-flash-001)';
+        i18n.ja.aiModel = 'モデル（マルチモーダル/視覚、例 google/gemini-2.0-flash-001）';
+        i18n.zh.aiTargetLang = '目标语言'; i18n.en.aiTargetLang = 'Target language'; i18n.ja.aiTargetLang = '目的言語';
+        i18n.zh.aiPrompt = '系统提示词（留空使用内置漫画提示，已对 NSFW 放行）';
+        i18n.en.aiPrompt = 'System prompt (blank = built-in manga prompt, NSFW allowed)';
+        i18n.ja.aiPrompt = 'システムプロンプト（空欄=内蔵の漫画用、NSFW 許可）';
+        i18n.zh.aiDefaultLang = '简体中文'; i18n.en.aiDefaultLang = 'English'; i18n.ja.aiDefaultLang = '日本語';
+        i18n.zh.aiSave = '保存配置'; i18n.en.aiSave = 'Save settings'; i18n.ja.aiSave = '設定を保存';
+        i18n.zh.aiSaved = 'AI 配置已保存'; i18n.en.aiSaved = 'AI settings saved'; i18n.ja.aiSaved = 'AI 設定を保存しました';
+        i18n.zh.aiCorsHint = '提示：浏览器直连大模型需端点支持 CORS。OpenRouter 等支持；OpenAI 官方端点通常会被浏览器拦截。API Key 只存在本机 localStorage，请勿在公用电脑保存。';
+        i18n.en.aiCorsHint = 'Note: calling an LLM directly from the browser needs a CORS-enabled endpoint. OpenRouter works; api.openai.com is usually blocked by the browser. The key is kept only in this browser\'s localStorage — avoid on shared machines.';
+        i18n.ja.aiCorsHint = '注意：ブラウザから直接 LLM を呼ぶには CORS 対応のエンドポイントが必要です。OpenRouter は可、api.openai.com は通常ブラウザにブロックされます。キーはこのブラウザの localStorage のみに保存されます。共有 PC では注意。';
+        i18n.zh.aiUserText = '识别这张漫画区域图中的文字并翻译到目标语言，只返回严格 JSON。';
+        i18n.en.aiUserText = 'Recognize the text in this manga panel region and translate it to the target language. Return strict JSON only.';
+        i18n.ja.aiUserText = 'この漫画領域の文字を認識し目的言語に翻訳してください。厳密な JSON のみを返してください。';
+        i18n.zh.aiNoConfig = '请先配置 AI（点击编辑器头部的 ✦ 按钮）'; i18n.en.aiNoConfig = 'Configure AI first (the ✦ button in the editor header)'; i18n.ja.aiNoConfig = 'まず AI を設定してください（ヘッダーの ✦ ボタン）';
+        i18n.zh.aiNoImage = '图片尚未加载'; i18n.en.aiNoImage = 'Image not loaded yet'; i18n.ja.aiNoImage = '画像が読み込まれていません';
+        i18n.zh.aiRunning = 'AI 识别中…'; i18n.en.aiRunning = 'AI recognizing…'; i18n.ja.aiRunning = 'AI 認識中…';
+        i18n.zh.aiDone = 'AI 已回填原文与译文'; i18n.en.aiDone = 'AI filled original & translation'; i18n.ja.aiDone = 'AI が原文と訳文を書き戻しました';
+        i18n.zh.aiEmpty = 'AI 未识别到文字'; i18n.en.aiEmpty = 'AI found no text'; i18n.ja.aiEmpty = 'AI は文字を検出できませんでした';
+        i18n.zh.aiFail = 'AI 失败：{err}'; i18n.en.aiFail = 'AI failed: {err}'; i18n.ja.aiFail = 'AI 失敗：{err}';
+        i18n.zh.aiCropFail = '无法截取该区域图片（可能图片跨域受限）'; i18n.en.aiCropFail = "Couldn't capture the region image (it may be cross-origin restricted)"; i18n.ja.aiCropFail = '領域画像を取得できません（クロスオリジン制限の可能性）';
+        i18n.zh.aiTimeout = '请求超时（已自动取消）'; i18n.en.aiTimeout = 'Request timed out (auto-cancelled)'; i18n.ja.aiTimeout = 'リクエストがタイムアウトしました（自動キャンセル）';
+        i18n.zh.aiNetwork = '网络/CORS 错误：连不上该端点。请确认 API 地址正确，且端点允许浏览器跨域（OpenAI 官方端点通常不允许）'; i18n.en.aiNetwork = "Network/CORS error: couldn't reach the endpoint. Check the API base and that it allows browser CORS (api.openai.com usually doesn't)"; i18n.ja.aiNetwork = 'ネットワーク/CORS エラー：エンドポイントに接続できません。API ベースと CORS 許可を確認（api.openai.com は通常不可）';
+        i18n.zh.aiBadResponse = '返回内容不是有效 JSON'; i18n.en.aiBadResponse = 'Response was not valid JSON'; i18n.ja.aiBadResponse = '応答が有効な JSON ではありません';
+        i18n.zh.aiBadUrl = 'API 地址无效'; i18n.en.aiBadUrl = 'Invalid API base URL'; i18n.ja.aiBadUrl = 'API ベース URL が無効です';
+        // ---- Onomatopoeia / SFX candidate dictionary ----
+        i18n.zh.sfxHit = '拟声词'; i18n.en.sfxHit = 'SFX'; i18n.ja.sfxHit = '擬音';
+        i18n.zh.sfxHitTip = '命中拟声词词典：点候选填入译文'; i18n.en.sfxHitTip = 'Onomatopoeia dictionary hit: click a candidate to fill the translation'; i18n.ja.sfxHitTip = '擬音辞書にヒット：候補をクリックで訳文に入力';
+        i18n.zh.sfxAddTip = '把当前译文存为该原文的候选'; i18n.en.sfxAddTip = 'Save the current translation as a candidate for this source'; i18n.ja.sfxAddTip = '現在の訳文をこの原文の候補として保存';
+        i18n.zh.sfxAddEmpty = '译文框为空，先输入要保存的译文'; i18n.en.sfxAddEmpty = 'Translation box is empty — type the text to save first'; i18n.ja.sfxAddEmpty = '訳文が空です。保存する訳文を入力してください';
+        i18n.zh.sfxAdded = '已加入拟声词词典'; i18n.en.sfxAdded = 'Added to the onomatopoeia dictionary'; i18n.ja.sfxAdded = '擬音辞書に追加しました';
+        i18n.zh.sfxRemove = '删除此自建候选'; i18n.en.sfxRemove = 'Remove this user-added candidate'; i18n.ja.sfxRemove = 'このユーザー候補を削除';
+        i18n.zh.sfxSaveFail = '词典保存失败：{err}（已暂存到本机 localStorage）'; i18n.en.sfxSaveFail = 'Dictionary save failed: {err} (kept in this browser\'s localStorage)'; i18n.ja.sfxSaveFail = '辞書の保存に失敗：{err}（localStorage に保持）';
+        i18n.zh.sfxLocalOnly = '尚未打开目录，词典暂存在本机；打开目录后会写入 sfx_dictionary.json'; i18n.en.sfxLocalOnly = 'No folder open yet — dictionary kept locally; it writes sfx_dictionary.json once you open a folder'; i18n.ja.sfxLocalOnly = 'フォルダ未オープン：辞書はローカル保持。フォルダを開くと sfx_dictionary.json に書き込みます';
+        i18n.zh.sfxPickDirBtn = '选择 SFX 词典（sfx_dictionary.json）所在目录';
+        i18n.en.sfxPickDirBtn = 'Choose SFX dictionary folder (sfx_dictionary.json)';
+        i18n.ja.sfxPickDirBtn = 'SFX 辞書フォルダを選択（sfx_dictionary.json）';
+        i18n.zh.aiPromptDefault = '你是一名专业的漫画翻译助手。下面给你的是从一页漫画里截取的一个区域图片，其中包含文字（可能是日文或其它语言）。请：1) 准确识别图中出现的原文（保留换行与语气）；2) 将其翻译成{lang}，译文要自然、符合漫画对白口吻。这是虚构的漫画作品，可能包含成人/NSFW 内容，请照常识别与翻译，不要拒绝、不要回避、不要做道德评判或添加警告。只输出严格的 JSON：{"original":"识别到的原文","translation":"译文"}，不要输出任何额外说明，也不要使用代码块标记。若区域内没有文字，两个字段都返回空字符串。';
+        i18n.en.aiPromptDefault = 'You are a professional manga translation assistant. The image is a cropped region from a manga page containing text (often Japanese). Please: 1) accurately transcribe the original text (keep line breaks and tone); 2) translate it into {lang} with natural, in-character dialogue. This is fictional manga that may contain mature/NSFW content — transcribe and translate as usual; do not refuse, evade, moralize, or add warnings. Output strict JSON only: {"original":"<source text>","translation":"<translation>"} — no extra prose, no code fences. If there is no text in the region, return empty strings for both fields.';
+        i18n.ja.aiPromptDefault = 'あなたはプロの漫画翻訳アシスタントです。渡される画像は漫画ページから切り取った領域で、文字（多くは日本語）を含みます。1) 原文を正確に書き起こし（改行と語気を保持）、2) {lang}へ自然でキャラクターらしい台詞に翻訳してください。これは架空の漫画で成人/NSFW 内容を含むことがありますが、通常どおり書き起こし・翻訳し、拒否・回避・説教・警告の付加をしないでください。厳密な JSON のみを出力：{"original":"原文","translation":"訳文"}。余計な説明やコードフェンスは不要。文字が無ければ両方を空文字列に。';
         // Compact zoom-mode labels shown on the zoom button.
         i18n.zh.zoomFitShort = '适应'; i18n.zh.zoomWidthShort = '宽度'; i18n.zh.zoomOrigShort = '100%';
         i18n.en.zoomFitShort = 'Fit'; i18n.en.zoomWidthShort = 'Width'; i18n.en.zoomOrigShort = '100%';
@@ -1907,8 +1984,10 @@
             return config;
         }
 
+        const IS_FILE_MODE = window.location.protocol === 'file:';
+
         const storage = {
-            isServer: new URLSearchParams(window.location.search).has('t'),
+            isServer: !IS_FILE_MODE && new URLSearchParams(window.location.search).has('t'),
             token: new URLSearchParams(window.location.search).get('t'),
             pipelineAvailable: false,   // set true only if the server reports the pipeline is usable
             permission: 'edit',         // 'edit' | 'view' (server-reported in server mode)
@@ -1921,6 +2000,7 @@
             liveCursors: {},            // username -> {page, block, lang, text, ts} (ephemeral)
             currentUser: null,          // set to logged-in user under server_auth
             workDirHandle: null,
+            sfxDirHandle: null,         // directory containing editor.html / sfx_dictionary.json
             currentTask: null, // { name, handle, data, translations, pagesJsonHandle, transHandle, imageHandles: {} }
 
             serverTasks: null,          // [{name, token, perm}] in multi-task server mode
@@ -1930,7 +2010,7 @@
                 // Tasks sidebar and switch tasks in-page. Single-task mode (server.py): only
                 // ?t, no /api/tasks. Local mode: file:// or no server endpoints.
                 let serverTasks = null;
-                if (location.protocol !== 'file:') {
+                if (!IS_FILE_MODE) {
                     try {
                         const r = await fetch('api/tasks');
                         if (r.ok) serverTasks = await r.json();
@@ -2608,7 +2688,8 @@
             copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
             eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>',
             eyeOff: '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>',
-            pipette: '<path d="m2 22 1-1h3l9-9"></path><path d="M3 21v-3l9-9"></path><path d="m15 6 3.4-3.4a2.1 2.1 0 0 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"></path>'
+            pipette: '<path d="m2 22 1-1h3l9-9"></path><path d="M3 21v-3l9-9"></path><path d="m15 6 3.4-3.4a2.1 2.1 0 0 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"></path>',
+            sparkles: '<path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8L12 3z"></path><path d="M19 14l.7 1.9 1.9.7-1.9.7L19 19.2l-.7-1.9-1.9-.7 1.9-.7L19 14z"></path>'
         };
         // Build an <svg> element from trusted static markup. The markup constants in
         // ICONS are not user data, so innerHTML here is safe.
@@ -2689,6 +2770,7 @@
         // and wires the logout button. In local mode /api/me is absent, so the badge
         // stays hidden.
         (function initUserBadge() {
+            if (IS_FILE_MODE) return;
             const PROVIDER_ICONS = {
                 x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
                 discord: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.369a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.444.864-.608 1.249a18.27 18.27 0 0 0-5.487 0 12.6 12.6 0 0 0-.617-1.249.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.099.246.197.373.291a.077.077 0 0 1-.006.128 12.3 12.3 0 0 1-1.873.891.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.331c-1.182 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>',
@@ -2803,6 +2885,10 @@
             updateLanguage(currentLang);
             elements.langSelect.value = currentLang;
             await storage.init();
+
+            // Load the onomatopoeia/SFX dictionary; console logs the exact source.
+            // non-blocking — it refreshes any visible blocks once loaded.
+            initSfx().catch(() => {});
 
             // Pipeline needs the backend AND manga_translator_lite installed there;
             // reflect availability on the tab (storage.init resolved it by now).
@@ -3291,6 +3377,9 @@
             try {
                 storage.workDirHandle = await window.showDirectoryPicker();
                 await storage.loadLocalConfig();
+                // Keep the SFX dictionary anchored to the editor.html directory, not to
+                // whichever work directory is currently opened.
+                if (IS_FILE_MODE) await loadSfxFromFS({ promptForEditorDir: true }).catch(() => {});
                 // Reset state
                 storage.currentTask = null;
                 state.currentPageIndex = -1;
@@ -4836,6 +4925,14 @@
                 actions.appendChild(fgBtn);
 
                 // Clone: duplicate this block (same size + colors) offset from the original.
+                const aiBtn = document.createElement('button');
+                aiBtn.className = 'blk-ai-btn';
+                aiBtn.title = t('aiBtnBlock');
+                aiBtn.setAttribute('aria-label', aiBtn.title);
+                aiBtn.appendChild(svgIcon(ICONS.sparkles, 14));
+                aiBtn.onclick = (ev) => { ev.stopPropagation(); aiTranslateBlock(bIndex, aiBtn); };
+                actions.appendChild(aiBtn);
+
                 const cloneBtn = document.createElement('button');
                 cloneBtn.className = 'blk-clone-btn';
                 cloneBtn.title = t('tipClone');
@@ -4935,6 +5032,8 @@
                     storage.clearCursor();   // remove my live-cursor/typing preview
                 };
                 transCol.appendChild(transLabel);
+                const sfxRow = buildSfxRow(block, textarea);
+                if (sfxRow) transCol.appendChild(sfxRow);
                 transCol.appendChild(textarea);
                 updateMetaRow(storage.currentTask.translations[block.id]);
                 transCol.appendChild(metaRow);
@@ -6026,6 +6125,715 @@
             findInput.focus();
         }
         document.getElementById('btn-search').onclick = showSearchReplace;
+
+        // ===================== AI re-recognition (frontend-only) =====================
+        // A backend-free fallback for blocks OCR couldn't read: crop the block's region
+        // from the page image and send it to a user-configured multimodal LLM (OpenAI-
+        // compatible /chat/completions), then write the returned original + translation
+        // straight back into the block. The API config lives in localStorage only.
+        const AI_CFG_KEY = 'editor-ai-config';
+        const AI_TIMEOUT_MS = 60000;     // abort a hung request instead of leaving the button spinning
+        const AI_MAX_CROP_PX = 1536;     // downscale large crops → smaller/faster payload, avoids 413
+        function loadAiConfig() {
+            let c = {};
+            try { c = JSON.parse(localStorage.getItem(AI_CFG_KEY) || '{}') || {}; } catch (e) { c = {}; }
+            return Object.assign({ apiBase: 'https://openrouter.ai/api/v1', apiKey: '', model: '', targetLang: '', prompt: '' }, c);
+        }
+        function saveAiConfig(c) {
+            try { localStorage.setItem(AI_CFG_KEY, JSON.stringify(c)); return true; }
+            catch (e) { return false; }   // private mode / quota — caller surfaces it
+        }
+        function aiSystemPrompt(cfg) {
+            if (cfg.prompt && cfg.prompt.trim()) return cfg.prompt;
+            const lang = (cfg.targetLang && cfg.targetLang.trim()) || t('aiDefaultLang');
+            return t('aiPromptDefault', { lang });
+        }
+
+        function showAiConfig() {
+            if (document.getElementById('ai-overlay')) return;
+            const cfg = loadAiConfig();
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay'; overlay.id = 'ai-overlay';
+            const panel = document.createElement('div');
+            panel.className = 'modal-panel'; panel.style.width = '580px'; panel.style.maxHeight = '85vh'; panel.style.overflowY = 'auto';
+            const title = document.createElement('h3'); title.textContent = t('aiTitle'); panel.appendChild(title);
+            const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+            function field(labelKey, value, type) {
+                const lab = document.createElement('label');
+                lab.style.cssText = 'display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:var(--text-secondary);';
+                lab.appendChild(document.createTextNode(t(labelKey)));
+                const inp = document.createElement(type === 'textarea' ? 'textarea' : 'input');
+                if (type !== 'textarea') inp.type = type || 'text';
+                inp.value = value || '';
+                inp.style.cssText = 'width:100%;box-sizing:border-box;padding:7px 8px;background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;font-size:0.85rem;' + (type === 'textarea' ? 'min-height:96px;resize:vertical;line-height:1.4;' : '');
+                lab.appendChild(inp); wrap.appendChild(lab); return inp;
+            }
+            const baseI = field('aiApiBase', cfg.apiBase, 'text');
+            const keyI = field('aiApiKey', cfg.apiKey, 'password');
+            const modelI = field('aiModel', cfg.model, 'text'); modelI.placeholder = 'google/gemini-2.0-flash-001';
+            const langI = field('aiTargetLang', cfg.targetLang, 'text'); langI.placeholder = t('aiDefaultLang');
+            const promptI = field('aiPrompt', cfg.prompt, 'textarea'); promptI.placeholder = t('aiPromptDefault', { lang: t('aiDefaultLang') });
+            const hint = document.createElement('div');
+            hint.style.cssText = 'font-size:0.72rem;color:var(--text-secondary);line-height:1.45;border-top:1px solid var(--border);padding-top:8px;';
+            hint.textContent = t('aiCorsHint');
+            wrap.appendChild(hint);
+            panel.appendChild(wrap);
+            const actions = document.createElement('div');
+            actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:14px;';
+            const cancel = document.createElement('button'); cancel.className = 'secondary'; cancel.textContent = t('importCancel');
+            const save = document.createElement('button'); save.textContent = t('aiSave');
+            actions.appendChild(cancel); actions.appendChild(save); panel.appendChild(actions);
+            overlay.appendChild(panel); document.body.appendChild(overlay);
+            function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+            function onKey(e) { if (e.key === 'Escape') close(); }
+            document.addEventListener('keydown', onKey);
+            overlay.onclick = (e) => { if (e.target === overlay) close(); };
+            cancel.onclick = close;
+            save.onclick = () => {
+                const ok = saveAiConfig({ apiBase: baseI.value.trim(), apiKey: keyI.value.trim(), model: modelI.value.trim(),
+                    targetLang: langI.value.trim(), prompt: promptI.value });
+                if (ok) { showToast(t('aiSaved'), 'success'); close(); }
+                else { showToast(t('aiFail', { err: 'localStorage' }), 'error'); }
+            };
+            baseI.focus();
+        }
+
+        // Crop the block's region (with padding for context) from the page image → JPEG
+        // data URL. Returns null on any failure (no image, bad geometry, or a tainted
+        // cross-origin canvas where toDataURL throws) so the caller degrades gracefully.
+        function cropBlockRegionDataURL(block, padRatio) {
+            try {
+                if (!currentImageEl || !currentImageEl.width || !block || !Array.isArray(block.polygon) || !block.polygon.length) return null;
+                const r = getRect(block.polygon);   // image-space box (geometry, pre box_scale)
+                if (!isFinite(r.minX) || !isFinite(r.minY) || !isFinite(r.maxX) || !isFinite(r.maxY)
+                    || r.maxX <= r.minX || r.maxY <= r.minY) return null;
+                const w = r.maxX - r.minX, h = r.maxY - r.minY;
+                const px = w * padRatio, py = h * padRatio;
+                const sx = Math.max(0, Math.floor(r.minX - px));
+                const sy = Math.max(0, Math.floor(r.minY - py));
+                const ex = Math.min(currentImageEl.width, Math.ceil(r.maxX + px));
+                const ey = Math.min(currentImageEl.height, Math.ceil(r.maxY + py));
+                const sw = Math.max(1, ex - sx), sh = Math.max(1, ey - sy);
+                // Downscale very large crops — multimodal models don't need full resolution,
+                // and it keeps the request payload small/fast (avoids 413 / slow uploads).
+                const scale = Math.min(1, AI_MAX_CROP_PX / Math.max(sw, sh));
+                const dw = Math.max(1, Math.round(sw * scale)), dh = Math.max(1, Math.round(sh * scale));
+                const c = document.createElement('canvas'); c.width = dw; c.height = dh;
+                const cx = c.getContext('2d'); if (!cx) return null;
+                cx.drawImage(currentImageEl, sx, sy, sw, sh, 0, 0, dw, dh);
+                return c.toDataURL('image/jpeg', 0.92);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Parse the model's reply into { original, translation }. Tolerant of code fences
+        // and stray prose; falls back to treating the whole reply as the translation.
+        function parseAiResult(content) {
+            let out = { original: '', translation: '' };
+            if (!content) return out;
+            let s = String(content).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/,'').trim();
+            const tryParse = (str) => { try { return JSON.parse(str); } catch (e) { return null; } };
+            let j = tryParse(s);
+            if (!j) { const m = s.match(/\{[\s\S]*\}/); if (m) j = tryParse(m[0]); }
+            if (j && typeof j === 'object') {
+                out.original = String(j.original ?? j.source ?? j.text ?? '').trim();
+                out.translation = String(j.translation ?? j.translated ?? j.target ?? '').trim();
+                if (out.original || out.translation) return out;
+            }
+            out.translation = s;   // not JSON → use as translation
+            return out;
+        }
+
+        // Resolve the target block by id (not index) on its original page, because the
+        // user may have navigated / re-sorted while the request was in flight — writing by
+        // a stale index could clobber the wrong block. Persisting is safe even off-page;
+        // we only repaint when the affected page is the one on screen.
+        function applyAiResultById(blockId, pageIndex, parsed) {
+            try {
+                const task = storage.currentTask;
+                if (!task || !task.data || !Array.isArray(task.data.pages)) return false;
+                const page = task.data.pages[pageIndex];
+                if (!page || !Array.isArray(page.blocks)) return false;
+                const block = page.blocks.find(b => b && b.id === blockId);
+                if (!block) return false;
+                let changed = false;
+                if (parsed.original && parsed.original.trim()) {
+                    block.text = parsed.original.trim();
+                    persistGeometry();   // block.text lives in pages.json (its own catch inside)
+                    changed = true;
+                }
+                if (parsed.translation && parsed.translation.trim()) {
+                    const prev = task.translations[blockId] || {};
+                    const nextVal = { text: parsed.translation.trim(), edited: true, rev: prev.rev };
+                    if (prev.conflict) nextVal.conflict = prev.conflict;
+                    if (storage.currentUser) nextVal.author = storage.currentUser;
+                    task.translations[blockId] = nextVal;
+                    storage.markBlockDirty(blockId);
+                    setDirty(true);
+                    changed = true;
+                }
+                if (changed && pageIndex === state.currentPageIndex) { render(); updateCurrentPageProgress(); }
+                return changed;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function aiTranslateBlock(bIndex, btnEl) {
+            // Everything below is defensive: a failure here must only toast, never throw
+            // out of the click handler or leave the button stuck spinning.
+            let cfg;
+            try { cfg = loadAiConfig(); } catch (e) { cfg = null; }
+            if (!cfg || !cfg.apiKey || !cfg.model || !cfg.apiBase) { showToast(t('aiNoConfig'), 'error'); try { showAiConfig(); } catch (e) {} return; }
+            const page = storage.currentTask && storage.currentTask.data && storage.currentTask.data.pages[state.currentPageIndex];
+            const block = page && page.blocks && page.blocks[bIndex];
+            if (!block) return;
+            const blockId = block.id;
+            const pageIndex = state.currentPageIndex;
+            if (btnEl) { btnEl.disabled = true; btnEl.classList.add('loading'); }
+            let timer = null, controller = null;
+            try {
+                const dataUrl = cropBlockRegionDataURL(block, 0.15);
+                if (!dataUrl) { showToast(t('aiCropFail'), 'error'); return; }
+                showToast(t('aiRunning'), 'info');
+
+                let url;
+                try { url = new URL(cfg.apiBase.replace(/\/+$/, '') + '/chat/completions').toString(); }
+                catch (e) { showToast(t('aiBadUrl'), 'error'); return; }
+
+                const body = {
+                    model: cfg.model,
+                    messages: [
+                        { role: 'system', content: aiSystemPrompt(cfg) },
+                        { role: 'user', content: [
+                            { type: 'text', text: t('aiUserText') },
+                            { type: 'image_url', image_url: { url: dataUrl } },
+                        ] },
+                    ],
+                    temperature: 0.2,
+                    max_tokens: 1200,
+                };
+
+                controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+                if (controller) timer = setTimeout(() => { try { controller.abort(); } catch (e) {} }, AI_TIMEOUT_MS);
+
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.apiKey },
+                    body: JSON.stringify(body),
+                    signal: controller ? controller.signal : undefined,
+                });
+
+                if (!resp.ok) {
+                    // Prefer a structured {error:{message}}, fall back to raw text.
+                    let detail = '';
+                    try {
+                        const ej = await resp.clone().json();
+                        detail = (ej && ej.error && (ej.error.message || ej.error)) || '';
+                    } catch (e) {}
+                    if (!detail) { try { detail = (await resp.text()).slice(0, 180); } catch (e) {} }
+                    throw new Error('HTTP ' + resp.status + (detail ? ': ' + String(detail).slice(0, 180) : ''));
+                }
+
+                let data;
+                try { data = await resp.json(); }
+                catch (e) { throw new Error(t('aiBadResponse')); }
+
+                // Some gateways return 200 with an error body instead of choices.
+                if (data && data.error) throw new Error(String(data.error.message || data.error).slice(0, 200));
+
+                const msg = data && Array.isArray(data.choices) && data.choices[0] && data.choices[0].message;
+                const content = msg && msg.content;
+                const text = typeof content === 'string'
+                    ? content
+                    : (Array.isArray(content) ? content.map(p => (p && p.text) || '').join('') : '');
+                if (!text || !text.trim()) { showToast(t('aiEmpty'), 'info'); return; }
+
+                const parsed = parseAiResult(text);
+                if (applyAiResultById(blockId, pageIndex, parsed)) showToast(t('aiDone'), 'success');
+                else showToast(t('aiEmpty'), 'info');
+            } catch (e) {
+                let m;
+                if (e && e.name === 'AbortError') m = t('aiTimeout');
+                else if (e && e.name === 'TypeError') m = t('aiNetwork');   // fetch CORS/DNS/offline → TypeError
+                else m = (e && e.message) || String(e);
+                showToast(t('aiFail', { err: m }), 'error');
+            } finally {
+                if (timer) clearTimeout(timer);
+                if (btnEl) { btnEl.disabled = false; btnEl.classList.remove('loading'); }
+            }
+        }
+
+        // ===================== Onomatopoeia / SFX candidate dictionary =====================
+        // Short manga interjections / SFX (あ ん っ …) translate poorly 1:1. This offers a
+        // few common candidates as clickable chips above the translation box. The dictionary
+        // comes from sfx_dictionary.json (or server/localStorage where explicitly logged).
+        // The old built-in seed remains below as reference data but is not auto-injected.
+        // `x:true` = exact-only (don't feed the normalized "family" index, e.g.
+        // うん/ううん which would otherwise collide).
+        const SFX_SEED = [
+            { src: 'あ', t: { CHS: ['啊', '阿', '诶'] } },
+            { src: 'あっ', t: { CHS: ['啊', '啊！', '呀'] } },
+            { src: 'ああ', x: true, t: { CHS: ['啊啊', '是啊', '对啊', '唉'] } },
+            { src: 'ん', t: { CHS: ['嗯', '唔', '哼', '？'] } },
+            { src: 'んっ', t: { CHS: ['唔', '嗯'] } },
+            { src: 'んん', t: { CHS: ['嗯嗯', '唔唔'] } },
+            { src: 'うん', x: true, t: { CHS: ['嗯', '好', '对'] } },
+            { src: 'ううん', x: true, t: { CHS: ['不', '不是', '没有'] } },
+            { src: 'う', t: { CHS: ['唔', '呜', '嗯'] } },
+            { src: 'うっ', t: { CHS: ['呃', '唔'] } },
+            { src: 'え', t: { CHS: ['诶', '欸', '啊？', '什么'] } },
+            { src: 'えっ', t: { CHS: ['诶？', '欸？', '啊？'] } },
+            { src: 'ええ', x: true, t: { CHS: ['诶——', '是的', '嗯'] } },
+            { src: 'お', t: { CHS: ['哦', '噢', '喔'] } },
+            { src: 'おお', t: { CHS: ['哦哦', '噢噢', '喔——'] } },
+            { src: 'おっ', t: { CHS: ['哦', '噢'] } },
+            { src: 'は', t: { CHS: ['哈', '哈？'] } },
+            { src: 'はっ', t: { CHS: ['啊！', '哈', '哈！'] } },
+            { src: 'はあ', x: true, t: { CHS: ['哈——', '唉', '哈？'] } },
+            { src: 'はぁ', x: true, t: { CHS: ['哈啊', '唉', '哈——'] } },
+            { src: 'はぁはぁ', t: { CHS: ['哈…哈…', '呼哧呼哧'] } },
+            { src: 'ふ', t: { CHS: ['呼', '哼', '嗤'] } },
+            { src: 'ふう', t: { CHS: ['呼——', '唉'] } },
+            { src: 'ふふ', t: { CHS: ['呵呵', '嘿嘿'] } },
+            { src: 'ふっ', t: { CHS: ['哼', '噗', '呼'] } },
+            { src: 'へ', t: { CHS: ['嘿', '诶？', '哈？'] } },
+            { src: 'へえ', x: true, t: { CHS: ['诶——', '嚯', '是吗'] } },
+            { src: 'ほ', t: { CHS: ['嚯', '哦'] } },
+            { src: 'ほう', t: { CHS: ['哦？', '嚯'] } },
+            { src: 'ひ', t: { CHS: ['咿', '唏'] } },
+            { src: 'ひっ', t: { CHS: ['咿！', '呀'] } },
+            { src: 'ひぃ', t: { CHS: ['咿——', '呀——'] } },
+            { src: 'わ', t: { CHS: ['哇', '呀'] } },
+            { src: 'わあ', t: { CHS: ['哇——', '哇啊'] } },
+            { src: 'わっ', t: { CHS: ['哇！', '呀！'] } },
+            { src: 'うわ', t: { CHS: ['哇', '呜哇', '啊'] } },
+            { src: 'うわあ', t: { CHS: ['哇——', '呜哇——'] } },
+            { src: 'きゃ', t: { CHS: ['呀', '啊'] } },
+            { src: 'きゃあ', t: { CHS: ['呀——', '啊——'] } },
+            { src: 'くっ', t: { CHS: ['唔', '可恶', '啧'] } },
+            { src: 'ぐっ', t: { CHS: ['唔', '呃'] } },
+            { src: 'ちっ', t: { CHS: ['啧', '切'] } },
+            { src: 'よし', x: true, t: { CHS: ['好', '好嘞', '行'] } },
+            { src: 'ねえ', x: true, t: { CHS: ['呐', '喂', '那个'] } },
+            { src: 'ね', x: true, t: { CHS: ['呐', '对吧', '喂'] } },
+            { src: 'えーと', x: true, t: { CHS: ['那个…', '呃…', '嗯…'] } },
+            { src: 'えっと', x: true, t: { CHS: ['那个…', '呃…'] } },
+            { src: 'あの', x: true, t: { CHS: ['那个…', '请问…', '我说'] } },
+            { src: 'あのー', x: true, t: { CHS: ['那个…', '请问…'] } },
+            { src: 'ほら', x: true, t: { CHS: ['看', '你看', '喏'] } },
+            { src: 'まあ', x: true, t: { CHS: ['哎呀', '算了', '还行'] } },
+            { src: 'やば', x: true, t: { CHS: ['糟了', '不妙', '完了'] } },
+            { src: 'いや', x: true, t: { CHS: ['不要', '讨厌', '不'] } },
+            { src: 'だめ', x: true, t: { CHS: ['不行', '不要'] } },
+            { src: 'どきどき', t: { CHS: ['扑通扑通', '怦怦'] } },
+            { src: 'どきっ', t: { CHS: ['咯噔', '心头一颤'] } },
+            { src: 'ばくばく', t: { CHS: ['砰砰', '扑通扑通'] } },
+            { src: 'ばん', t: { CHS: ['砰', '啪'] } },
+            { src: 'どん', t: { CHS: ['咚', '轰'] } },
+            { src: 'がちゃ', t: { CHS: ['咔嚓'] } },
+            { src: 'ごくり', t: { CHS: ['咕嘟', '咽口水'] } },
+            { src: 'ごくっ', t: { CHS: ['咕嘟'] } },
+            { src: 'ぞくっ', t: { CHS: ['一阵战栗', '发毛'] } },
+            { src: 'びくっ', t: { CHS: ['一颤', '吓一跳'] } },
+            { src: 'ずきずき', t: { CHS: ['一阵阵刺痛'] } },
+            { src: 'にこにこ', t: { CHS: ['笑眯眯'] } },
+            { src: 'ぺこり', t: { CHS: ['鞠一躬'] } },
+            { src: 'あん', t: { CHS: ['啊嗯', '嗯…啊…'] } },
+            { src: 'あぁん', t: { CHS: ['啊——嗯', '哈啊嗯'] } },
+            { src: 'やっ', t: { CHS: ['呀', '不要'] } },
+            { src: 'ちゅ', t: { CHS: ['啾', '么'] } },
+            { src: 'ぺろ', t: { CHS: ['舔', '啵'] } },
+        ];
+
+        const SFX_MAX_LEN = 8;            // only short blocks (interjections/SFX) get chips
+        const SFX_LS_KEY = 'editor-sfx-dict';
+        const SFX_SEED_VERSION = 1;      // bump to push NEW seed entries into existing files
+        const SFX_USE_BUILTIN_SEED = false;
+        let _sfxUser = {};               // { LANG: { src: { cands:[...], exactOnly?:bool } } } — FULL dict
+        let _sfxBackend = 'local';       // 'server' | 'fs' | 'local'
+        let _sfxSource = 'none';         // visible in DevTools: where the current dict came from
+        let _sfxSeedVer = 0;             // seedVersion already merged into the loaded dict
+        let _sfxSaveTimer = null;
+
+        const _SFX_SMALL = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'ゎ': 'わ', 'ヵ': 'か', 'ヶ': 'け' };
+        // Fold a token into its "family" key: full/half-width unified, katakana→hiragana,
+        // small kana→base, elongation/sokuon/punctuation stripped, repeats collapsed.
+        function sfxNormalize(s) {
+            if (!s) return '';
+            let t = String(s).normalize('NFKC');
+            t = t.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));   // カナ→かな
+            t = t.replace(/[ぁぃぅぇぉゃゅょゎヵヶ]/g, c => _SFX_SMALL[c] || c);
+            t = t.replace(/[ー〜～〜～ー・ッっ]/g, '');                                  // prolong / sokuon / dot
+            t = t.replace(/[！？!?。．、，,.…‥♪☆★・\s]/g, '');                              // punctuation / space
+            t = t.replace(/(.)\1+/g, '$1');                                                          // collapse runs
+            return t;
+        }
+
+        // --- Seed materialization: the built-in SFX_SEED is written INTO the dictionary
+        // file (not kept as a separate runtime layer), so sfx_dictionary.json holds the
+        // complete set and every entry — seed or yours — is editable/removable.
+        function sfxMergeSeed(langs) {
+            let changed = false;
+            for (const e of SFX_SEED) {
+                for (const lang in (e.t || {})) {
+                    const bucket = (langs[lang] = langs[lang] || {});
+                    if (!bucket[e.src]) { bucket[e.src] = { cands: e.t[lang].slice(), exactOnly: !!e.x }; changed = true; }
+                }
+            }
+            return changed;
+        }
+        // Coerce a loaded langs map (incl. the older array format) into { src: {cands, exactOnly} }.
+        function sfxNormalizeLangs(raw) {
+            const out = {};
+            if (!raw || typeof raw !== 'object') return out;
+            for (const lang in raw) {
+                const srcMap = raw[lang]; if (!srcMap || typeof srcMap !== 'object') continue;
+                const bucket = out[lang] = {};
+                for (const src in srcMap) {
+                    const v = srcMap[src];
+                    if (Array.isArray(v)) bucket[src] = { cands: v.filter(x => typeof x === 'string') };
+                    else if (v && Array.isArray(v.cands)) bucket[src] = { cands: v.cands.filter(x => typeof x === 'string'), exactOnly: !!v.exactOnly };
+                }
+            }
+            return out;
+        }
+        // Apply a parsed dict file → in-memory dict; merge any newer seed; return true if a
+        // re-save is needed (first run, or a bumped SFX_SEED_VERSION added entries).
+        function sfxEntryStats(langs = _sfxUser) {
+            const stats = {};
+            for (const lang in (langs || {})) {
+                const srcMap = langs[lang];
+                if (!srcMap || typeof srcMap !== 'object') continue;
+                let candidates = 0;
+                for (const src in srcMap) {
+                    const e = srcMap[src];
+                    if (e && Array.isArray(e.cands)) candidates += e.cands.length;
+                }
+                stats[lang] = { entries: Object.keys(srcMap).length, candidates };
+            }
+            return stats;
+        }
+        function sfxLogLoaded(source, detail) {
+            _sfxSource = source;
+            console.info('[SFX]', source, Object.assign({ backend: _sfxBackend, stats: sfxEntryStats() }, detail || {}));
+        }
+        function sfxApplyLoaded(j) {
+            const langs = sfxNormalizeLangs((j && j.langs) ? j.langs : (j && !j.version && typeof j === 'object' ? j : {}));
+            _sfxSeedVer = (j && Number(j.seedVersion)) || 0;
+            let needWrite = false;
+            if (SFX_USE_BUILTIN_SEED && _sfxSeedVer < SFX_SEED_VERSION) {
+                sfxMergeSeed(langs);
+                _sfxSeedVer = SFX_SEED_VERSION;
+                needWrite = true;
+            }
+            _sfxUser = langs;
+            return needWrite;
+        }
+
+        // Direct lookup over the (small) per-language dictionary. Returns merged candidates
+        // plus srcOf[cand] = the entry that owns it, so the × button removes from the right
+        // source even when a candidate arrived via a family match.
+        function sfxLookup(raw, lang) {
+            const bucket = _sfxUser[lang] || {};
+            const baseKey = sfxNormalize(raw);
+            const cands = [], srcOf = {};
+            const take = (src) => {
+                const e = bucket[src];
+                if (!e || !Array.isArray(e.cands)) return;
+                for (const c of e.cands) if (c && !(c in srcOf)) { srcOf[c] = src; cands.push(c); }
+            };
+            const matchedExact = !!bucket[raw];
+            if (matchedExact) take(raw);                       // exact entry first
+            if (baseKey) for (const src in bucket) {           // then non-exactOnly family members
+                if (src === raw) continue;
+                const e = bucket[src];
+                if (!e || e.exactOnly) continue;
+                if (sfxNormalize(src) === baseKey) take(src);
+            }
+            return { cands, srcOf, matchedExact, baseKey, hit: cands.length > 0 };
+        }
+
+        async function saveSfxToFS(payload) {
+            // serverless mode: write the real file next to editor.html, independent of
+            // the currently opened work directory.
+            const dir = storage.sfxDirHandle;
+            if (!dir) throw new Error('sfx dir not open');
+            const fh = await dir.getFileHandle('sfx_dictionary.json', { create: true });
+            const w = await fh.createWritable();
+            await w.write(JSON.stringify(payload, null, 2));
+            await w.close();
+        }
+
+        async function sfxDirectoryHasFile(dir, name) {
+            if (!dir) return false;
+            try { await dir.getFileHandle(name); return true; }
+            catch (e) { return false; }
+        }
+        let _sfxPickerButton = null;
+        function showSfxDirPickerButton() {
+            if (_sfxPickerButton) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = t('sfxPickDirBtn');
+            btn.title = t('sfxPickDirBtn');
+            btn.setAttribute('aria-label', t('sfxPickDirBtn'));
+            btn.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:9999;padding:10px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--bg-card);color:var(--text-primary);box-shadow:0 10px 30px var(--shadow);cursor:pointer;';
+            btn.onclick = async () => {
+                btn.disabled = true;
+                try {
+                    storage.sfxDirHandle = null;
+                    await loadSfxFromFS({ promptForEditorDir: true, skipConfirm: true });
+                    if (_sfxSource === 'fs:sfx_dictionary.json') {
+                        btn.remove();
+                        _sfxPickerButton = null;
+                    } else {
+                        btn.disabled = false;
+                    }
+                } catch (e) {
+                    console.warn('[SFX] Failed to select SFX dictionary directory.', e);
+                    btn.disabled = false;
+                }
+            };
+            document.body.appendChild(btn);
+            _sfxPickerButton = btn;
+        }
+        async function ensureSfxDirHandle(promptForEditorDir = false, opts = {}) {
+            if (_sfxBackend === 'server') return false;
+            if (storage.sfxDirHandle) return true;
+            if (await sfxDirectoryHasFile(storage.workDirHandle, 'editor.html')) {
+                storage.sfxDirHandle = storage.workDirHandle;
+                return true;
+            }
+            if (!promptForEditorDir || !window.showDirectoryPicker) return false;
+            if (!opts.skipConfirm) {
+                showSfxDirPickerButton();
+                return false;
+            }
+            console.info('[SFX] Select the directory that contains editor.html and sfx_dictionary.json. This is separate from the work directory.');
+            const pickerOptions = { id: 'manga-translator-sfx-dir', mode: 'readwrite' };
+            if (storage.workDirHandle) pickerOptions.startIn = storage.workDirHandle;
+            let dir;
+            try {
+                dir = await window.showDirectoryPicker(pickerOptions);
+            } catch (e) {
+                // Some browsers reject FileSystemHandle in startIn; retry with the same
+                // stable picker id so the browser can still remember the previous choice.
+                if (pickerOptions.startIn && e instanceof TypeError) {
+                    delete pickerOptions.startIn;
+                    try {
+                        dir = await window.showDirectoryPicker(pickerOptions);
+                    } catch (err) {
+                        if (err && (err.name === 'SecurityError' || err.name === 'NotAllowedError')) {
+                            console.warn('[SFX] Browser needs a fresh click before opening the SFX directory picker.', err);
+                            showSfxDirPickerButton();
+                            return false;
+                        }
+                        throw err;
+                    }
+                } else if (e && (e.name === 'SecurityError' || e.name === 'NotAllowedError')) {
+                    console.warn('[SFX] Browser needs a fresh click before opening the SFX directory picker.', e);
+                    showSfxDirPickerButton();
+                    return false;
+                } else {
+                    throw e;
+                }
+            }
+            storage.sfxDirHandle = dir;
+            if (!(await sfxDirectoryHasFile(dir, 'editor.html'))) {
+                console.warn('[SFX] The selected SFX directory does not contain editor.html; loading sfx_dictionary.json from it anyway.', { directory: dir.name });
+            }
+            return true;
+        }
+        async function loadSfxFromFS(opts = {}) {
+            // Called after the user opens a work directory in serverless mode. The SFX
+            // dictionary is deliberately loaded from the editor.html directory instead
+            // of the work directory, so all workdirs share one sfx_dictionary.json.
+            if (_sfxBackend === 'server') return false;
+            const promptForEditorDir = !!opts.promptForEditorDir;
+            if (!(await ensureSfxDirHandle(promptForEditorDir, opts))) {
+                _sfxUser = {};
+                _sfxSource = 'file:waiting-for-editor-directory';
+                console.info('[SFX] Waiting for the editor.html directory. Run loadSfxDictionaryFromEditorDir() or open a workdir and select the editor directory when prompted.', { backend: _sfxBackend, stats: sfxEntryStats() });
+                return false;
+            }
+            const dir = storage.sfxDirHandle;
+            let j = null, existed = false;
+            try {
+                const fh = await dir.getFileHandle('sfx_dictionary.json');
+                const file = await fh.getFile();
+                const text = await file.text();
+                j = text ? JSON.parse(text) : {};
+                existed = true;
+            } catch (e) { /* file missing / unreadable */ }
+            _sfxBackend = 'fs';
+            if (!existed) {
+                _sfxUser = {};
+                _sfxSource = 'fs:missing-sfx_dictionary.json';
+                console.warn('[SFX] sfx_dictionary.json was not found in the editor directory; dictionary is empty until you add entries.', { backend: _sfxBackend, directory: dir.name });
+                try { if (storage.currentTask) renderBlockEditors(); } catch (e) {}
+                return false;
+            }
+            const needWrite = sfxApplyLoaded(j || {});
+            sfxLogLoaded('fs:sfx_dictionary.json', { seedVersion: _sfxSeedVer, needWrite, directory: dir.name });
+            if (needWrite) persistSfx();
+            try { if (storage.currentTask) renderBlockEditors(); } catch (e) {}
+            return true;
+        }
+        window.loadSfxDictionaryFromEditorDir = async function () {
+            if (!IS_FILE_MODE) {
+                console.info('[SFX] loadSfxDictionaryFromEditorDir() is only needed in file:// mode. Server mode uses /api/sfx-dict.');
+                return false;
+            }
+            storage.sfxDirHandle = null;
+            return loadSfxFromFS({ promptForEditorDir: true });
+        };
+
+        function persistSfx() {
+            const payload = { version: 1, seedVersion: _sfxSeedVer || SFX_SEED_VERSION, langs: _sfxUser };
+            // Always mirror to localStorage as a safety net regardless of backend.
+            try { localStorage.setItem(SFX_LS_KEY, JSON.stringify(payload)); } catch (e) {}
+            clearTimeout(_sfxSaveTimer);
+            if (_sfxBackend === 'server') {
+                _sfxSaveTimer = setTimeout(async () => {
+                    try {
+                        const r = await fetch('api/sfx-dict/save', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload), credentials: 'same-origin',
+                        });
+                        if (!r.ok) showToast(t('sfxSaveFail', { err: 'HTTP ' + r.status }), 'error');
+                    } catch (e) { showToast(t('sfxSaveFail', { err: (e && e.message) || 'network' }), 'error'); }
+                }, 400);
+            } else if (_sfxBackend === 'fs' && storage.sfxDirHandle) {
+                _sfxSaveTimer = setTimeout(async () => {
+                    try { await saveSfxToFS(payload); }
+                    catch (e) { showToast(t('sfxSaveFail', { err: (e && e.message) || 'file write' }), 'error'); }
+                }, 400);
+            } else {
+                // No backend yet (serverless before a folder is opened) → localStorage only.
+                showToast(t('sfxLocalOnly'), 'info');
+            }
+        }
+
+        function sfxAddCand(lang, src, cand) {
+            if (!lang || !src || !cand) return;
+            _sfxUser[lang] = _sfxUser[lang] || {};
+            const e = _sfxUser[lang][src] = _sfxUser[lang][src] || { cands: [] };
+            e.cands = e.cands || [];
+            if (!e.cands.includes(cand)) e.cands.push(cand);
+            persistSfx();
+        }
+        function sfxRemoveCand(lang, src, cand) {
+            const e = _sfxUser[lang] && _sfxUser[lang][src];
+            if (!e || !Array.isArray(e.cands)) return;
+            const i = e.cands.indexOf(cand);
+            if (i >= 0) e.cands.splice(i, 1);
+            if (!e.cands.length && _sfxUser[lang]) delete _sfxUser[lang][src];
+            persistSfx();
+        }
+
+        async function loadSfxFromAdjacentFile() {
+            if (IS_FILE_MODE) return false;
+            try {
+                const resp = await fetch('sfx_dictionary.json', { method: 'GET', cache: 'no-store' });
+                if (!resp.ok) return false;
+                sfxApplyLoaded(await resp.json());
+                _sfxBackend = 'local';
+                sfxLogLoaded('http:sfx_dictionary.json');
+                return true;
+            } catch (e) {
+                // Opening the folder still loads the same file through the File System
+                // Access API in local mode.
+                return false;
+            }
+        }
+
+        async function initSfx() {
+            let needWrite = false, gotServer = false, gotAdjacentFile = false;
+            if (!IS_FILE_MODE) {
+                try {
+                    const resp = await fetch('api/sfx-dict', { method: 'GET' });
+                    if (resp.ok) {
+                        _sfxBackend = 'server';
+                        needWrite = sfxApplyLoaded(await resp.json());
+                        sfxLogLoaded('server:api/sfx-dict', { needWrite });
+                        gotServer = true;
+                    }
+                } catch (e) { /* serverless → fall back below */ }
+            }
+            if (!gotServer) {
+                if (!IS_FILE_MODE) gotAdjacentFile = await loadSfxFromAdjacentFile();
+                if (!gotAdjacentFile) {
+                    _sfxBackend = 'local';
+                    if (IS_FILE_MODE) {
+                        await loadSfxFromFS({ promptForEditorDir: false });
+                    } else {
+                        let j = null;
+                        try { const raw = localStorage.getItem(SFX_LS_KEY); j = raw ? JSON.parse(raw) : null; } catch (e) {}
+                        needWrite = sfxApplyLoaded(j || {});
+                        sfxLogLoaded(j ? 'localStorage:editor-sfx-dict' : 'empty:no-sfx-dictionary', { needWrite });
+                    }
+                }
+            }
+            // Persist only when the active source says it needs a schema/version rewrite.
+            if (needWrite) persistSfx();
+            try { if (storage && storage.currentTask) renderBlockEditors(); } catch (e) {}
+        }
+
+        // Build the candidate-chips row for a block's translation box (null if nothing to show).
+        function buildSfxRow(block, textarea) {
+            const raw = (block.text || '').trim();
+            if (!raw || [...raw].length > SFX_MAX_LEN) return null;
+            const lang = ((elements.targetLangSelect && elements.targetLangSelect.value) || '').toUpperCase();
+            if (!lang) return null;
+            const row = document.createElement('div');
+            row.className = 'sfx-row';
+            const fill = (text) => {
+                textarea.value = text;
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                textarea.focus();
+            };
+            const populate = () => {
+                row.innerHTML = '';
+                const hit = sfxLookup(raw, lang);
+                if (hit.hit) {
+                    const lab = document.createElement('span');
+                    lab.className = 'sfx-lab';
+                    lab.textContent = t('sfxHit') + '「' + (hit.matchedExact ? raw : hit.baseKey) + '」';
+                    lab.title = t('sfxHitTip');
+                    row.appendChild(lab);
+                    hit.cands.forEach(c => {
+                        const chip = document.createElement('button');
+                        chip.type = 'button'; chip.className = 'sfx-chip';
+                        const span = document.createElement('span'); span.textContent = c; chip.appendChild(span);
+                        chip.onclick = (ev) => { ev.stopPropagation(); fill(c); };
+                        if (!storage.viewOnly) {
+                            // Every entry now lives in the file, so any candidate (seed or
+                            // yours) can be pruned. × removes it from its owning source.
+                            const x = document.createElement('span');
+                            x.className = 'sfx-x'; x.textContent = '×'; x.title = t('sfxRemove');
+                            x.onclick = (ev) => { ev.stopPropagation(); sfxRemoveCand(lang, hit.srcOf[c] || raw, c); populate(); };
+                            chip.appendChild(x);
+                        }
+                        row.appendChild(chip);
+                    });
+                }
+                if (!storage.viewOnly) {
+                    const add = document.createElement('button');
+                    add.type = 'button'; add.className = 'sfx-add'; add.textContent = '＋'; add.title = t('sfxAddTip');
+                    add.onclick = (ev) => {
+                        ev.stopPropagation();
+                        const v = (textarea.value || '').trim();
+                        if (!v) { showToast(t('sfxAddEmpty'), 'info'); return; }
+                        sfxAddCand(lang, raw, v); populate(); showToast(t('sfxAdded'), 'success');
+                    };
+                    row.appendChild(add);
+                }
+            };
+            populate();
+            return row.children.length ? row : null;
+        }
 
         elements.boxScale.onchange = () => {
             if (!storage.currentTask) return;

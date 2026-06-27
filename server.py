@@ -133,6 +133,12 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             self.serve_editor_html()
             return
 
+        # Global (task-independent) SFX dictionary, kept next to editor.html. It loads at
+        # editor startup before any task/token exists, so it bypasses the token gate.
+        if parsed.path.endswith("/api/sfx-dict"):
+            self.serve_sfx_dict()
+            return
+
         if not token:
             self.send_error(403, "Token required")
             return
@@ -246,6 +252,11 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         params = urllib.parse.parse_qs(parsed.query)
         token = params.get('t', [None])[0]
+
+        # Global SFX dictionary save — task-independent, so it runs before the token gate.
+        if parsed.path.endswith("/api/sfx-dict/save"):
+            self.save_sfx_dict()
+            return
 
         if not token:
             self.send_error(403, "Token required")
@@ -611,6 +622,39 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "success"}).encode())
         except Exception as e:
             self.send_error(500, str(e))
+
+    # Global onomatopoeia / SFX candidate dictionary, maintained entirely by the
+    # editor frontend and persisted next to editor.html (git-ignored). One shared file
+    # across all tasks; the editor loads it at startup and re-saves on every change.
+    SFX_DICT_NAME = "sfx_dictionary.json"
+
+    def serve_sfx_dict(self):
+        p = self.root_dir / self.SFX_DICT_NAME
+        if p.exists():
+            self.serve_file(p, "application/json")
+        else:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+    def save_sfx_dict(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0) or 0)
+            if content_length > 8 * 1024 * 1024:
+                raise ValueError("Payload too large")
+            post_data = self.rfile.read(content_length) if content_length else b'{}'
+            data = json.loads(post_data or b'{}')   # reject non-JSON before writing
+            with _SAVE_LOCK:
+                with open(self.root_dir / self.SFX_DICT_NAME, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success"}).encode())
+        except Exception as e:
+            self.send_error(400, str(e))
 
     def serve_editor_html(self):
         """Serve editor.html, injecting a custom tool name (MTL_APP_NAME) if set."""

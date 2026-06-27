@@ -209,6 +209,20 @@ fusion_max_area_ratio = 0.1     # drop secondary boxes larger than this fraction
 
 **Avoiding large false erasures.** A box detector can return one huge box for a stylized title or SFX that spans the artwork; since secondary regions are erased by box-fill, that would wipe a large area. `fusion_max_area_ratio` drops any secondary box covering more than that fraction of the page (default `0.1` = 10%), so oversized region boxes are neither translated nor erased — the art is left intact. Lower it (e.g. `0.06`) if you still see big rectangular wipes; set `0` to disable the cap.
 
+#### VRAM & speed
+
+Detection and inpainting alternate between large, differently-sized tensors per page (e.g. `detection_size` 2560 then `inpainting_size` 2048), which fragments CUDA memory. A few built-in measures keep high-recall settings (a large `detection_size` **and** a secondary detector) within budget:
+
+- **RT-DETR runs in fp16 on CUDA** automatically — the log shows `RT-DETR running in fp16 (CUDA)` — roughly halving the secondary detector's VRAM with no change to recall (CPU/MPS stay fp32).
+- **VRAM is released between the detect and inpaint stages** of every page, so their peak allocations don't stack and don't fragment across pages.
+- **`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` is set by default** (in the package init, before torch initializes its allocator) to curb fragmentation. Export your own value to override it; on Windows / older torch builds that don't support it, torch simply ignores it.
+
+Tuning levers, from safest to most quality-affecting:
+
+- **`det_gamma_correct`** — keep it **off** for normal (bright, high-contrast) manga. It auto-darkens bright pages toward mid-grey, which *lowers* detection/erase quality and adds per-page work; it only helps genuinely dark / washed-out scans.
+- **`inpainting_size`** (e.g. 2048 → 1536) — trims the inpaint stage's VRAM with little visible effect on erased text; the most VRAM-for-quality-friendly knob.
+- **`detection_size`** and **`secondary_detector`** — your strongest recall levers, so lower/disable these *last*: shrinking `detection_size` or turning the secondary detector off cuts VRAM but visibly drops recognition.
+
 ### Controlling text size (`box_scale` · `font_size_minimum` · `font_size_minimum_expand_limit` · `font_size_readable_min`)
 
 Four knobs decide how big the translated text is rendered, with distinct, non-overlapping roles:

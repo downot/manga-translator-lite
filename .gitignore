@@ -33,6 +33,8 @@ pyvenv.cfg
 test/testdata
 dev/
 ocrs/
+# Editor-maintained local onomatopoeia/SFX candidate dictionary (next to editor.html)
+sfx_dictionary.json*
 
 # Default work directories
 /in
