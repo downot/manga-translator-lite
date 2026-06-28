@@ -77,12 +77,35 @@ def _free_vram(device: str) -> None:
             pass
 
 
+def _effective_detection_size(cfg: Config, img_rgb: np.ndarray) -> int:
+    """Resolve the detector input size for THIS page.
+
+    A fixed positive ``detection_size`` is used verbatim. ``-1`` switches to AUTO:
+    size the page from its own longest side × ``detection_size_scale``, snapped to a
+    multiple of 64 (the detector's stride) and clamped to [min, max]. This adapts per
+    page — small pages stay fast, large pages keep detail — instead of one global value.
+    """
+    d = cfg.detector
+    ds = d.detection_size
+    if ds and ds > 0:
+        return ds
+    longest = int(max(img_rgb.shape[0], img_rgb.shape[1]))
+    scale = d.detection_size_scale if d.detection_size_scale and d.detection_size_scale > 0 else 1.0
+    lo = max(64, int(getattr(d, "detection_size_min", 1024) or 1024))
+    hi = max(lo, int(getattr(d, "detection_size_max", 2560) or 2560))
+    val = int(round(longest * scale / 64.0)) * 64
+    val = max(64, val)
+    return max(lo, min(hi, val))
+
+
 async def _dispatch_det(cfg: Config, detector: Detector, img_rgb: np.ndarray, device: str,
-                        verbose: bool, box_threshold: float):
+                        verbose: bool, box_threshold: float, detection_size: int = None):
+    if detection_size is None:
+        detection_size = _effective_detection_size(cfg, img_rgb)
     return await dispatch_detection(
         detector,
         img_rgb,
-        cfg.detector.detection_size,
+        detection_size,
         cfg.detector.text_threshold,
         box_threshold,
         cfg.detector.unclip_ratio,
@@ -103,8 +126,15 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
     extra Quadrilaterals contributed by the secondary detector — they have no stroke-level
     mask data, so the caller box-fills them into the erase mask.
     """
+    # Resolve the detection size once for this page (auto-sizes when detection_size = -1)
+    # and reuse it for the secondary detector so both run at the same resolution.
+    eff_ds = _effective_detection_size(cfg, img_rgb)
+    if cfg.detector.detection_size is None or cfg.detector.detection_size <= 0:
+        logger.info(f"detection_size=auto → {eff_ds} (page {img_rgb.shape[1]}x{img_rgb.shape[0]}, "
+                    f"scale={cfg.detector.detection_size_scale})")
+
     textlines, mask_raw, mask = await _dispatch_det(
-        cfg, cfg.detector.detector, img_rgb, device, verbose, cfg.detector.box_threshold)
+        cfg, cfg.detector.detector, img_rgb, device, verbose, cfg.detector.box_threshold, eff_ds)
 
     secondary = cfg.detector.secondary_detector
     secondary_only: List = []
@@ -113,7 +143,7 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
                        if cfg.detector.secondary_box_threshold is not None
                        else cfg.detector.box_threshold)
         sec_textlines, _, _ = await _dispatch_det(
-            cfg, secondary, img_rgb, device, verbose, sec_box_thr)
+            cfg, secondary, img_rgb, device, verbose, sec_box_thr, eff_ds)
         primary_boxes = [tl.xyxy for tl in textlines]
         thr = cfg.detector.fusion_iou
         overlap_limit = cfg.detector.fusion_overlap_limit

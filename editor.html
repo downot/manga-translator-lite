@@ -434,8 +434,8 @@
             background: var(--bg-hover); color: var(--text-primary); cursor: pointer; line-height: 1.55;
             display: inline-flex; align-items: center; }
         .sfx-chip:hover { border-color: var(--accent); color: var(--accent); }
-        .sfx-chip.user { border-style: dashed; }
-        .sfx-chip .sfx-x { margin-left: 5px; opacity: 0.55; font-weight: 700; }
+        .sfx-chip .sfx-x { margin-left: 5px; opacity: 0; font-weight: 700; transition: opacity .12s; }
+        .sfx-chip:hover .sfx-x { opacity: 0.5; }
         .sfx-chip .sfx-x:hover { opacity: 1; color: var(--danger); }
         .sfx-add { font-size: 0.74rem; padding: 0 7px; border: 1px dashed var(--border); border-radius: 11px;
             background: transparent; color: var(--text-secondary); cursor: pointer; line-height: 1.55; }

@@ -64,6 +64,19 @@ class Direction(str, Enum):
 class DetectorConfig(BaseModel):
     detector: Detector = Detector.default
     detection_size: int = 2048
+    """Detector input size (square, snapped to a multiple of 64). A fixed positive
+    value is used as-is for every page. ``-1`` = AUTO: size each page from its own
+    longest side × ``detection_size_scale``, clamped to
+    [``detection_size_min``, ``detection_size_max``] — so small pages stay fast and
+    large pages keep detail, without picking one global number."""
+    detection_size_scale: float = 1.0
+    """AUTO only (detection_size = -1): multiply the page's longest side by this before
+    snapping to /64. 1.0 = native resolution. Raise toward 1.3–1.6 when small / dense
+    text is being missed (more recall, more VRAM); lower below 1.0 to go faster."""
+    detection_size_min: int = 1024
+    """AUTO only: lower clamp for the computed size (keeps tiny pages from going too small)."""
+    detection_size_max: int = 2560
+    """AUTO only: upper clamp for the computed size (caps VRAM on very large pages)."""
     text_threshold: float = 0.5
     box_threshold: float = 0.7
     unclip_ratio: float = 2.3

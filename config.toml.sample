@@ -36,10 +36,21 @@ force_simple_sort = false
 # 日  ctd|default|dbconvnext|craft|paddle|rtdetr|none · 検出モデル；ctd/default はストロークマスク(きれいな消去)、rtdetr はボックスのみ/実験的 · 本番は ctd か default、検出が悪い時のみ変更
 detector = "ctd"
 
-# EN  range 1536–2560 · larger catches smaller text but uses more VRAM and is slower · raise for dense/tiny text or hi-res scans, lower if slow or out-of-memory
-# 中  范围 1536–2560 · 调大能抓更小的字但更吃显存、更慢 · 密集小字/高分扫图时调大，慢或爆显存时调小
-# 日  範囲 1536–2560 · 大きいほど小さな文字も拾うが VRAM 消費・低速 · 密集した小文字/高解像時は上げ、遅い/メモリ不足なら下げる
+# EN  fixed px (snapped to /64) OR -1 = AUTO · a positive value is used for every page; -1 sizes each page from its own longest side × detection_size_scale, clamped to [min,max] · use -1 to stop hand-tuning one global number across mixed page sizes
+# 中  固定像素(取整到64) 或 -1=自动 · 正数对所有页固定使用；-1 按每页长边×detection_size_scale 自动计算并 clamp 到[min,max] · 页面尺寸不一时用 -1 免去手工统一设定
+# 日  固定px(64の倍数に丸め) または -1=自動 · 正数は全ページ固定；-1 は各ページの長辺×detection_size_scale で自動算出し[min,max]にクランプ · ページサイズが混在する時は -1 が便利
 detection_size = 2048
+
+# EN  AUTO only (detection_size=-1) · multiplier on the page's longest side before /64 snap; 1.0 = native · raise to 1.3–1.6 when small/dense text is missed (more recall, more VRAM), lower for speed
+# 中  仅自动模式(detection_size=-1)生效 · 对每页长边的放大系数(取整前)；1.0=原生 · 漏检小字/密集字时调到 1.3–1.6(召回↑、显存↑)，求快则调低
+# 日  自動モード(detection_size=-1)専用 · 長辺への倍率(/64丸め前)；1.0=原寸 · 小さい/密集文字が抜ける時は1.3–1.6へ(再現率↑/VRAM↑)、速度重視は下げる
+detection_size_scale = 1.0
+
+# EN  AUTO only · lower / upper clamp (px) for the computed size — floor keeps tiny pages usable, ceiling caps VRAM on huge pages
+# 中  仅自动模式 · 计算结果的下限/上限(像素)——下限保证小图够用，上限给大图封顶显存
+# 日  自動モード専用 · 算出サイズの下限/上限(px)——下限は小ページの最低保証、上限は巨大ページのVRAM上限
+detection_size_min = 1024
+detection_size_max = 2560
 
 # EN  range 0.2–0.6 · lower catches fainter/thinner text (more recall) but adds noise · lower if faint text is missed, raise if you get noise boxes
 # 中  范围 0.2–0.6 · 调低捕捉更浅/更细的文字(召回↑)但增噪 · 漏检浅字时调低，出现噪声框时调高
