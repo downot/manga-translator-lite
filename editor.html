@@ -6294,7 +6294,10 @@
             if (btnEl) { btnEl.disabled = true; btnEl.classList.add('loading'); }
             let timer = null, controller = null;
             try {
-                const dataUrl = cropBlockRegionDataURL(block, 0.15);
+                // Tight padding: just enough context for the model to read the bubble,
+                // without inflating the crop's long side into extra 512px image tiles
+                // (image tokens scale with tile count, not JPEG bytes).
+                const dataUrl = cropBlockRegionDataURL(block, 0.08);
                 if (!dataUrl) { showToast(t('aiCropFail'), 'error'); return; }
                 showToast(t('aiRunning'), 'info');
 
