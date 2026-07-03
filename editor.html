@@ -195,6 +195,40 @@
             border-bottom: 1px solid var(--border);
             box-shadow: inset 3px 0 0 var(--accent);
         }
+        #editor .section-title {
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .editor-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 5px;
+            min-width: 0;
+        }
+        .editor-toolbar .tool-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            min-height: 26px;
+            padding: 3px 7px;
+            line-height: 1;
+            white-space: nowrap;
+            text-transform: none;
+            letter-spacing: 0;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .editor-toolbar .tool-btn svg {
+            flex: 0 0 auto;
+        }
+        .editor-toolbar .tool-label {
+            display: inline-block;
+        }
+        @media (max-width: 860px) {
+            .editor-toolbar .tool-label { display: none; }
+            .editor-toolbar .tool-btn { width: 28px; justify-content: center; padding: 3px; }
+        }
 
         #sidebar-tasks-section {
             display: flex;
@@ -949,6 +983,7 @@
         body.view-only #btn-import-trans,
         body.view-only #btn-edit-region,
         body.view-only #btn-render-settings,
+        body.view-only #btn-page-bg,
         body.view-only #tab-pipeline,
         body.view-only #btn-save-story,
         body.view-only .page-del-btn,
@@ -1699,33 +1734,46 @@
         <aside id="editor">
             <div class="section-title">
                 <span data-i18n="titleEditor">Editor</span>
-                <button id="btn-qa-filter" class="secondary" title="Show only problem blocks" style="padding: 3px 7px;" onclick="toggleQaFilter()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                    </svg><span class="qa-count"></span>
-                </button>
-                <button id="btn-qa-enlarge" class="secondary" data-i18n-title="qaEnlargeTitle" title="Enlarge problem boxes on this page" style="padding: 3px 7px;" onclick="enlargeProblemBoxes()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="15 3 21 3 21 9"></polyline>
-                        <polyline points="9 21 3 21 3 15"></polyline>
-                        <line x1="21" y1="3" x2="14" y2="10"></line>
-                        <line x1="3" y1="21" x2="10" y2="14"></line>
-                    </svg>
-                </button>
-                <button id="btn-search" class="secondary" data-i18n-title="titleSearch" title="Search & replace" style="padding: 3px 7px;">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="7"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                </button>
-                <button id="btn-ai-config" class="secondary" data-i18n-title="aiTitle" title="AI settings" style="padding: 3px 7px; color: var(--accent);" onclick="showAiConfig()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                        <path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8L12 3z"></path>
-                        <path d="M19 14l.7 1.9 1.9.7-1.9.7L19 19.2l-.7-1.9-1.9-.7 1.9-.7L19 14z"></path>
-                    </svg>
-                </button>
+                <div class="editor-toolbar" role="toolbar" aria-label="Editor tools">
+                    <button id="btn-page-bg" class="secondary tool-btn" data-i18n-title="tipPageBgPick" title="Set all backgrounds on this page" onclick="openPageBgColorPicker(this)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                            <path d="M8 8h8v8H8z" fill="currentColor" stroke="none"></path>
+                        </svg>
+                        <span class="tool-label" data-i18n="btnPageBg">背景</span>
+                    </button>
+                    <button id="btn-qa-filter" class="secondary tool-btn" data-i18n-title="qaFilterTitle" title="Show only problem blocks" onclick="toggleQaFilter()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <span class="tool-label" data-i18n="btnQaFilter">问题</span><span class="qa-count"></span>
+                    </button>
+                    <button id="btn-qa-enlarge" class="secondary tool-btn" data-i18n-title="qaEnlargeTitle" title="Enlarge problem boxes on this page" onclick="enlargeProblemBoxes()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <polyline points="9 21 3 21 3 15"></polyline>
+                            <line x1="21" y1="3" x2="14" y2="10"></line>
+                            <line x1="3" y1="21" x2="10" y2="14"></line>
+                        </svg>
+                        <span class="tool-label" data-i18n="btnQaEnlarge">放大</span>
+                    </button>
+                    <button id="btn-search" class="secondary tool-btn" data-i18n-title="titleSearch" title="Search & replace">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <span class="tool-label" data-i18n="btnSearchShort">搜索</span>
+                    </button>
+                    <button id="btn-ai-config" class="secondary tool-btn" data-i18n-title="aiTitle" title="AI settings" style="color: var(--accent);" onclick="showAiConfig()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8L12 3z"></path>
+                            <path d="M19 14l.7 1.9 1.9.7-1.9.7L19 19.2l-.7-1.9-1.9-.7 1.9-.7L19 14z"></path>
+                        </svg>
+                        <span class="tool-label" data-i18n="btnAiShort">AI</span>
+                    </button>
+                </div>
             </div>
             <div id="blocks-container" class="blocks-container"></div>
         </aside>
@@ -1828,6 +1876,21 @@
         i18n.zh.titleRenderSettings = '渲染设置'; i18n.zh.labelBoxScale = '文本框缩放'; i18n.zh.labelMinFont = '最小字号'; i18n.zh.labelExpand = '扩框上限';
         i18n.en.titleRenderSettings = 'Render Settings'; i18n.en.labelBoxScale = 'Box scale'; i18n.en.labelMinFont = 'Min font'; i18n.en.labelExpand = 'Expand limit';
         i18n.ja.titleRenderSettings = '描画設定'; i18n.ja.labelBoxScale = 'ボックス倍率'; i18n.ja.labelMinFont = '最小フォント'; i18n.ja.labelExpand = '枠拡張上限';
+        // Page-wide background fill.
+        i18n.zh.tipPageBgPick = '设置本页全部译文框背景';
+        i18n.en.tipPageBgPick = 'Set all translation-box backgrounds on this page';
+        i18n.ja.tipPageBgPick = 'このページの全翻訳枠の背景を設定';
+        i18n.zh.btnPageBg = '背景'; i18n.en.btnPageBg = 'Background'; i18n.ja.btnPageBg = '背景';
+        i18n.zh.btnQaFilter = '问题'; i18n.en.btnQaFilter = 'Issues'; i18n.ja.btnQaFilter = '問題';
+        i18n.zh.btnQaEnlarge = '放大'; i18n.en.btnQaEnlarge = 'Enlarge'; i18n.ja.btnQaEnlarge = '拡大';
+        i18n.zh.btnSearchShort = '搜索'; i18n.en.btnSearchShort = 'Search'; i18n.ja.btnSearchShort = '検索';
+        i18n.zh.btnAiShort = 'AI'; i18n.en.btnAiShort = 'AI'; i18n.ja.btnAiShort = 'AI';
+        i18n.zh.msgPageBgApplied = '已更新本页 {n} 个译文框背景';
+        i18n.en.msgPageBgApplied = 'Updated {n} background fill(s) on this page';
+        i18n.ja.msgPageBgApplied = 'このページの背景塗りを {n} 件更新しました';
+        i18n.zh.msgNoBlocksOnPage = '本页没有文字块';
+        i18n.en.msgNoBlocksOnPage = 'No text blocks on this page';
+        i18n.ja.msgNoBlocksOnPage = 'このページにテキストブロックはありません';
         // Translation-progress hints.
         i18n.zh.tipUntranslated = '未翻译'; i18n.zh.tipPageProgress = '本页已翻译 / 文字块总数';
         i18n.en.tipUntranslated = 'Untranslated'; i18n.en.tipPageProgress = 'Translated / total blocks on this page';
@@ -3413,6 +3476,8 @@
                 const item = document.createElement('div');
                 item.className = 'list-item';
                 item.dataset.taskToken = task.token;
+                item.title = task.name;
+                item.setAttribute('aria-label', task.name);
                 const label = document.createElement('span');
                 label.className = 'task-name';
                 label.textContent = middleTruncate(task.name);
@@ -3441,6 +3506,8 @@
                 const item = document.createElement('div');
                 item.className = 'list-item';
                 item.dataset.taskName = name;
+                item.title = name;
+                item.setAttribute('aria-label', name);
 
                 if (isMergeMode) {
                     const checkbox = document.createElement('input');
@@ -5117,6 +5184,7 @@
             const cnt = btn.querySelector('.qa-count');
             if (cnt) cnt.textContent = n ? String(n) : '';
             btn.title = t('qaFilterTitle') + (n ? ` (${n})` : '');
+            btn.setAttribute('aria-label', btn.title);
         }
         function toggleQaFilter() {
             state.qaOnly = !state.qaOnly;
@@ -5679,6 +5747,35 @@
             if (mode === 'match' && color) b.bg_color = color.slice(0, 3);
             persistGeometry(); render();
         }
+        function currentPageBlocks() {
+            const page = storage.currentTask && storage.currentTask.data
+                && storage.currentTask.data.pages[state.currentPageIndex];
+            return page && Array.isArray(page.blocks) ? page.blocks : [];
+        }
+        function setPageBg(mode, color) {
+            const blocks = currentPageBlocks();
+            if (!blocks.length) { showToast(t('msgNoBlocksOnPage'), 'info'); return; }
+            blocks.forEach(b => {
+                b.bg_fill = mode;
+                if (mode === 'match' && color) b.bg_color = color.slice(0, 3);
+            });
+            persistGeometry();
+            render();
+            showToast(t('msgPageBgApplied', { n: blocks.length }), 'success');
+        }
+        function samePageBgState() {
+            const blocks = currentPageBlocks();
+            if (!blocks.length) return { mode: 'none', color: [255, 255, 255], mixed: false };
+            const firstMode = blocks[0].bg_fill || 'none';
+            const firstColor = Array.isArray(blocks[0].bg_color) ? blocks[0].bg_color.slice(0, 3) : [255, 255, 255];
+            const colorKey = firstColor.join(',');
+            const mixed = blocks.some(b => {
+                const mode = b.bg_fill || 'none';
+                const c = Array.isArray(b.bg_color) ? b.bg_color.slice(0, 3) : [255, 255, 255];
+                return mode !== firstMode || (mode === 'match' && c.join(',') !== colorKey);
+            });
+            return { mode: firstMode, color: firstColor, mixed };
+        }
         // The task's most-frequent, visually-distinct background colors (near-white is
         // absorbed by the permanent White swatch). Same dedup approach as taskFontColors.
         function taskBgColors() {
@@ -5762,6 +5859,55 @@
             _bgOutsideHandler = (e) => { if (!pop.contains(e.target) && e.target !== anchor) closeBgColorPicker(); };
             setTimeout(() => document.addEventListener('mousedown', _bgOutsideHandler), 0);
         }
+        function openPageBgColorPicker(anchor) {
+            closeBgColorPicker();
+            const blocks = currentPageBlocks();
+            if (!blocks.length) { showToast(t('msgNoBlocksOnPage'), 'info'); return; }
+            const stateForPage = samePageBgState();
+            const mode = stateForPage.mixed ? '' : stateForPage.mode;
+            const curColor = stateForPage.color.join(',');
+            const pop = document.createElement('div');
+            pop.className = 'fg-color-popover';
+            pop.id = 'bg-color-popover';
+
+            const tSw = document.createElement('button');
+            tSw.className = 'fg-swatch is-transparent' + (mode === 'none' ? ' active' : '');
+            tSw.title = t('tipBgNone');
+            tSw.onclick = (e) => { e.stopPropagation(); setPageBg('none'); closeBgColorPicker(); };
+            pop.appendChild(tSw);
+
+            const wSw = document.createElement('button');
+            wSw.className = 'fg-swatch' + (mode === 'white' ? ' active' : '');
+            wSw.style.background = '#fff';
+            wSw.title = t('tipBgWhite');
+            wSw.onclick = (e) => { e.stopPropagation(); setPageBg('white'); closeBgColorPicker(); };
+            pop.appendChild(wSw);
+
+            const eSw = document.createElement('button');
+            eSw.className = 'fg-swatch eyedrop-swatch';
+            eSw.title = t('tipEyedrop');
+            eSw.appendChild(svgIcon(ICONS.pipette, 15));
+            eSw.onclick = (e) => { e.stopPropagation(); closeBgColorPicker(); startEyedropper(null, 'page'); };
+            pop.appendChild(eSw);
+
+            taskBgColors().forEach(c => {
+                const sw = document.createElement('button');
+                const isActive = mode === 'match' && c.join(',') === curColor;
+                sw.className = 'fg-swatch' + (isActive ? ' active' : '');
+                sw.style.background = rgbCss(c);
+                sw.title = rgbCss(c);
+                sw.onclick = (e) => { e.stopPropagation(); setPageBg('match', c); closeBgColorPicker(); };
+                pop.appendChild(sw);
+            });
+
+            document.body.appendChild(pop);
+            const r = anchor.getBoundingClientRect();
+            const pw = pop.offsetWidth, ph = pop.offsetHeight;
+            pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8)) + 'px';
+            pop.style.top = (r.bottom + ph + 8 > window.innerHeight ? r.top - ph - 4 : r.bottom + 4) + 'px';
+            _bgOutsideHandler = (e) => { if (!pop.contains(e.target) && e.target !== anchor) closeBgColorPicker(); };
+            setTimeout(() => document.addEventListener('mousedown', _bgOutsideHandler), 0);
+        }
 
         // Eyedropper: the next click on the canvas samples that pixel and becomes the
         // block's background fill. Intercepted in the capture phase so it pre-empts the
@@ -5770,7 +5916,7 @@
         function _eyedropEsc(e) { if (e.key === 'Escape') cancelEyedropper(); }
         function _eyedropClick(e) {
             e.preventDefault(); e.stopPropagation();
-            const bIndex = _eyedropTarget;
+            const target = _eyedropTarget;
             const { x, y } = canvasToImg(e);
             const xi = Math.max(0, Math.min(elements.canvas.width - 1, Math.round(x)));
             const yi = Math.max(0, Math.min(elements.canvas.height - 1, Math.round(y)));
@@ -5780,10 +5926,11 @@
                 const d = ctx.getImageData(xi, yi, 1, 1).data;
                 rgb = [d[0], d[1], d[2]];
             } catch (err) { showToast(t('msgEyedropFail'), 'error'); return; }
-            if (bIndex != null) setBlockBg(bIndex, 'match', rgb);
+            if (target && target.scope === 'page') setPageBg('match', rgb);
+            else if (target && target.bIndex != null) setBlockBg(target.bIndex, 'match', rgb);
         }
-        function startEyedropper(bIndex) {
-            _eyedropTarget = bIndex;
+        function startEyedropper(bIndex, scope = 'block') {
+            _eyedropTarget = { scope, bIndex };
             elements.canvas.style.cursor = 'crosshair';
             showToast(t('tipEyedropHint'), 'info');
             elements.canvas.addEventListener('mousedown', _eyedropClick, { capture: true });

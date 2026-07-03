@@ -26,6 +26,7 @@ def test_defaults_sane():
     assert c.ocr.ocr.value == "48px"
     assert c.translator.provider.value == "openai"
     assert c.translator.target_lang == "ENG"
+    assert c.translator.concurrency == 1
     assert c.render.font_size_minimum == -1
     assert c.use_gpu is False
 
@@ -42,6 +43,7 @@ def test_load_sample_toml(tmp_path):
     assert isinstance(c.translator.target_lang, str) and c.translator.target_lang
     assert c.detector.detection_size > 0
     assert c.translator.provider.value in {"openai", "gemini", "none"}
+    assert c.translator.concurrency == 1
 
 
 def test_font_color_helpers():

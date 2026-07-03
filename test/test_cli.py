@@ -47,11 +47,12 @@ def test_extract_parsing(tmp_path):
 
 def test_translate_parsing(tmp_path):
     ns = _build_parser().parse_args(
-        ["translate", str(tmp_path), "--start-index", "5", "--overwrite"])
+        ["translate", str(tmp_path), "--start-index", "5", "--overwrite", "-j", "4"])
     assert ns.cmd == "translate"
     assert ns.work_dir == str(tmp_path)
     assert ns.start_index == 5
     assert ns.overwrite is True
+    assert ns.concurrency == 4
     # No reference flags → auto sentinel (None) + no_reference off.
     assert ns.reference_lang is None and ns.no_reference is False
 
@@ -83,9 +84,10 @@ def test_render_parsing(tmp_path):
 def test_run_parsing(tmp_path):
     ns = _build_parser().parse_args(
         ["run", "-i", str(tmp_path), "-w", str(tmp_path / "w"),
-         "-o", str(tmp_path / "o"), "--target-lang", "CHS"])
+         "-o", str(tmp_path / "o"), "--target-lang", "CHS", "--concurrency", "3"])
     assert ns.cmd == "run"
     assert ns.target_lang == "CHS"
+    assert ns.concurrency == 3
 
 
 def test_config_help_parsing():
