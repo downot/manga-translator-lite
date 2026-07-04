@@ -471,6 +471,8 @@
         .sfx-chip .sfx-x { margin-left: 5px; opacity: 0; font-weight: 700; transition: opacity .12s; }
         .sfx-chip:hover .sfx-x { opacity: 0.5; }
         .sfx-chip .sfx-x:hover { opacity: 1; color: var(--danger); }
+        .sfx-context { flex-basis: 100%; min-width: 0; font-size: 0.66rem; line-height: 1.35;
+            color: var(--text-secondary); margin: 0 0 1px; }
         .sfx-add { font-size: 0.74rem; padding: 0 7px; border: 1px dashed var(--border); border-radius: 11px;
             background: transparent; color: var(--text-secondary); cursor: pointer; line-height: 1.55; }
         .sfx-add:hover { color: var(--accent); border-color: var(--accent); }
@@ -1969,6 +1971,7 @@
         // ---- Onomatopoeia / SFX candidate dictionary ----
         i18n.zh.sfxHit = '拟声词'; i18n.en.sfxHit = 'SFX'; i18n.ja.sfxHit = '擬音';
         i18n.zh.sfxHitTip = '命中拟声词词典：点候选填入译文'; i18n.en.sfxHitTip = 'Onomatopoeia dictionary hit: click a candidate to fill the translation'; i18n.ja.sfxHitTip = '擬音辞書にヒット：候補をクリックで訳文に入力';
+        i18n.zh.sfxContext = '语境'; i18n.en.sfxContext = 'Context'; i18n.ja.sfxContext = '文脈';
         i18n.zh.sfxAddTip = '把当前译文存为该原文的候选'; i18n.en.sfxAddTip = 'Save the current translation as a candidate for this source'; i18n.ja.sfxAddTip = '現在の訳文をこの原文の候補として保存';
         i18n.zh.sfxAddEmpty = '译文框为空，先输入要保存的译文'; i18n.en.sfxAddEmpty = 'Translation box is empty — type the text to save first'; i18n.ja.sfxAddEmpty = '訳文が空です。保存する訳文を入力してください';
         i18n.zh.sfxAdded = '已加入拟声词词典'; i18n.en.sfxAdded = 'Added to the onomatopoeia dictionary'; i18n.ja.sfxAdded = '擬音辞書に追加しました';
@@ -2154,6 +2157,7 @@
                 elements.statusLoader.style.display = 'block';
                 topProgress.start();
                 try {
+                    clearImageCaches();
                     const resp = await fetch(`api/data?t=${this.token}`);
                     if (!resp.ok) throw new Error("Task not found");
                     const data = await resp.json();
@@ -2176,6 +2180,7 @@
             async loadLocalTask(task) {
                 this.stopCollabStream();
                 try {
+                    clearImageCaches();
                     const file = await task.pagesJsonHandle.getFile();
                     task.data = JSON.parse(await file.text());
                     task.imageHandles = {};
@@ -2307,12 +2312,12 @@
 
             // Thumbnail URL for the page list. Server mode hits api/thumb (scaled +
             // cached server-side → far less bandwidth); local mode reuses the full
-            // image (browser downscales) since there's no server to resize.
+            // image only as input, then downsizes it in-browser and caches the blob.
             async getThumbUrl(page) {
                 if (this.isServer) {
                     return `api/thumb?t=${this.token}&name=${encodeURIComponent(page.clean.split('/').pop())}`;
                 }
-                return this.getImageUrl(page);
+                return getLocalThumbUrl(page);
             },
 
             async loadServerConfig() {
@@ -3707,23 +3712,135 @@
             Array.from(elements.pageList.children).forEach((item, i) => {
                 const badge = item.querySelector('.page-prog');
                 if (badge && pages[i]) setPageProgress(badge, pages[i]);
-                if (pages[i]) setPageQa(item.querySelector('.page-qa'), pages[i]);
+                const qa = item.querySelector('.page-qa');
+                if (qa) { qa.className = 'page-qa none'; qa.textContent = ''; qa.title = ''; }
             });
+            updateCurrentPageProgress();
+            schedulePageQaRefresh();
         }
 
         // ---- Lazy page thumbnails (works in both local and server modes) ----
         // storage.getThumbUrl() abstracts the two backends: server mode returns an
         // api/thumb URL (scaled + cached), local mode a blob: URL from the file handle.
         let pageThumbObserver = null;
+        let pageQaIdleHandle = null;
+        const localThumbCache = new Map(); // clean name -> blob: thumbnail URL
+        const pageImageCache = new Map();  // image URL -> decoded HTMLImageElement
+        let renderPageSeq = 0;
+        const PAGE_IMAGE_CACHE_LIMIT = 5;
+
+        function currentTaskImageName(page) {
+            return page && page.clean ? page.clean.split('/').pop() : '';
+        }
+
+        function clearImageCaches() {
+            localThumbCache.forEach(url => URL.revokeObjectURL(url));
+            localThumbCache.clear();
+            pageImageCache.clear();
+            currentImageEl = null;
+        }
+
+        async function getLocalThumbUrl(page) {
+            const name = currentTaskImageName(page);
+            if (!name) return null;
+            if (localThumbCache.has(name)) return localThumbCache.get(name);
+            const handle = storage.currentTask && storage.currentTask.imageHandles && storage.currentTask.imageHandles[name];
+            if (!handle) return null;
+            const file = await handle.getFile();
+            const bitmap = await createImageBitmap(file).catch(() => null);
+            if (!bitmap) {
+                const fallback = URL.createObjectURL(file);
+                localThumbCache.set(name, fallback);
+                return fallback;
+            }
+            const scale = Math.min(160 / bitmap.width, 160 / bitmap.height, 1);
+            const w = Math.max(1, Math.round(bitmap.width * scale));
+            const h = Math.max(1, Math.round(bitmap.height * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+            bitmap.close();
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.72));
+            const url = blob ? URL.createObjectURL(blob) : URL.createObjectURL(file);
+            localThumbCache.set(name, url);
+            return url;
+        }
+
+        async function loadDecodedPageImage(page) {
+            const name = currentTaskImageName(page);
+            const url = await storage.getImageUrl(page);
+            if (!url) return null;
+            const key = storage.isServer ? url : name;
+            if (pageImageCache.has(key)) {
+                const cached = pageImageCache.get(key);
+                pageImageCache.delete(key);
+                pageImageCache.set(key, cached);
+                if (!storage.isServer) URL.revokeObjectURL(url);
+                return cached;
+            }
+            const img = new Image();
+            img.decoding = 'async';
+            const loaded = new Promise((resolve, reject) => {
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+            });
+            img.src = url;
+            await loaded;
+            if (img.decode) {
+                try { await img.decode(); } catch (e) {}
+            }
+            pageImageCache.set(key, img);
+            while (pageImageCache.size > PAGE_IMAGE_CACHE_LIMIT) {
+                const first = pageImageCache.keys().next().value;
+                pageImageCache.delete(first);
+            }
+            if (!storage.isServer) URL.revokeObjectURL(url);
+            return img;
+        }
+
+        function prefetchNeighborPages(index) {
+            const pages = storage.currentTask && storage.currentTask.data && storage.currentTask.data.pages;
+            if (!pages) return;
+            [index + 1, index - 1].forEach(i => {
+                if (i < 0 || i >= pages.length) return;
+                loadDecodedPageImage(pages[i]).catch(() => {});
+            });
+        }
+
+        function schedulePageQaRefresh() {
+            if (pageQaIdleHandle) {
+                const cancel = window.cancelIdleCallback || clearTimeout;
+                cancel(pageQaIdleHandle);
+                pageQaIdleHandle = null;
+            }
+            const pages = storage.currentTask && storage.currentTask.data && storage.currentTask.data.pages;
+            if (!pages) return;
+            let i = 0;
+            const run = (deadline) => {
+                pageQaIdleHandle = null;
+                const hasTime = () => !deadline || deadline.timeRemaining() > 6;
+                while (i < pages.length && hasTime()) {
+                    const item = elements.pageList.children[i];
+                    if (item && pages[i]) setPageQa(item.querySelector('.page-qa'), pages[i]);
+                    i++;
+                }
+                if (i < pages.length) {
+                    const idle = window.requestIdleCallback || ((cb) => setTimeout(() => cb(null), 32));
+                    pageQaIdleHandle = idle(run, { timeout: 1000 });
+                }
+            };
+            const idle = window.requestIdleCallback || ((cb) => setTimeout(() => cb(null), 32));
+            pageQaIdleHandle = idle(run, { timeout: 1000 });
+        }
+
         function loadPageThumb(imgEl, page) {
             if (!imgEl || imgEl.dataset.loaded || !page) return;
             imgEl.dataset.loaded = '1';
             storage.getThumbUrl(page).then(url => {
                 if (!url) return;
-                // Once the <img> has decoded a blob: URL we can revoke it immediately
-                // (the picture stays) so local mode doesn't leak object URLs per page.
-                imgEl.onload = () => { if (!storage.isServer) URL.revokeObjectURL(url); };
-                imgEl.onerror = () => { if (!storage.isServer) URL.revokeObjectURL(url); };
+                // Local-mode blob URLs are cached per task and released on task switch.
+                imgEl.onload = () => {};
+                imgEl.onerror = () => {};
                 imgEl.src = url;
             }).catch(() => {});
         }
@@ -3778,7 +3895,6 @@
 
                 const qaBadge = document.createElement('span');
                 qaBadge.className = 'page-qa none';
-                setPageQa(qaBadge, page);
                 item.appendChild(qaBadge);
 
                 const info = document.createElement('button');
@@ -3803,6 +3919,7 @@
             });
             elements.totalPages.textContent = storage.currentTask.data.pages.length;
             elements.inputPage.max = storage.currentTask.data.pages.length;
+            schedulePageQaRefresh();
         }
 
         // Show a popup with this page's file paths and metadata.
@@ -4151,7 +4268,7 @@
             // prev/next or jumping from a search result). 'nearest' only scrolls
             // when it's off-screen, so it won't jitter when already visible.
             const activePageItem = elements.pageList.children[index];
-            if (activePageItem) activePageItem.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+            if (activePageItem) activePageItem.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
             elements.btnPrev.disabled = index === 0;
             elements.btnNext.disabled = index === storage.currentTask.data.pages.length - 1;
             
@@ -4160,6 +4277,7 @@
             elements.canvasContainer.scrollLeft = 0;
 
             render();
+            updateCurrentPageProgress();
         }
 
         // Unified re-render of the state-driven views: canvas overlay + editor panel.
@@ -4173,12 +4291,12 @@
 
         async function renderPage() {
             const page = storage.currentTask.data.pages[state.currentPageIndex];
-            const url = await storage.getImageUrl(page);
-            if (!url) return;
+            const seq = ++renderPageSeq;
             elements.canvas.style.display = 'block';
             document.getElementById('initial-state').style.display = 'none';
-            const img = new Image();
-            img.onload = () => {
+            try {
+                const img = await loadDecodedPageImage(page);
+                if (!img || seq !== renderPageSeq || page !== storage.currentTask.data.pages[state.currentPageIndex]) return;
                 currentImageEl = img;   // cache for lightweight redraw() during region edits
                 elements.canvas.width = img.width;
                 elements.canvas.height = img.height;
@@ -4187,9 +4305,10 @@
                 if (state.needsSort && page.blocks && page.blocks.length > 1) { sortBlocks(page.blocks, img.width); state.needsSort = false; renderBlockEditors(); }
                 renderOverlays(page);
                 updateZoomUI();
-                if (!storage.isServer) URL.revokeObjectURL(url);
-            };
-            img.src = url;
+                prefetchNeighborPages(state.currentPageIndex);
+            } catch (e) {
+                console.warn('Failed to render page image:', e);
+            }
         }
 
         // Lightweight repaint using the cached image (no reload) — used while dragging regions.
@@ -6609,14 +6728,15 @@
 
         const _SFX_SMALL = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'ゎ': 'わ', 'ヵ': 'か', 'ヶ': 'け' };
         // Fold a token into its "family" key: full/half-width unified, katakana→hiragana,
-        // small kana→base, elongation/sokuon/punctuation stripped, repeats collapsed.
+        // small kana→base, elongation/sokuon stripped, all punctuation/symbols ignored,
+        // repeats collapsed.
         function sfxNormalize(s) {
             if (!s) return '';
             let t = String(s).normalize('NFKC');
             t = t.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));   // カナ→かな
             t = t.replace(/[ぁぃぅぇぉゃゅょゎヵヶ]/g, c => _SFX_SMALL[c] || c);
-            t = t.replace(/[ー〜～〜～ー・ッっ]/g, '');                                  // prolong / sokuon / dot
-            t = t.replace(/[！？!?。．、，,.…‥♪☆★・\s]/g, '');                              // punctuation / space
+            t = t.replace(/[ー〜～ッっ]/g, '');                                            // prolong / sokuon
+            t = t.replace(/[\p{P}\p{S}\s]/gu, '');                                        // punctuation / symbols / space
             t = t.replace(/(.)\1+/g, '$1');                                                          // collapse runs
             return t;
         }
@@ -6634,7 +6754,8 @@
             }
             return changed;
         }
-        // Coerce a loaded langs map (incl. the older array format) into { src: {cands, exactOnly} }.
+        // Coerce a loaded langs map (incl. the older array format) into
+        // { src: {cands, reading?, context?, variants?, category?, exactOnly?} }.
         function sfxNormalizeLangs(raw) {
             const out = {};
             if (!raw || typeof raw !== 'object') return out;
@@ -6644,7 +6765,16 @@
                 for (const src in srcMap) {
                     const v = srcMap[src];
                     if (Array.isArray(v)) bucket[src] = { cands: v.filter(x => typeof x === 'string') };
-                    else if (v && Array.isArray(v.cands)) bucket[src] = { cands: v.cands.filter(x => typeof x === 'string'), exactOnly: !!v.exactOnly };
+                    else if (v && Array.isArray(v.cands)) {
+                        bucket[src] = {
+                            cands: v.cands.filter(x => typeof x === 'string'),
+                            exactOnly: !!v.exactOnly,
+                        };
+                        if (typeof v.reading === 'string') bucket[src].reading = v.reading;
+                        if (typeof v.context === 'string') bucket[src].context = v.context;
+                        if (typeof v.category === 'string') bucket[src].category = v.category;
+                        if (Array.isArray(v.variants)) bucket[src].variants = v.variants.filter(x => typeof x === 'string');
+                    }
                 }
             }
             return out;
@@ -6688,11 +6818,24 @@
         function sfxLookup(raw, lang) {
             const bucket = _sfxUser[lang] || {};
             const baseKey = sfxNormalize(raw);
-            const cands = [], srcOf = {};
+            const cands = [], srcOf = {}, hintOf = {};
+            const contexts = [], seenContexts = new Set();
             const take = (src) => {
                 const e = bucket[src];
                 if (!e || !Array.isArray(e.cands)) return;
-                for (const c of e.cands) if (c && !(c in srcOf)) { srcOf[c] = src; cands.push(c); }
+                const hint = [e.reading, e.context].filter(Boolean).join('\n');
+                if (e.context) {
+                    const key = [e.reading || '', e.context].join('\n');
+                    if (!seenContexts.has(key)) {
+                        seenContexts.add(key);
+                        contexts.push({ src, reading: e.reading || '', context: e.context });
+                    }
+                }
+                for (const c of e.cands) if (c && !(c in srcOf)) {
+                    srcOf[c] = src;
+                    if (hint) hintOf[c] = hint;
+                    cands.push(c);
+                }
             };
             const matchedExact = !!bucket[raw];
             if (matchedExact) take(raw);                       // exact entry first
@@ -6702,7 +6845,7 @@
                 if (!e || e.exactOnly) continue;
                 if (sfxNormalize(src) === baseKey) take(src);
             }
-            return { cands, srcOf, matchedExact, baseKey, hit: cands.length > 0 };
+            return { cands, srcOf, hintOf, contexts, matchedExact, baseKey, hit: cands.length > 0 };
         }
 
         async function saveSfxToFS(payload) {
@@ -6934,7 +7077,8 @@
         // Build the candidate-chips row for a block's translation box (null if nothing to show).
         function buildSfxRow(block, textarea) {
             const raw = (block.text || '').trim();
-            if (!raw || [...raw].length > SFX_MAX_LEN) return null;
+            const normalizedRaw = sfxNormalize(raw);
+            if (!raw || !normalizedRaw || [...normalizedRaw].length > SFX_MAX_LEN) return null;
             const lang = ((elements.targetLangSelect && elements.targetLangSelect.value) || '').toUpperCase();
             if (!lang) return null;
             const row = document.createElement('div');
@@ -6947,6 +7091,7 @@
             const populate = () => {
                 row.innerHTML = '';
                 const hit = sfxLookup(raw, lang);
+                let contextEl = null;
                 if (hit.hit) {
                     const lab = document.createElement('span');
                     lab.className = 'sfx-lab';
@@ -6956,6 +7101,7 @@
                     hit.cands.forEach(c => {
                         const chip = document.createElement('button');
                         chip.type = 'button'; chip.className = 'sfx-chip';
+                        if (hit.hintOf && hit.hintOf[c]) chip.title = hit.hintOf[c];
                         const span = document.createElement('span'); span.textContent = c; chip.appendChild(span);
                         chip.onclick = (ev) => { ev.stopPropagation(); fill(c); };
                         if (!storage.viewOnly) {
@@ -6968,6 +7114,17 @@
                         }
                         row.appendChild(chip);
                     });
+                    if (hit.contexts && hit.contexts.length) {
+                        const ctx = document.createElement('div');
+                        ctx.className = 'sfx-context';
+                        const parts = hit.contexts.map(x => {
+                            const head = [x.src, x.reading].filter(Boolean).join(' / ');
+                            return head ? `${head}: ${x.context}` : x.context;
+                        });
+                        ctx.textContent = `${t('sfxContext')}：${parts.join(' ｜ ')}`;
+                        ctx.title = parts.join('\n');
+                        contextEl = ctx;
+                    }
                 }
                 if (!storage.viewOnly) {
                     const add = document.createElement('button');
@@ -6980,6 +7137,7 @@
                     };
                     row.appendChild(add);
                 }
+                if (contextEl) row.appendChild(contextEl);
             };
             populate();
             return row.children.length ? row : null;
