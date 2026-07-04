@@ -146,8 +146,15 @@ cp config.toml.sample config.toml   # 然后填入 [translator] api_key
 use_gpu = true
 
 [detector]
-detector = "ctd"            # 选项: default | dbconvnext | ctd | craft | paddle | none
-detection_size = 2048
+detector = "ctd"            # 选项: ctd | default | dbconvnext | craft | paddle | rtdetr | none
+detection_size = -1         # -1=按每页自动计算；也可用 2048/2560 固定全局尺寸
+detection_size_scale = 1.0  # 自动模式：小字/密集字漏检时调到 1.3–1.6
+detection_size_min = 1024
+detection_size_max = 2560
+text_threshold = 0.25
+box_threshold = 0.6
+unclip_ratio = 1.8
+secondary_detector = "none" # 设为 "rtdetr" 可融合高召回框检测器
 
 [ocr]
 ocr = "48px"                # 选项: 32px | 48px | 48px_ctc | mocr
@@ -160,21 +167,31 @@ api_key = ""                 # 也可留空，改用环境变量 OPENAI_API_KEY
 target_lang = "CHS"
 batch_chars = 1500           # 每个请求约 1000–2000 字符
 context_pages = 1            # 发送前 N 页作为语境参考
+concurrency = 1              # 任务级并发；云端 LLM 常用 3–5
 # reference_langs 不设 = 自动（参考所有经人工校对的语言）；[] = 关闭；
 # ["CHS"] = 只参考指定语言。被参考的语言全程只读。
 
 [render]
+font_path = "fonts/GenEiAntiqueNv5-M.ttf"
 font_size_offset = 0
 font_size_minimum = 34       # 最小字号下限，保证小字可读
 font_size_minimum_expand_limit = 2.5  # 为容纳最小字号，文本框最多允许放大的倍数
+font_size_readable_min = -1  # 固定/手画框的自动可读字号下限
 line_spacing = 0             # 收紧行距，使同样空间能容纳更大的字
 direction = "auto"           # 选项: auto | horizontal | vertical
 alignment = "auto"
 disable_font_border = false  # 保留文字描边——任何背景上可读性的关键
 # font_color = "000000:FFFFFF"  # 黑字+白描边；仅建议用于纯黑白本
+
+[signature]
+enabled = false              # 设 true 并填写 translator 即可烘焙署名
+translator = ""
+pages = "first_last"         # none | first | last | first_last | every
 ```
 
 `provider = "openai"` 支持任何兼容 OpenAI 的 HTTP 接口（如 DeepSeek、OpenRouter、Groq、Ollama）。API 密钥可放在 `[translator] api_key` 或 `.env`（`OPENAI_API_KEY` / `GEMINI_API_KEY`）中。
+
+范例配置偏保守；混合页面尺寸、追求高召回时，常见实战组合是 `detection_size = -1`、`secondary_detector = "rtdetr"`、`secondary_box_threshold = 0.25–0.3`，云端 LLM 可把 `concurrency` 设为 `3` 左右。共享配置时不要带密钥：把 `api_key = ""` 留空，改用环境变量。
 
 ### 选择文字检测器 · RT-DETR
 

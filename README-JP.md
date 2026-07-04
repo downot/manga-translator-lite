@@ -146,8 +146,15 @@ cp config.toml.sample config.toml   # その後 [translator] api_key を記入
 use_gpu = true
 
 [detector]
-detector = "ctd"            # オプション: default | dbconvnext | ctd | craft | paddle | none
-detection_size = 2048
+detector = "ctd"            # オプション: ctd | default | dbconvnext | craft | paddle | rtdetr | none
+detection_size = -1         # -1=ページごとに自動算出；2048/2560 など固定値も可
+detection_size_scale = 1.0  # 自動モード：小さい/密集文字が抜ける時は 1.3–1.6
+detection_size_min = 1024
+detection_size_max = 2560
+text_threshold = 0.25
+box_threshold = 0.6
+unclip_ratio = 1.8
+secondary_detector = "none" # "rtdetr" で高再現率ボックス検出器を融合
 
 [ocr]
 ocr = "48px"                # オプション: 32px | 48px | 48px_ctc | mocr
@@ -160,21 +167,31 @@ api_key = ""                 # 空のままにして環境変数 OPENAI_API_KEY 
 target_lang = "JPN"
 batch_chars = 1500           # 1リクエストあたり約 1000–2000 文字
 context_pages = 1            # 文脈として送信する過去のページ数
+concurrency = 1              # タスク単位の並列数；クラウド LLM は 3–5 が目安
 # reference_langs 未設定 = 自動（人手レビュー済みの全言語を参照）；[] = 無効；
 # ["CHS"] = 指定言語のみ参照。参照される言語は読み取り専用。
 
 [render]
+font_path = "fonts/GenEiAntiqueNv5-M.ttf"
 font_size_offset = 0
 font_size_minimum = 34       # 小さい文字も読めるようにする最小フォントサイズ
 font_size_minimum_expand_limit = 2.5  # 最小フォントを収めるためにボックスを拡大できる最大倍率
+font_size_readable_min = -1  # 固定/手動枠の自動可読フォント下限
 line_spacing = 0             # 行間を詰めて、同じ領域により大きな文字を収める
 direction = "auto"           # オプション: auto | horizontal | vertical
 alignment = "auto"
 disable_font_border = false  # 縁取りを維持——あらゆる背景での可読性の鍵
 # font_color = "000000:FFFFFF"  # 黒文字+白縁取り。完全な白黒作品のみ推奨
+
+[signature]
+enabled = false              # true にして translator を入れると署名を焼き込み
+translator = ""
+pages = "first_last"         # none | first | last | first_last | every
 ```
 
 `provider = "openai"` は、DeepSeek、OpenRouter、Groq、Ollama など、OpenAI 互換のすべてのエンドポイントをサポートします。API キーは `[translator] api_key` または `.env` (`OPENAI_API_KEY` / `GEMINI_API_KEY`) で設定できます。
+
+サンプル設定は保守的です。ページサイズが混在し、再現率を重視する場合の実用例は `detection_size = -1`、`secondary_detector = "rtdetr"`、`secondary_box_threshold = 0.25–0.3`、ホスト型 LLM なら `concurrency = 3` 前後です。共有する設定には秘密情報を入れず、`api_key = ""` のまま環境変数を使ってください。
 
 ### テキスト検出器の選択 · RT-DETR
 
@@ -233,6 +250,29 @@ fusion_max_area_ratio = 0.1     # ページのこの割合を超える副ボッ�
 - **`font_size_readable_min`**（config `[render]`、既定 `-1`=自動 ≈ `(幅+高)/300`）——可読性の**絶対下限**で、固定/手動枠と自動枠の両方に適用されます。固定枠は自動拡大しないため長い訳文はこの下限まで縮小します。自動枠も、上限まで枠を拡大しても収まらない場合は**この下限までフォントを縮小してはみ出しを防ぎます**（固定枠と同じ挙動）。`font_size_minimum` に張り付いてあふれることはありません。それでも収まらない場合のみエディタで**警告表示**されます。`4` で旧挙動に戻せます。
 
 一般的な使い方：タスクごとに `box_scale` で全体サイズを決め、`font_size_minimum` は望ましい下限、`font_size_minimum_expand_limit` は拡大の余裕として残します。**自動枠と固定枠は一貫した挙動になりました**：どちらもフォントを枠いっぱいまで拡大し、収まらなければ縮小して合わせます（自動枠はまず枠を拡大し次にフォント縮小、固定枠は直接縮小）。そのため「自動枠だけ最小サイズに張り付いてあふれ、固定枠はきれい」という差は出ません。個別の枠を微調整したいときはエディタで枠を**リサイズ**します：その枠は描いた通りに描画され（自動拡大なし）、フォントは枠の大きさに合わせて拡大・縮小されます（下限は `font_size_readable_min`）。単に枠を**移動**するだけなら位置が変わるだけで、自動サイズが維持されます。エディタのプレビューは同じ計算式を使うため、見た目と出力が一致します。
+
+### 翻訳者署名（`[signature]`）
+
+各作品に翻訳者クレジットを焼き込み、このオープンソースシステムの控えめな表記も一緒に載せられます。`[signature]` で有効化します：
+
+```toml
+[signature]
+enabled    = true
+translator = "YourName"          # クレジットに表示する名前
+pages      = "first_last"        # none | first | last | first_last | every
+direction  = "auto"              # auto | horizontal | vertical
+position   = "bottom-right"      # 配置する隅
+```
+
+署名はページの隅に**重なったレイヤー表現**として描画されます。翻訳者名は大きく、その下に小さく薄い OSS クレジットが重なります。**横書き・縦書きの両方のテキストボックスを実装済み**です。明示的に選ぶことも、`direction = "auto"` のまま CJK 目標言語では縦書き、それ以外では横書きに任せることもできます。既定では各作品の**最初と最後のページ**に表示されます。全ページ透かしなら `every`、片方だけなら `first` / `last` を指定します。
+
+名前行には**固定プレフィックスはありません**。表示内容は翻訳者が決められ、既定では `translator` の値そのものです。`text` で完全に上書きでき、`{translator}` プレースホルダと `\n` 改行が使えます。固定 OSS クレジット `MTL.downot.moe` は名前の下に自動で薄く描かれる別レイヤーで、**変更や削除はできません**。名前色、不透明度、フォントサイズ、角、余白、フォントも設定できます（OSS クレジットの薄い色と小さいサイズは自動導出）。署名は **render 時に画像へ焼き込まれ、エディタの該当ページにもプレビュー表示**されます。
+
+**エディタで拡大 / 移動。** 領域編集ツール（鉛筆）を開き、署名が表示されるページで署名をクリックして選択します。角ハンドルをドラッグすると拡大縮小、本文をドラッグすると移動できます。倍率とオフセットは**タスク単位**で `pages.json` に保存されます（`signature_scale`、`signature_offset`）。そのため作品ごとに署名サイズと位置を変えられ、`render` も同じ値を読むので、配置した通りに焼き込まれます。
+
+### Render QA — 問題ブロックの自動検出
+
+大量の手動確認を速くするため、エディタはテキストが枠から**はみ出す**ブロック（可読性下限まで縮めても入らない）や、同じページの他ブロックより**極端に小さく**描画されるブロックを自動で警告します。該当ブロックはカードに赤い警告バッジ、キャンバス上に赤い番号タグが付き、**ページリストにもページごとの問題数が赤く表示**されます。エディタヘッダーの**漏斗ボタン**で「問題ブロックのみ表示」に切り替えられ、隣の**ワンクリック拡大**ボタンは現在ページの問題枠を、文字がちょうど入るサイズまでまとめて拡大します（中心固定・ページ内にクランプ、**ワンクリックで元に戻す**対応）。CLI の `render` も同じはみ出しブロックをページごとにログ出力します。
 
 ## ビジュアルエディタ (実験的)
 

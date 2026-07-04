@@ -146,8 +146,15 @@ cp config.toml.sample config.toml   # then fill in [translator] api_key
 use_gpu = true
 
 [detector]
-detector = "ctd"            # Options: default | dbconvnext | ctd | craft | paddle | none
-detection_size = 2048
+detector = "ctd"            # Options: ctd | default | dbconvnext | craft | paddle | rtdetr | none
+detection_size = -1         # -1 = auto per page; use 2048/2560 for a fixed global size
+detection_size_scale = 1.0  # auto mode: raise to 1.3–1.6 for tiny/dense text
+detection_size_min = 1024
+detection_size_max = 2560
+text_threshold = 0.25
+box_threshold = 0.6
+unclip_ratio = 1.8
+secondary_detector = "none" # set "rtdetr" to fuse in a high-recall box detector
 
 [ocr]
 ocr = "48px"                # Options: 32px | 48px | 48px_ctc | mocr
@@ -160,21 +167,31 @@ api_key = ""                 # Or leave empty and set the OPENAI_API_KEY env var
 target_lang = "ENG"
 batch_chars = 1500           # ~1000–2000 chars per LLM request
 context_pages = 1            # number of past pages sent as tone context
+concurrency = 1              # task-level parallelism; use 3–5 for cloud LLMs
 # reference_langs unset = auto (reference every human-reviewed language); [] = off;
 # ["CHS"] = reference exactly these. Referenced languages are read-only.
 
 [render]
+font_path = "fonts/GenEiAntiqueNv5-M.ttf"
 font_size_offset = 0
 font_size_minimum = 34       # Lower bound so small text stays legible
 font_size_minimum_expand_limit = 2.5  # Max box growth allowed to host the minimum font size
+font_size_readable_min = -1  # auto readability floor for fixed/user-sized boxes
 line_spacing = 0             # Tighten line spacing so more text fits at a larger size
 direction = "auto"           # Options: auto | horizontal | vertical
 alignment = "auto"
 disable_font_border = false  # Keep the outline — key for legibility on any background
 # font_color = "000000:FFFFFF"  # Black text + white outline; good for pure B/W books only
+
+[signature]
+enabled = false              # set true and fill translator to bake a credit
+translator = ""
+pages = "first_last"         # none | first | last | first_last | every
 ```
 
 `provider = "openai"` covers any OpenAI-compatible HTTP endpoint, including DeepSeek, OpenRouter, Groq and Ollama. API keys can live in `[translator] api_key` or in `.env` vars (`OPENAI_API_KEY` / `GEMINI_API_KEY`).
+
+The sample config is intentionally conservative; a common high-recall setup for mixed page sizes is `detection_size = -1`, `secondary_detector = "rtdetr"`, `secondary_box_threshold = 0.25–0.3`, and `concurrency = 3` for hosted LLMs. Keep secrets out of shared configs: leave `api_key = ""` and use environment variables when committing or sending examples.
 
 ### Choosing a text detector · RT-DETR
 
