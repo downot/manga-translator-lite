@@ -106,12 +106,71 @@
             display: flex;
             align-items: center;
             gap: 14px;
+            min-width: 0;
         }
 
         .controls {
             display: flex;
             gap: 8px;
             align-items: center;
+        }
+
+        #loaded-path {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            width: 220px;
+            max-width: 22vw;
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            line-height: 1;
+            transition: width 0.18s ease, max-width 0.18s ease, border-color 0.18s ease;
+        }
+
+        #loaded-path:hover {
+            width: max-content;
+            max-width: min(72vw, 900px);
+            border-color: var(--accent);
+        }
+
+        #loaded-path svg {
+            flex: 0 0 auto;
+        }
+
+        #loaded-path-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #btn-sfx-dir {
+            display: none;
+            position: relative;
+            padding: 8px;
+        }
+
+        #btn-sfx-dir.pending {
+            display: inline-flex;
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        #btn-sfx-dir.pending::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--warning);
         }
 
         button {
@@ -144,7 +203,7 @@
             color: var(--text-primary);
         }
 
-        /* Unsaved-changes indicator: a small dot on the enabled Save button. */
+        /* Unsaved-changes indicator: a small dot on the enabled translation-save button. */
         #btn-save.unsaved::after {
             content: '';
             width: 7px;
@@ -152,6 +211,21 @@
             border-radius: 50%;
             background: #fff;
             display: inline-block;
+        }
+        #editor #btn-save.editor-save-btn {
+            border-color: var(--accent);
+            color: #fff;
+            background: var(--accent);
+            min-width: 74px;
+            justify-content: center;
+        }
+        #editor #btn-save.editor-save-btn:disabled {
+            color: var(--text-secondary);
+            background: var(--bg-hover);
+            border-color: var(--border);
+        }
+        #editor #btn-save.editor-save-btn.unsaved {
+            box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.35);
         }
 
         /* Main Layout */
@@ -196,22 +270,33 @@
             box-shadow: inset 3px 0 0 var(--accent);
         }
         #editor .section-title {
-            gap: 10px;
-            align-items: flex-start;
+            gap: 8px;
+            align-items: center;
+            padding: 11px 12px 11px 16px;
+        }
+        #editor .section-title > span {
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
         .editor-toolbar {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             justify-content: flex-end;
-            gap: 5px;
+            align-items: center;
+            gap: 4px;
             min-width: 0;
+            flex: 1 1 auto;
         }
         .editor-toolbar .tool-btn {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            min-height: 26px;
-            padding: 3px 7px;
+            justify-content: center;
+            gap: 3px;
+            width: 30px;
+            min-width: 30px;
+            height: 28px;
+            min-height: 28px;
+            padding: 0;
             line-height: 1;
             white-space: nowrap;
             text-transform: none;
@@ -223,11 +308,29 @@
             flex: 0 0 auto;
         }
         .editor-toolbar .tool-label {
+            display: none;
+        }
+        .editor-toolbar .editor-save-btn {
+            width: auto;
+            min-width: 46px;
+            padding: 0 8px;
+        }
+        .editor-toolbar .editor-save-btn .tool-label {
             display: inline-block;
+        }
+        .editor-toolbar #btn-qa-filter {
+            width: auto;
+            min-width: 30px;
+            padding: 0 6px;
+        }
+        .editor-toolbar .qa-count {
+            font-size: 0.66rem;
+            margin-left: 1px;
         }
         @media (max-width: 860px) {
             .editor-toolbar .tool-label { display: none; }
-            .editor-toolbar .tool-btn { width: 28px; justify-content: center; padding: 3px; }
+            .editor-toolbar .tool-btn { width: 28px; min-width: 28px; height: 28px; justify-content: center; padding: 0; }
+            .editor-toolbar .editor-save-btn { min-width: 28px; padding: 0; }
         }
 
         #sidebar-tasks-section {
@@ -415,11 +518,84 @@
             background: var(--text-secondary);
         }
 
-        #btn-edit-region.active { background: var(--accent); color: #fff; }
+        .region-edit-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .region-edit-toggle input {
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .region-edit-toggle.active {
+            border-color: var(--accent);
+            color: var(--text-primary);
+            background: rgba(99, 102, 241, 0.16);
+        }
+        .region-edit-toggle.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .region-edit-toggle.disabled input {
+            cursor: not-allowed;
+        }
         #btn-privacy.active { color: var(--accent); }
+        .mode-switch {
+            position: relative;
+            width: 96px;
+            height: 34px;
+            padding: 3px;
+            gap: 0;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+        .mode-switch .mode-knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: calc(50% - 3px);
+            height: calc(100% - 6px);
+            border-radius: 5px;
+            background: var(--accent);
+            transition: transform 0.18s ease;
+            z-index: 0;
+        }
+        .mode-switch.active .mode-knob {
+            transform: translateX(100%);
+        }
+        .mode-switch .mode-option {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            text-align: center;
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            transition: color 0.18s ease;
+            white-space: nowrap;
+        }
+        .mode-switch:not(.active) .mode-option.edit,
+        .mode-switch.active .mode-option.preview {
+            color: #fff;
+        }
         /* Render-settings popover (anchored above the gear button in the toolbar). */
         .render-settings-wrap { position: relative; display: inline-flex; }
         #btn-render-settings.active { background: var(--accent); color: #fff; }
+        #btn-preview-filter.active { border-color: var(--accent); color: #fff; }
+        #btn-preview-filter.strong { background: var(--accent); color: #fff; }
         .render-settings-panel {
             position: absolute;
             bottom: calc(100% + 8px);
@@ -458,7 +634,13 @@
         .blk-bg-btn:hover, .blk-clone-btn:hover, .blk-fg-btn:hover, .blk-ai-btn:hover { background: var(--bg-hover); }
         .blk-ai-btn { color: var(--accent); }
         .blk-ai-btn:hover { color: var(--accent); filter: brightness(1.2); }
-        .blk-ai-btn:disabled, .blk-ai-btn.loading { opacity: 0.45; cursor: progress; }
+        .blk-ai-btn.loading { opacity: 0.45; cursor: progress; }
+        .blk-bg-btn:disabled, .blk-clone-btn:disabled, .blk-fg-btn:disabled,
+        .blk-del-btn:disabled, .blk-pin-btn:disabled, .blk-ai-btn:disabled, .btn-collab-resolve:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            filter: grayscale(0.3);
+        }
         .blk-ai-btn.loading svg { animation: ai-spin 0.9s linear infinite; }
         @keyframes ai-spin { to { transform: rotate(360deg); } }
         /* Onomatopoeia / SFX candidate chips shown above a block's translation box. */
@@ -521,6 +703,11 @@
             border: 1px solid var(--border); border-radius: 6px; text-align: center;
         }
         .rs-convert-btn:hover { background: var(--bg-card); border-color: #10b981; color: #10b981; }
+        .rs-convert-btn:disabled, .render-settings-panel input:disabled, .tool-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            filter: grayscale(0.3);
+        }
         .rs-legend { font-size: 0.66rem; color: var(--text-secondary); line-height: 1.5; }
         .rs-legend b { color: var(--text-primary); font-weight: 600; }
         /* Font-color button: a small swatch ring showing the block's current fg_color. */
@@ -835,6 +1022,17 @@
                 display: none;
             }
 
+            #loaded-path {
+                width: 132px;
+                max-width: 30vw;
+                padding: 0 8px;
+            }
+
+            #loaded-path:hover {
+                width: max-content;
+                max-width: 68vw;
+            }
+
             #sidebar,
             #editor {
                 position: absolute;
@@ -900,23 +1098,36 @@
             transform: translateX(-50%) translateY(0);
             opacity: 1;
         }
+        #toast.interactive {
+            pointer-events: auto;
+        }
 
         /* Persistent legend shown while region-edit mode is active. */
         #edit-mode-legend {
             position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(99, 102, 241, 0.92);
+            top: 12px;
+            left: 14px;
+            transform: none;
+            background: rgba(26, 29, 35, 0.72);
+            border: 1px solid rgba(99, 102, 241, 0.55);
             color: #fff;
-            padding: 6px 14px;
-            border-radius: 16px;
-            font-size: 0.78rem;
+            padding: 5px 9px;
+            border-radius: 8px;
+            font-size: 0.72rem;
+            line-height: 1.35;
             z-index: 50;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32);
             pointer-events: none;
-            max-width: 90%;
-            text-align: center;
+            max-width: min(360px, calc(100% - 28px));
+            text-align: left;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            opacity: 0.88;
+            transition: opacity 0.25s ease, max-width 0.25s ease;
+        }
+        #edit-mode-legend.compact {
+            max-width: 180px;
+            opacity: 0.46;
         }
 
         .loader {
@@ -983,7 +1194,7 @@
            actions that would 403. */
         body.view-only #btn-save,
         body.view-only #btn-import-trans,
-        body.view-only #btn-edit-region,
+        body.view-only #region-edit-wrap,
         body.view-only #btn-render-settings,
         body.view-only #btn-page-bg,
         body.view-only #tab-pipeline,
@@ -1437,6 +1648,13 @@
                 <span id="app-brand">Manga Translator</span>
             </div>
 
+            <div id="loaded-path" title="">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span id="loaded-path-text"></span>
+            </div>
+
             <!-- UI Language: interface chrome, set-once — lives on the left, separated
                  from the high-frequency translation-target selector on the right. -->
             <div style="display: flex; align-items: center; background: var(--bg-hover); padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); height: 36px;"
@@ -1451,6 +1669,14 @@
 
             <button id="btn-privacy" class="secondary" title="Privacy blur on focus loss" style="padding: 8px;"></button>
             <button id="btn-theme" class="secondary" data-i18n-title="toggleTheme" title="Toggle light/dark" style="padding: 8px;"></button>
+            <button id="btn-sfx-dir" class="secondary" data-i18n-title="sfxPickDirBtn" title="Choose SFX dictionary folder">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"></path>
+                    <path d="M8 7h8"></path>
+                    <path d="M8 11h6"></path>
+                </svg>
+            </button>
         </div>
         <div class="controls">
             <div id="collaborators-list" style="display: flex; align-items: center; gap: 6px; margin-right: 8px;"></div>
@@ -1519,14 +1745,6 @@
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
-            </button>
-
-            <button id="btn-save" disabled>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                </svg>
-                <span data-i18n="btnSave">Save</span>
             </button>
 
             <!-- Login status (server_auth mode only; populated by /api/me). Collapsed
@@ -1689,11 +1907,22 @@
                     </svg>
                     <span id="zoom-label" style="font-size: 0.78rem;">Fit</span>
                 </button>
-                <button id="btn-edit-region" class="secondary" data-i18n-title="btnEditRegion" title="Edit regions">
+                <button id="btn-preview-filter" class="secondary" data-i18n-title="previewFilterTitle" title="Preview anti-moire">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 20h9"></path>
-                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                        <path d="M4 21c4-8 12-8 16-16"></path>
+                        <path d="M4 15c5-5 10-5 16-11"></path>
+                        <path d="M4 9c4-2 8-2 12-6"></path>
                     </svg>
+                    <span id="preview-filter-label" style="font-size: 0.78rem;">Auto</span>
+                </button>
+                <label id="region-edit-wrap" class="region-edit-toggle" data-i18n-title="btnEditRegion" title="Edit image regions">
+                    <input type="checkbox" id="btn-edit-region">
+                    <span data-i18n="btnEditRegionShort">图片区域编辑</span>
+                </label>
+                <button id="btn-render-preview" class="secondary mode-switch" data-i18n-title="renderPreviewTitle" title="Render preview">
+                    <span class="mode-knob"></span>
+                    <span class="mode-option edit" data-i18n="renderPreviewEdit">Edit</span>
+                    <span class="mode-option preview" data-i18n="renderPreviewPreview">Preview</span>
                 </button>
                 <div class="render-settings-wrap">
                     <button id="btn-render-settings" class="secondary" data-i18n-title="titleRenderSettings" title="Render settings">
@@ -1737,6 +1966,13 @@
             <div class="section-title">
                 <span data-i18n="titleEditor">Editor</span>
                 <div class="editor-toolbar" role="toolbar" aria-label="Editor tools">
+                    <button id="btn-save" class="tool-btn editor-save-btn" data-i18n-title="btnSaveTrans" title="Save translations" disabled>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        </svg>
+                        <span class="tool-label" data-i18n="btnSaveTransShort">保存</span>
+                    </button>
                     <button id="btn-page-bg" class="secondary tool-btn" data-i18n-title="tipPageBgPick" title="Set all backgrounds on this page" onclick="openPageBgColorPicker(this)">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="4" y="4" width="16" height="16" rx="2"></rect>
@@ -1917,9 +2153,9 @@
         i18n.en.qaNoneOnPage = 'No problem blocks on this page 🎉';
         i18n.ja.qaNoneOnPage = 'このページに問題ブロックはありません 🎉';
         // One-click enlarge: grow every problem box on THIS page so the text just fits.
-        i18n.zh.qaEnlargeTitle = '一键放大本页问题框（让溢出/过小的文字刚好放下）';
-        i18n.en.qaEnlargeTitle = 'Enlarge problem boxes on this page (fit overflowing / tiny text)';
-        i18n.ja.qaEnlargeTitle = 'このページの問題枠を一括拡大（はみ出し/極小の文字を収める）';
+        i18n.zh.qaEnlargeTitle = '放大选中框；未选中时放大本页问题框';
+        i18n.en.qaEnlargeTitle = 'Enlarge selected box; without a selection, enlarge problem boxes on this page';
+        i18n.ja.qaEnlargeTitle = '選択中の枠を拡大。未選択ならこのページの問題枠を一括拡大';
         i18n.zh.qaEnlargeNone = '本页没有需要放大的问题框';
         i18n.en.qaEnlargeNone = 'No problem boxes to enlarge on this page';
         i18n.ja.qaEnlargeNone = 'このページに拡大が必要な枠はありません';
@@ -1988,6 +2224,35 @@
         i18n.zh.zoomFitShort = '适应'; i18n.zh.zoomWidthShort = '宽度'; i18n.zh.zoomOrigShort = '100%';
         i18n.en.zoomFitShort = 'Fit'; i18n.en.zoomWidthShort = 'Width'; i18n.en.zoomOrigShort = '100%';
         i18n.ja.zoomFitShort = '全体'; i18n.ja.zoomWidthShort = '幅'; i18n.ja.zoomOrigShort = '100%';
+        i18n.zh.previewFilterTitle = '漫画预览优化（抗摩尔纹 / 白底提纯 / 黑线稳定，只影响缩小显示）';
+        i18n.en.previewFilterTitle = 'Manga preview enhancement (anti-moire / cleaner whites / steadier blacks; display only)';
+        i18n.ja.previewFilterTitle = '漫画プレビュー最適化（モアレ抑制 / 白地補正 / 黒線安定、縮小表示のみ）';
+        i18n.zh.previewFilterOff = '关'; i18n.en.previewFilterOff = 'Off'; i18n.ja.previewFilterOff = 'オフ';
+        i18n.zh.previewFilterAuto = '自动'; i18n.en.previewFilterAuto = 'Auto'; i18n.ja.previewFilterAuto = '自動';
+        i18n.zh.previewFilterStrong = '强'; i18n.en.previewFilterStrong = 'Strong'; i18n.ja.previewFilterStrong = '強';
+        i18n.zh.renderPreviewTitle = '渲染预览：隐藏编辑辅助线，模拟导出效果';
+        i18n.en.renderPreviewTitle = 'Render preview: hide editing guides and simulate export output';
+        i18n.ja.renderPreviewTitle = 'レンダープレビュー：編集ガイドを隠して出力結果を再現';
+        i18n.zh.renderPreviewEdit = '编辑'; i18n.en.renderPreviewEdit = 'Edit'; i18n.ja.renderPreviewEdit = '編集';
+        i18n.zh.renderPreviewPreview = '预览'; i18n.en.renderPreviewPreview = 'Preview'; i18n.ja.renderPreviewPreview = 'プレビュー';
+        i18n.zh.renderPreviewOn = '渲染预览已开启';
+        i18n.en.renderPreviewOn = 'Render preview on';
+        i18n.ja.renderPreviewOn = 'レンダープレビューをオンにしました';
+        i18n.zh.renderPreviewOff = '渲染预览已关闭';
+        i18n.en.renderPreviewOff = 'Render preview off';
+        i18n.ja.renderPreviewOff = 'レンダープレビューをオフにしました';
+        i18n.zh.btnSaveTrans = '保存译文';
+        i18n.en.btnSaveTrans = 'Save translations';
+        i18n.ja.btnSaveTrans = '翻訳を保存';
+        i18n.zh.btnSaveTransShort = '保存';
+        i18n.en.btnSaveTransShort = 'Save';
+        i18n.ja.btnSaveTransShort = '保存';
+        i18n.zh.btnEditRegion = '图片区域编辑：允许拖拽、缩放、新建画布文本框';
+        i18n.en.btnEditRegion = 'Image region editing: allow dragging, resizing, and creating canvas text boxes';
+        i18n.ja.btnEditRegion = '画像領域編集：キャンバス上のテキスト枠の移動・サイズ変更・新規作成を許可';
+        i18n.zh.btnEditRegionShort = '图片区域编辑';
+        i18n.en.btnEditRegionShort = 'Image regions';
+        i18n.ja.btnEditRegionShort = '画像領域';
         // Keyboard-shortcut help overlay.
         i18n.zh.titleShortcuts = '快捷键'; i18n.zh.scPageNav = '上一页 / 下一页'; i18n.zh.scHistory = '页面历史：返回 / 前进（回到刚才所在的页）'; i18n.zh.scUpDown = '切换文字块 / 任务 / 页面（随当前焦点区域）'; i18n.zh.scAltArrow = '编辑译文时也能翻页'; i18n.zh.scSave = '保存'; i18n.zh.scClear = '清空当前译文'; i18n.zh.scHelp = '显示本快捷键帮助';
         i18n.en.titleShortcuts = 'Keyboard Shortcuts'; i18n.en.scPageNav = 'Previous / next page'; i18n.en.scHistory = 'Page history: back / forward (jump to the page you came from)'; i18n.en.scUpDown = 'Move between blocks / tasks / pages (by focus area)'; i18n.en.scAltArrow = 'Page nav even while editing text'; i18n.en.scSave = 'Save'; i18n.en.scClear = 'Clear the current translation'; i18n.en.scHelp = 'Show this shortcut help';
@@ -2094,6 +2359,7 @@
                     const pre = this.token && serverTasks.find(t => t.token === this.token);
                     const target = pre || serverTasks[0];
                     if (target) await this.selectServerTask(target.token);
+                    updateLoadedPathDisplay();
                     return;
                 }
 
@@ -2104,6 +2370,7 @@
                     document.getElementById('btn-export-trans').style.display = '';
                     await this.loadServerCapabilities();
                     await this.loadServerTask();
+                    updateLoadedPathDisplay();
                 }
             },
 
@@ -2119,6 +2386,7 @@
                     applyViewOnly();
                     updatePipelineTab();
                     highlightServerTask(token);
+                    updateLoadedPathDisplay();
                 } finally {
                     topProgress.done();
                 }
@@ -2161,7 +2429,9 @@
                     const resp = await fetch(`api/data?t=${this.token}`);
                     if (!resp.ok) throw new Error("Task not found");
                     const data = await resp.json();
-                    this.currentTask = { name: "Remote Task", data: data };
+                    const task = this.serverTasks && this.serverTasks.find(t => t.token === this.token);
+                    this.currentTask = { name: (task && task.name) || data.task_name || "Remote Task", data: data };
+                    updateLoadedPathDisplay();
                     const targetLang = data.target_lang || "ENG";
                     elements.targetLangSelect.value = targetLang;
                     await this.loadTranslations(targetLang);
@@ -2694,6 +2964,8 @@
             selectedBlockIndex: -1,
             isDirty: false,
             zoomMode: 'fit',
+            previewFilter: localStorage.getItem('editor-preview-filter') || 'auto',
+            renderPreviewMode: false,
             needsSort: false,
             editMode: false,        // region-edit mode (drag to resize/move/add boxes)
             activeFocusArea: 'pages', // which pane arrow keys navigate: tasks/pages/editor/canvas
@@ -2711,7 +2983,17 @@
             btnOpen: document.getElementById('btn-open'),
             btnReload: document.getElementById('btn-reload'),
             btnZoom: document.getElementById('btn-zoom'),
+            btnPreviewFilter: document.getElementById('btn-preview-filter'),
+            btnSfxDir: document.getElementById('btn-sfx-dir'),
             btnEditRegion: document.getElementById('btn-edit-region'),
+            regionEditWrap: document.getElementById('region-edit-wrap'),
+            btnRenderPreview: document.getElementById('btn-render-preview'),
+            btnRenderSettings: document.getElementById('btn-render-settings'),
+            btnPageBg: document.getElementById('btn-page-bg'),
+            btnQaEnlarge: document.getElementById('btn-qa-enlarge'),
+            btnConvertPage: document.getElementById('btn-convert-page'),
+            btnConvertTask: document.getElementById('btn-convert-task'),
+            btnSaveStory: document.getElementById('btn-save-story'),
             boxScale: document.getElementById('box-scale'),
             taskMinFont: document.getElementById('task-min-font'),
             taskExpand: document.getElementById('task-expand'),
@@ -2731,6 +3013,8 @@
             sidebar: document.getElementById('sidebar'),
             editor: document.getElementById('editor'),
             canvasContainer: document.getElementById('canvas-container'),
+            loadedPath: document.getElementById('loaded-path'),
+            loadedPathText: document.getElementById('loaded-path-text'),
             chatDrawer: document.getElementById('chat-drawer'),
             chatCloseBtn: document.getElementById('chat-close-btn'),
             chatMessages: document.getElementById('chat-messages'),
@@ -2878,7 +3162,7 @@
         // Save button's enabled/indicator state, and the title marker in sync.
         function setDirty(d) {
             state.isDirty = d;
-            elements.btnSave.disabled = !d;
+            elements.btnSave.disabled = editorReadOnly() || !d;
             elements.btnSave.classList.toggle('unsaved', d);
             document.title = (d ? '• ' : '') + APP_NAME;
         }
@@ -2946,6 +3230,13 @@
                 const cur = document.documentElement.getAttribute('data-theme');
                 applyTheme(cur === 'light' ? 'dark' : 'light');
             };
+            window.addEventListener('resize', () => {
+                clearTimeout(window._previewResizeTimer);
+                window._previewResizeTimer = setTimeout(() => {
+                    previewBackgroundCache = null;
+                    if (storage.currentTask && state.currentPageIndex >= 0) renderPage();
+                }, 120);
+            });
 
             // Privacy blur on focus loss (see `privacy` above).
             privacy.init();
@@ -3218,10 +3509,38 @@
         // Read-only mode: a view-only user. CSS (body.view-only) hides mutating
         // controls; here we make any already-rendered text fields read-only and show
         // a badge. The server is the real guard (it 403s every write regardless).
+        function editorReadOnly() {
+            return !!(storage.viewOnly || state.renderPreviewMode);
+        }
+        function updateReadOnlyControls() {
+            const ro = editorReadOnly();
+            [
+                elements.btnImportTrans,
+                elements.btnPageBg,
+                elements.btnQaEnlarge,
+                elements.btnRenderSettings,
+                elements.btnConvertPage,
+                elements.btnConvertTask,
+                elements.btnSaveStory,
+                elements.boxScale,
+                elements.taskMinFont,
+                elements.taskExpand,
+            ].forEach(el => { if (el) el.disabled = ro; });
+            if (elements.btnSave) elements.btnSave.disabled = ro || !state.isDirty;
+            if (ro) {
+                const panel = document.getElementById('render-settings-panel');
+                const btn = document.getElementById('btn-render-settings');
+                if (panel) panel.style.display = 'none';
+                if (btn) btn.classList.remove('active');
+                closeBgColorPicker();
+            }
+        }
         function applyViewOnly() {
             const vo = !!storage.viewOnly;
             document.body.classList.toggle('view-only', vo);
-            document.querySelectorAll('#blocks-container textarea, #story-content').forEach(el => el.readOnly = vo);
+            const ro = editorReadOnly();
+            document.querySelectorAll('#blocks-container textarea, #story-content').forEach(el => el.readOnly = ro);
+            updateReadOnlyControls();
             const badge = document.getElementById('view-badge');
             if (badge) badge.style.display = vo ? '' : 'none';
         }
@@ -3265,7 +3584,7 @@
             }
             
             document.getElementById('story-content').disabled = false;
-            document.getElementById('btn-save-story').disabled = false;
+            document.getElementById('btn-save-story').disabled = editorReadOnly();
             document.getElementById('story-template-select').disabled = false;
 
             if (storage.isServer) {
@@ -3295,6 +3614,7 @@
 
         async function saveStoryFile() {
             if (!storage.currentTask) return;
+            if (editorReadOnly()) return;
             const content = document.getElementById('story-content').value;
             if (storage.isServer) {
                 try {
@@ -3444,6 +3764,7 @@
             if (state.isDirty && !confirm(t('confirmSwitch'))) return;
             try {
                 storage.workDirHandle = await window.showDirectoryPicker();
+                updateLoadedPathDisplay();
                 await storage.loadLocalConfig();
                 // Keep the SFX dictionary anchored to the editor.html directory, not to
                 // whichever work directory is currently opened.
@@ -3473,6 +3794,28 @@
                 showToast("Access denied", "error");
             }
         };
+
+        function updateLoadedPathDisplay() {
+            if (!elements.loadedPath || !elements.loadedPathText) return;
+            let label = '';
+            let title = '';
+            if (storage.isServer) {
+                const task = storage.serverTasks && storage.serverTasks.find(t => t.token === storage.token);
+                const taskName = (task && task.name) || (storage.currentTask && (storage.currentTask.name || storage.currentTask.data?.task_name));
+                if (taskName) {
+                    label = taskName;
+                    title = `Server task: ${taskName}`;
+                }
+            } else if (storage.workDirHandle) {
+                const root = storage.workDirHandle.name || 'local directory';
+                const taskName = storage.currentTask && (storage.currentTask.name || storage.currentTask.data?.task_name);
+                label = taskName ? `${root} / ${taskName}` : root;
+                title = `Local directory: ${label}`;
+            }
+            elements.loadedPath.style.display = label ? 'inline-flex' : 'none';
+            elements.loadedPathText.textContent = label;
+            elements.loadedPath.title = title || label;
+        }
 
         // Multi-task server mode: populate the Tasks sidebar from /api/tasks.
         function renderServerTaskList() {
@@ -3650,6 +3993,7 @@
                 storage.currentTask = null;
 
                 await storage.loadLocalTask(task);
+                updateLoadedPathDisplay();
 
                 // Highlight selected task
                 Array.from(elements.taskList.children).forEach(el => el.classList.remove('active'));
@@ -3726,6 +4070,7 @@
         let pageQaIdleHandle = null;
         const localThumbCache = new Map(); // clean name -> blob: thumbnail URL
         const pageImageCache = new Map();  // image URL -> decoded HTMLImageElement
+        let previewBackgroundCache = null;
         let renderPageSeq = 0;
         const PAGE_IMAGE_CACHE_LIMIT = 5;
 
@@ -3737,6 +4082,7 @@
             localThumbCache.forEach(url => URL.revokeObjectURL(url));
             localThumbCache.clear();
             pageImageCache.clear();
+            previewBackgroundCache = null;
             currentImageEl = null;
         }
 
@@ -4007,10 +4353,12 @@
 
         elements.btnImportTrans.onclick = () => {
             if (!storage.currentTask) { showToast(t('emptySelectPage'), 'error'); return; }
+            if (editorReadOnly()) return;
             elements.importTransFile.value = '';
             elements.importTransFile.click();
         };
         elements.importTransFile.onchange = async (e) => {
+            if (editorReadOnly()) return;
             const file = e.target.files && e.target.files[0];
             if (!file) return;
             // Warn if the file looks like a different language than the one being edited.
@@ -4301,14 +4649,138 @@
                 elements.canvas.width = img.width;
                 elements.canvas.height = img.height;
                 ctx.clearRect(0, 0, img.width, img.height);
-                ctx.drawImage(img, 0, 0);
+                updateZoomUI();
+                drawPageImageBackground(img);
                 if (state.needsSort && page.blocks && page.blocks.length > 1) { sortBlocks(page.blocks, img.width); state.needsSort = false; renderBlockEditors(); }
                 renderOverlays(page);
-                updateZoomUI();
                 prefetchNeighborPages(state.currentPageIndex);
             } catch (e) {
                 console.warn('Failed to render page image:', e);
             }
+        }
+
+        function estimateCanvasDisplayScale(img) {
+            if (!img || !img.width || state.zoomMode === 'orig') return 1;
+            const cw = Math.max(1, elements.canvasContainer.clientWidth || img.width);
+            const ch = Math.max(1, elements.canvasContainer.clientHeight || img.height);
+            if (state.zoomMode === 'width') return Math.min(1, cw / img.width);
+            return Math.min(1, cw / img.width, ch / img.height);
+        }
+
+        function drawPageImageBackground(img) {
+            const scale = estimateCanvasDisplayScale(img);
+            const mode = state.previewFilter || 'auto';
+            ctx.save();
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.filter = 'none';
+            if (mode !== 'off' && scale < 0.95) {
+                const preview = getDownsampledPreview(img, scale, mode);
+                if (preview) {
+                    ctx.drawImage(preview, 0, 0, img.width, img.height);
+                    ctx.restore();
+                    return;
+                }
+            }
+            ctx.drawImage(img, 0, 0);
+            ctx.restore();
+        }
+
+        function getDownsampledPreview(img, scale, mode) {
+            // Manga screentones are high-frequency patterns. If the browser downsizes
+            // the original canvas directly, dark screentone areas can alias into large
+            // dotted moire. Build a page-sized low-pass preview at the actual display
+            // resolution, then upscale it back into the canvas. The later CSS shrink
+            // has little high-frequency detail left to alias, while overlays are drawn
+            // afterward and stay crisp.
+            const strength = mode === 'strong' ? 1.0 : 0.82;
+            const targetScale = Math.max(0.06, Math.min(1, scale * (mode === 'strong' ? 0.82 : 0.92)));
+            const tw = Math.max(1, Math.round(img.width * targetScale));
+            const th = Math.max(1, Math.round(img.height * targetScale));
+            const key = [img.src || currentTaskImageName(storage.currentTask?.data?.pages?.[state.currentPageIndex]), img.width, img.height, mode, tw, th].join('|');
+            if (previewBackgroundCache && previewBackgroundCache.key === key) return previewBackgroundCache.canvas;
+
+            const first = document.createElement('canvas');
+            first.width = tw; first.height = th;
+            const fctx = first.getContext('2d');
+            fctx.imageSmoothingEnabled = true;
+            fctx.imageSmoothingQuality = 'high';
+            const blur = Math.min(1.6, Math.max(0.28, (1 / Math.max(scale, 0.08) - 1) * 0.34 * strength));
+            fctx.filter = `blur(${blur.toFixed(2)}px)`;
+
+            // Two-step downsample is visibly cleaner on Chrome/WebKit for dense tones.
+            if (targetScale < 0.45) {
+                const midScale = Math.sqrt(targetScale);
+                const mw = Math.max(tw, Math.round(img.width * midScale));
+                const mh = Math.max(th, Math.round(img.height * midScale));
+                const mid = document.createElement('canvas');
+                mid.width = mw; mid.height = mh;
+                const mctx = mid.getContext('2d');
+                mctx.imageSmoothingEnabled = true;
+                mctx.imageSmoothingQuality = 'high';
+                mctx.filter = fctx.filter;
+                mctx.drawImage(img, 0, 0, mw, mh);
+                fctx.filter = 'none';
+                fctx.drawImage(mid, 0, 0, tw, th);
+            } else {
+                fctx.drawImage(img, 0, 0, tw, th);
+            }
+
+            applyMangaPreviewEnhancement(first, mode, scale);
+            previewBackgroundCache = { key, canvas: first };
+            return first;
+        }
+
+        function applyMangaPreviewEnhancement(canvas, mode, scale) {
+            const ctx2 = canvas.getContext('2d', { willReadFrequently: true });
+            if (!ctx2 || !canvas.width || !canvas.height) return;
+            let imageData;
+            try {
+                imageData = ctx2.getImageData(0, 0, canvas.width, canvas.height);
+            } catch (e) {
+                return;
+            }
+            const data = imageData.data;
+            const strong = mode === 'strong';
+            const blackLift = strong ? 0.18 : 0.035;
+            const whiteLift = strong ? 0.48 : 0.10;
+            const midContrast = strong ? 0.045 : 0;
+            const scaleBoost = Math.max(0, Math.min(1, (0.85 - scale) / 0.55));
+            const blackThreshold = strong ? 96 + scaleBoost * 10 : 58 + scaleBoost * 6;
+            const whiteThreshold = strong ? 218 - scaleBoost * 8 : 238 - scaleBoost * 4;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i + 1], b = data[i + 2];
+                const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                let nr = r, ng = g, nb = b;
+
+                if (luma < blackThreshold) {
+                    // Keep line art and panel borders from turning gray after shrinking.
+                    const k = blackLift * (1 - luma / blackThreshold);
+                    nr = r * (1 - k); ng = g * (1 - k); nb = b * (1 - k);
+                } else if (luma > whiteThreshold) {
+                    // Clean near-white paper / speech bubbles without touching tones.
+                    const k = whiteLift * ((luma - whiteThreshold) / (255 - whiteThreshold));
+                    nr = r + (255 - r) * k; ng = g + (255 - g) * k; nb = b + (255 - b) * k;
+                } else if (strong) {
+                    // A tiny S-curve for midtones. Deliberately weak so screentones
+                    // don't regain the high-frequency contrast that caused moire.
+                    const centered = (luma - 128) / 128;
+                    const k = midContrast * Math.abs(centered);
+                    if (centered < 0) {
+                        nr *= (1 + k); ng *= (1 + k); nb *= (1 + k);
+                    } else {
+                        nr = nr + (255 - nr) * k;
+                        ng = ng + (255 - ng) * k;
+                        nb = nb + (255 - nb) * k;
+                    }
+                }
+
+                data[i] = Math.max(0, Math.min(255, nr));
+                data[i + 1] = Math.max(0, Math.min(255, ng));
+                data[i + 2] = Math.max(0, Math.min(255, nb));
+            }
+            ctx2.putImageData(imageData, 0, 0);
         }
 
         // Lightweight repaint using the cached image (no reload) — used while dragging regions.
@@ -4317,7 +4789,7 @@
             const page = storage.currentTask.data.pages[state.currentPageIndex];
             if (!page) return;
             ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-            ctx.drawImage(currentImageEl, 0, 0);
+            drawPageImageBackground(currentImageEl);
             renderOverlays(page);
         }
 
@@ -4566,10 +5038,27 @@
             return { fx, fy };
         }
 
-        // Snapshot used to undo the most recent batch enlarge (deep copies of geometry).
+        const QA_MANUAL_ENLARGE_FACTOR = 1.15;
+        function snapshotBlockGeometry(b) {
+            return {
+                id: b.id,
+                polygon: JSON.parse(JSON.stringify(b.polygon)),
+                lines: JSON.parse(JSON.stringify(b.lines)),
+                bbox: b.bbox ? b.bbox.slice() : null
+            };
+        }
+        function enlargeBlockByFactor(b, f) {
+            const r = effRect(b);
+            const cx = (r.minX + r.maxX) / 2, cy = (r.minY + r.maxY) / 2;
+            const hw = (r.maxX - r.minX) / 2 * f.fx, hh = (r.maxY - r.minY) / 2 * f.fy;
+            storeRectFromDisplay(b, { minX: cx - hw, minY: cy - hh, maxX: cx + hw, maxY: cy + hh });
+        }
+
+        // Snapshot used to undo the most recent enlarge (deep copies of geometry).
         let qaEnlargeUndoSnapshot = null;
         function enlargeProblemBoxes() {
             if (!storage.currentTask) return;
+            if (editorReadOnly()) return;
             const page = storage.currentTask.data.pages[state.currentPageIndex];
             if (!page || !page.blocks || page.no_text) { showToast(t('qaEnlargeNone'), 'info'); return; }
             const W = (page.size && page.size[0]) || elements.canvas.width || 1000;
@@ -4578,21 +5067,30 @@
             const med = _qaMedian(page.blocks.map(b => qa.map[b.id]).filter(i => i && !i.empty && i.fs > 0).map(i => i.fs));
             const snapshot = [];
             let changed = 0;
-            page.blocks.forEach(b => {
-                const info = qa.map[b.id];
-                if (!info || !info.problem) return;
-                const f = qaEnlargeFactor(b, W, H, med);
-                if (!f) return;
-                // Save original geometry before mutating (for undo).
-                snapshot.push({ id: b.id, polygon: JSON.parse(JSON.stringify(b.polygon)),
-                    lines: JSON.parse(JSON.stringify(b.lines)), bbox: b.bbox ? b.bbox.slice() : null });
-                // Grow about the box center in display space, then store base geometry.
-                const r = effRect(b);
-                const cx = (r.minX + r.maxX) / 2, cy = (r.minY + r.maxY) / 2;
-                const hw = (r.maxX - r.minX) / 2 * f.fx, hh = (r.maxY - r.minY) / 2 * f.fy;
-                storeRectFromDisplay(b, { minX: cx - hw, minY: cy - hh, maxX: cx + hw, maxY: cy + hh });
-                changed++;
-            });
+
+            const selected = page.blocks[state.selectedBlockIndex];
+            if (selected) {
+                const info = qa.map[selected.id];
+                const f = (info && info.problem)
+                    ? qaEnlargeFactor(selected, W, H, med)
+                    : { fx: QA_MANUAL_ENLARGE_FACTOR, fy: QA_MANUAL_ENLARGE_FACTOR };
+                if (!f) { showToast(t('qaEnlargeNone'), 'info'); return; }
+                snapshot.push(snapshotBlockGeometry(selected));
+                enlargeBlockByFactor(selected, f);
+                changed = 1;
+            } else {
+                page.blocks.forEach(b => {
+                    const info = qa.map[b.id];
+                    if (!info || !info.problem) return;
+                    const f = qaEnlargeFactor(b, W, H, med);
+                    if (!f) return;
+                    // Save original geometry before mutating (for undo).
+                    snapshot.push(snapshotBlockGeometry(b));
+                    // Grow about the box center in display space, then store base geometry.
+                    enlargeBlockByFactor(b, f);
+                    changed++;
+                });
+            }
             if (!changed) { showToast(t('qaEnlargeNone'), 'info'); return; }
             qaEnlargeUndoSnapshot = { pageIndex: state.currentPageIndex, blocks: snapshot };
             persistGeometry();
@@ -4623,6 +5121,7 @@
 
         function renderOverlays(page) {
             qaCache = pageQA(page).map;
+            const renderPreview = !!state.renderPreviewMode;
             const blocks = page.blocks || [];
             blocks.forEach((block, bIndex) => {
                 const rect = effRect(block);
@@ -4649,31 +5148,33 @@
                     ctx.fillRect(x, y, w, h);
                 }
 
-                // 2. Draw region boundary. The line *style* encodes who controls the box:
-                //   solid  = fixed box (user-sized, font fills the box)
-                //   dashed = auto box (auto-fit font, governed by the global settings)
-                // Selection still recolors the border (red), but keeps the dash cue.
-                const s = _dispScale();
-                const isFixed = !!block.fixed_region;
-                ctx.lineWidth = Math.max(1.5, 1.5 * s);
-                ctx.setLineDash(isFixed ? [] : [6 * s, 4 * s]);
-                if (bIndex === state.selectedBlockIndex) {
-                    ctx.strokeStyle = document.documentElement.getAttribute('data-theme') === 'light' ? '#e11d48' : '#f43f5e';
-                } else {
-                    ctx.strokeStyle = isFixed ? 'rgba(16, 185, 129, 0.9)' : 'rgba(99, 102, 241, 0.85)';
-                }
-                ctx.strokeRect(x, y, w, h);
-                ctx.setLineDash([]);   // reset so handles / text strokes stay solid
+                if (!renderPreview) {
+                    // 2. Draw region boundary. The line *style* encodes who controls the box:
+                    //   solid  = fixed box (user-sized, font fills the box)
+                    //   dashed = auto box (auto-fit font, governed by the global settings)
+                    // Selection still recolors the border (red), but keeps the dash cue.
+                    const s = _dispScale();
+                    const isFixed = !!block.fixed_region;
+                    ctx.lineWidth = Math.max(1.5, 1.5 * s);
+                    ctx.setLineDash(isFixed ? [] : [6 * s, 4 * s]);
+                    if (bIndex === state.selectedBlockIndex) {
+                        ctx.strokeStyle = document.documentElement.getAttribute('data-theme') === 'light' ? '#e11d48' : '#f43f5e';
+                    } else {
+                        ctx.strokeStyle = isFixed ? 'rgba(16, 185, 129, 0.9)' : 'rgba(99, 102, 241, 0.85)';
+                    }
+                    ctx.strokeRect(x, y, w, h);
+                    ctx.setLineDash([]);   // reset so handles / text strokes stay solid
 
-                // 3. Draw block index tag (scaled with display so it stays legible).
-                const tagH = 22 * s, tagW = (12 + String(bIndex + 1).length * 9) * s, fz = 14 * s;
-                const qaProb = qaCache[block.id] && qaCache[block.id].problem;
-                ctx.fillStyle = !blockTranslated ? '#f59e0b' : (qaProb ? '#ef4444' : '#6366f1');
-                ctx.fillRect(x, y - tagH, tagW, tagH);
-                ctx.fillStyle = '#fff'; ctx.font = `bold ${fz}px sans-serif`;
-                ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-                ctx.fillText(`${bIndex + 1}`, x + 6 * s, y - tagH / 2);
-                ctx.textBaseline = 'alphabetic';
+                    // 3. Draw block index tag (scaled with display so it stays legible).
+                    const tagH = 22 * s, tagW = (12 + String(bIndex + 1).length * 9) * s, fz = 14 * s;
+                    const qaProb = qaCache[block.id] && qaCache[block.id].problem;
+                    ctx.fillStyle = !blockTranslated ? '#f59e0b' : (qaProb ? '#ef4444' : '#6366f1');
+                    ctx.fillRect(x, y - tagH, tagW, tagH);
+                    ctx.fillStyle = '#fff'; ctx.font = `bold ${fz}px sans-serif`;
+                    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+                    ctx.fillText(`${bIndex + 1}`, x + 6 * s, y - tagH / 2);
+                    ctx.textBaseline = 'alphabetic';
+                }
 
                 // 4. Draw high-fidelity translated text
                 const rawText = storage.currentTask.translations[block.id]?.text;
@@ -4768,7 +5269,7 @@
                     }
 
                     // Real text extent (what actually gets rendered) — helps you size the box.
-                    if (bIndex === state.selectedBlockIndex) {
+                    if (!renderPreview && bIndex === state.selectedBlockIndex) {
                         ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
                         ctx.strokeRect(renderX, renderY, renderW, renderH); ctx.setLineDash([]);
                     }
@@ -4776,7 +5277,7 @@
 
                 // Resize + rotation handles for the selected block while editing boundaries.
                 // Drawn inside the rotated context so they sit on the rotated box edges.
-                if (state.editMode && bIndex === state.selectedBlockIndex) {
+                if (!renderPreview && state.editMode && bIndex === state.selectedBlockIndex) {
                     const hh = 6 * _dispScale();
                     const accent = document.documentElement.getAttribute('data-theme') === 'light' ? '#e11d48' : '#f43f5e';
                     // Rotation stud: a line up from the top-edge centre to a round knob.
@@ -4953,7 +5454,7 @@
             state.sigRect = { x: bx, y: by, w: bw, h: bh, right, bottom };
 
             // Selection chrome (only in region-edit mode).
-            if (state.editMode && state.sigSelected) {
+            if (!state.renderPreviewMode && state.editMode && state.sigSelected) {
                 const sc = _dispScale();
                 ctx.save();
                 ctx.strokeStyle = '#e11d48'; ctx.lineWidth = Math.max(1.5, 1.5 * sc); ctx.setLineDash([6 * sc, 4 * sc]);
@@ -5002,6 +5503,7 @@
             elements.blocksContainer.innerHTML = '';
             const page = storage.currentTask.data.pages[state.currentPageIndex];
             const qa = pageQA(page);
+            const readOnly = editorReadOnly();
             qaCache = qa.map;
             updateQaFilterUI(qa.problems);
             if (!page.blocks?.length) {
@@ -5079,6 +5581,7 @@
                 pinBtn.className = 'blk-pin-btn' + (block.fixed_region ? ' is-fixed' : '');
                 pinBtn.textContent = block.fixed_region ? t('badgeFixed') : t('badgeAuto');
                 pinBtn.title = block.fixed_region ? t('tipPinFixed') : t('tipPinAuto');
+                pinBtn.disabled = readOnly;
                 pinBtn.onclick = (ev) => { ev.stopPropagation(); toggleBlockFixed(bIndex); };
                 actions.appendChild(pinBtn);
 
@@ -5094,6 +5597,7 @@
                 bgSwatch.className = 'bg-swatch' + (bgFill === 'none' ? ' bg-none' : bgFill === 'white' ? ' bg-white' : '');
                 if (bgFill === 'match') bgSwatch.style.background = rgbCss(block.bg_color || [255, 255, 255]);
                 bgBtn.appendChild(bgSwatch);
+                bgBtn.disabled = readOnly;
                 bgBtn.onclick = (ev) => { ev.stopPropagation(); openBgColorPicker(bIndex, bgBtn); };
                 actions.appendChild(bgBtn);
 
@@ -5107,6 +5611,7 @@
                 fgDot.className = 'fg-dot';
                 fgDot.style.background = rgbCss(block.fg_color);
                 fgBtn.appendChild(fgDot);
+                fgBtn.disabled = readOnly;
                 fgBtn.onclick = (ev) => { ev.stopPropagation(); openFontColorPicker(bIndex, fgBtn); };
                 actions.appendChild(fgBtn);
 
@@ -5116,6 +5621,7 @@
                 aiBtn.title = t('aiBtnBlock');
                 aiBtn.setAttribute('aria-label', aiBtn.title);
                 aiBtn.appendChild(svgIcon(ICONS.sparkles, 14));
+                aiBtn.disabled = readOnly;
                 aiBtn.onclick = (ev) => { ev.stopPropagation(); aiTranslateBlock(bIndex, aiBtn); };
                 actions.appendChild(aiBtn);
 
@@ -5124,6 +5630,7 @@
                 cloneBtn.title = t('tipClone');
                 cloneBtn.setAttribute('aria-label', cloneBtn.title);
                 cloneBtn.appendChild(svgIcon(ICONS.copy, 14));
+                cloneBtn.disabled = readOnly;
                 cloneBtn.onclick = (ev) => { ev.stopPropagation(); cloneBlockAt(bIndex); };
                 actions.appendChild(cloneBtn);
 
@@ -5132,6 +5639,7 @@
                 delBtn.title = t('btnDeleteBlock');
                 delBtn.setAttribute('aria-label', t('btnDeleteBlock'));
                 delBtn.appendChild(svgIcon(ICONS.trash, 15));
+                delBtn.disabled = readOnly;
                 delBtn.onclick = (ev) => { ev.stopPropagation(); deleteBlockAt(bIndex); };
                 actions.appendChild(delBtn);
 
@@ -5170,7 +5678,7 @@
                 const textarea = document.createElement('textarea');
                 textarea.placeholder = 'Translation...';
                 textarea.value = transText;
-                if (storage.viewOnly) textarea.readOnly = true;
+                if (readOnly) textarea.readOnly = true;
 
                 const metaRow = document.createElement('div');
                 metaRow.className = 'col-meta';
@@ -5246,6 +5754,7 @@
                     btnKeep.className = 'btn-collab-resolve';
                     btnKeep.textContent = t('btnKeepMine') || 'Keep Mine';
                     btnKeep.style.marginRight = '8px';
+                    btnKeep.disabled = readOnly;
                     btnKeep.onclick = (ev) => {
                         ev.stopPropagation();
                         // Keep my text but rebase onto the server's current revision so my
@@ -5261,6 +5770,7 @@
                     const btnReset = document.createElement('button');
                     btnReset.className = 'btn-collab-resolve secondary';
                     btnReset.textContent = t('btnUseServer') || 'Use Server';
+                    btnReset.disabled = readOnly;
                     btnReset.onclick = (ev) => {
                         ev.stopPropagation();
                         // Take the server's value as-is: nothing left to save for this block.
@@ -5325,6 +5835,7 @@
         }
 
         elements.btnSave.onclick = async () => {
+            if (editorReadOnly()) return;
             elements.statusLoader.style.display = 'block';
             try {
                 await storage.saveTranslations();
@@ -5367,6 +5878,7 @@
             else if (state.zoomMode === 'width') state.zoomMode = 'orig';
             else state.zoomMode = 'fit';
             updateZoomUI();
+            if (storage.currentTask && state.currentPageIndex >= 0) renderPage();
         }
         function updateZoomUI() {
             elements.canvas.className = 'zoom-' + state.zoomMode;
@@ -5375,6 +5887,51 @@
             elements.btnZoom.setAttribute('aria-label', t(key));
             const lbl = document.getElementById('zoom-label');
             if (lbl) lbl.textContent = t(key + 'Short');
+        }
+        function togglePreviewFilter() {
+            const modes = ['off', 'auto', 'strong'];
+            const cur = modes.includes(state.previewFilter) ? state.previewFilter : 'auto';
+            state.previewFilter = modes[(modes.indexOf(cur) + 1) % modes.length];
+            localStorage.setItem('editor-preview-filter', state.previewFilter);
+            previewBackgroundCache = null;
+            updatePreviewFilterUI();
+            if (storage.currentTask && state.currentPageIndex >= 0) renderPage();
+        }
+        function updatePreviewFilterUI() {
+            const btn = elements.btnPreviewFilter;
+            if (!btn) return;
+            const mode = state.previewFilter || 'auto';
+            const labelKey = 'previewFilter' + mode.charAt(0).toUpperCase() + mode.slice(1);
+            const label = t(labelKey);
+            const title = `${t('previewFilterTitle')}: ${label}`;
+            btn.title = title;
+            btn.setAttribute('aria-label', title);
+            btn.classList.toggle('active', mode !== 'off');
+            btn.classList.toggle('strong', mode === 'strong');
+            const lbl = document.getElementById('preview-filter-label');
+            if (lbl) lbl.textContent = label;
+        }
+        function toggleRenderPreview() {
+            state.renderPreviewMode = !state.renderPreviewMode;
+            if (state.renderPreviewMode && state.editMode) {
+                setEditMode(false, { toast: false, render: false });
+            }
+            updateRenderPreviewUI();
+            if (storage.currentTask && state.currentPageIndex >= 0) render();
+            applyViewOnly();
+            showToast(t(state.renderPreviewMode ? 'renderPreviewOn' : 'renderPreviewOff'));
+        }
+        function updateRenderPreviewUI() {
+            if (!elements.btnRenderPreview) return;
+            elements.btnRenderPreview.classList.toggle('active', !!state.renderPreviewMode);
+            const title = t('renderPreviewTitle');
+            elements.btnRenderPreview.title = title;
+            elements.btnRenderPreview.setAttribute('aria-label', title);
+            if (elements.btnEditRegion) elements.btnEditRegion.disabled = !!state.renderPreviewMode;
+            if (elements.regionEditWrap) elements.regionEditWrap.classList.toggle('disabled', !!state.renderPreviewMode);
+            const legend = document.getElementById('edit-mode-legend');
+            if (legend && state.renderPreviewMode) legend.style.display = 'none';
+            else if (legend && state.editMode) legend.style.display = 'block';
         }
         let isChatOpen = false;
 
@@ -5551,9 +6108,13 @@
             elements.toast.style.backgroundColor =
                 type === 'error' ? 'var(--danger)' :
                 type === 'success' ? 'var(--success)' : 'var(--accent)';
+            elements.toast.classList.toggle('interactive', !!isHtml);
             elements.toast.classList.add('show');
             clearTimeout(showToast._t);
-            showToast._t = setTimeout(() => elements.toast.classList.remove('show'), isHtml ? 10000 : 2000);
+            showToast._t = setTimeout(() => {
+                elements.toast.classList.remove('show');
+                elements.toast.classList.remove('interactive');
+            }, isHtml ? 10000 : 2000);
         }
         function updateLanguage(lang) {
             currentLang = lang; localStorage.setItem('editor-lang', lang);
@@ -5568,6 +6129,9 @@
                 if (i18n[lang][k]) el.placeholder = i18n[lang][k];
             });
             updateZoomUI();
+            updatePreviewFilterUI();
+            updateRenderPreviewUI();
+            updateSfxDirButton();
             if (typeof privacy !== 'undefined') privacy.updateButton();
         }
         function stringToColor(str) {
@@ -5712,6 +6276,8 @@
         elements.btnNext.onclick = () => selectPage(state.currentPageIndex + 1);
         elements.inputPage.onchange = () => selectPage(parseInt(elements.inputPage.value) - 1);
         elements.btnZoom.onclick = toggleZoom;
+        if (elements.btnPreviewFilter) elements.btnPreviewFilter.onclick = togglePreviewFilter;
+        if (elements.btnRenderPreview) elements.btnRenderPreview.onclick = toggleRenderPreview;
         elements.langSelect.onchange = (e) => updateLanguage(e.target.value);
 
         // Render-settings popover: toggle on the gear button, close on outside click.
@@ -5723,6 +6289,7 @@
         }
         btnRenderSettings.onclick = (e) => {
             e.stopPropagation();
+            if (editorReadOnly()) return;
             setRenderSettingsOpen(renderSettingsPanel.style.display === 'none');
         };
         document.addEventListener('click', (e) => {
@@ -5861,6 +6428,7 @@
         //   transparent → bg_fill='none';  white → bg_fill='white'
         //   a task color → bg_fill='match' with bg_color set to the chosen color
         function setBlockBg(bIndex, mode, color) {
+            if (editorReadOnly()) return;
             const b = storage.currentTask.data.pages[state.currentPageIndex].blocks[bIndex]; if (!b) return;
             b.bg_fill = mode;
             if (mode === 'match' && color) b.bg_color = color.slice(0, 3);
@@ -5872,6 +6440,7 @@
             return page && Array.isArray(page.blocks) ? page.blocks : [];
         }
         function setPageBg(mode, color) {
+            if (editorReadOnly()) return;
             const blocks = currentPageBlocks();
             if (!blocks.length) { showToast(t('msgNoBlocksOnPage'), 'info'); return; }
             blocks.forEach(b => {
@@ -5979,6 +6548,7 @@
             setTimeout(() => document.addEventListener('mousedown', _bgOutsideHandler), 0);
         }
         function openPageBgColorPicker(anchor) {
+            if (editorReadOnly()) return;
             closeBgColorPicker();
             const blocks = currentPageBlocks();
             if (!blocks.length) { showToast(t('msgNoBlocksOnPage'), 'info'); return; }
@@ -6205,16 +6775,28 @@
             persistGeometry(); storage.saveTranslations().catch(() => {});
             render(); updateCurrentPageProgress();
         }
-        function toggleEditMode() {
-            state.editMode = !state.editMode;
+        let _editLegendTimer = null;
+        function setEditMode(enabled, opts = {}) {
+            state.editMode = !!enabled;
+            if (state.editMode && state.renderPreviewMode) {
+                state.renderPreviewMode = false;
+                updateRenderPreviewUI();
+            }
             if (!state.editMode) state.sigSelected = false;   // clear signature selection on exit
-            elements.btnEditRegion.classList.toggle('active', state.editMode);
+            if (elements.btnEditRegion) elements.btnEditRegion.checked = state.editMode;
+            if (elements.regionEditWrap) elements.regionEditWrap.classList.toggle('active', state.editMode);
             elements.canvas.style.cursor = state.editMode ? 'crosshair' : 'default';
             const legend = document.getElementById('edit-mode-legend');
             legend.textContent = t('editModeOn');
+            legend.classList.remove('compact');
             legend.style.display = state.editMode ? 'block' : 'none';
-            showToast(t(state.editMode ? 'editModeOn' : 'editModeOff'));
-            renderPage();
+            clearTimeout(_editLegendTimer);
+            if (state.editMode) {
+                _editLegendTimer = setTimeout(() => legend.classList.add('compact'), 2600);
+            } else {
+                if (opts.toast !== false) showToast(t('editModeOff'));
+            }
+            if (opts.render !== false) renderPage();
             // A collaborator's structural change arrived while we were editing regions —
             // apply it now that we've left edit mode (deferred to avoid losing our work).
             if (!state.editMode && storage.pendingStructReload) {
@@ -6222,7 +6804,10 @@
                 storage.reloadStructure();
             }
         }
-        elements.btnEditRegion.onclick = toggleEditMode;
+        function toggleEditMode() {
+            setEditMode(!state.editMode);
+        }
+        elements.btnEditRegion.onchange = () => setEditMode(elements.btnEditRegion.checked);
 
         // Keyboard-shortcut help overlay (reuses the modal-overlay/modal-panel styles).
         function showShortcutsHelp() {
@@ -6347,12 +6932,13 @@
             const replSel = document.createElement('button'); replSel.textContent = t('searchReplaceSel');
             const replAll = document.createElement('button'); replAll.textContent = t('searchReplaceAll');
             const closeBtn = document.createElement('button'); closeBtn.textContent = t('infoClose'); closeBtn.style.background = 'var(--bg-hover)';
-            // View-only users can search & jump, but not replace.
-            if (!storage.viewOnly) { actions.appendChild(replSel); actions.appendChild(replAll); }
+            // Read-only users and render-preview mode can search & jump, but not replace.
+            if (!editorReadOnly()) { actions.appendChild(replSel); actions.appendChild(replAll); }
             actions.appendChild(closeBtn);
             panel.appendChild(actions);
 
             async function doReplace(onlySelected) {
+                if (editorReadOnly()) return;
                 const find = findInput.value;
                 if (!find) return;
                 const repl = replaceInput.value;
@@ -6797,6 +7383,10 @@
         }
         function sfxLogLoaded(source, detail) {
             _sfxSource = source;
+            if (source === 'fs:sfx_dictionary.json' || source === 'server:api/sfx-dict' || source === 'http:sfx_dictionary.json') {
+                _sfxPickerPending = false;
+            }
+            updateSfxDirButton();
             console.info('[SFX]', source, Object.assign({ backend: _sfxBackend, stats: sfxEntryStats() }, detail || {}));
         }
         function sfxApplyLoaded(j) {
@@ -6864,33 +7454,40 @@
             try { await dir.getFileHandle(name); return true; }
             catch (e) { return false; }
         }
-        let _sfxPickerButton = null;
+        let _sfxPickerPending = false;
+        function updateSfxDirButton() {
+            const btn = elements.btnSfxDir;
+            if (!btn) return;
+            const pending = !!_sfxPickerPending && _sfxBackend !== 'server';
+            btn.classList.toggle('pending', pending);
+            btn.disabled = false;
+            const sourceLabel = _sfxSource && _sfxSource !== 'none' ? `\n${_sfxSource}` : '';
+            const title = pending ? `${t('sfxPickDirBtn')}${sourceLabel}` : `${t('sfxPickDirBtn')}${sourceLabel}`;
+            btn.title = title;
+            btn.setAttribute('aria-label', title);
+        }
         function showSfxDirPickerButton() {
-            if (_sfxPickerButton) return;
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.textContent = t('sfxPickDirBtn');
-            btn.title = t('sfxPickDirBtn');
-            btn.setAttribute('aria-label', t('sfxPickDirBtn'));
-            btn.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:9999;padding:10px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--bg-card);color:var(--text-primary);box-shadow:0 10px 30px var(--shadow);cursor:pointer;';
+            _sfxPickerPending = true;
+            const btn = elements.btnSfxDir;
+            if (!btn) return;
             btn.onclick = async () => {
                 btn.disabled = true;
                 try {
                     storage.sfxDirHandle = null;
                     await loadSfxFromFS({ promptForEditorDir: true, skipConfirm: true });
                     if (_sfxSource === 'fs:sfx_dictionary.json') {
-                        btn.remove();
-                        _sfxPickerButton = null;
+                        _sfxPickerPending = false;
                     } else {
                         btn.disabled = false;
                     }
                 } catch (e) {
                     console.warn('[SFX] Failed to select SFX dictionary directory.', e);
                     btn.disabled = false;
+                } finally {
+                    updateSfxDirButton();
                 }
             };
-            document.body.appendChild(btn);
-            _sfxPickerButton = btn;
+            updateSfxDirButton();
         }
         async function ensureSfxDirHandle(promptForEditorDir = false, opts = {}) {
             if (_sfxBackend === 'server') return false;
@@ -6948,6 +7545,8 @@
             if (!(await ensureSfxDirHandle(promptForEditorDir, opts))) {
                 _sfxUser = {};
                 _sfxSource = 'file:waiting-for-editor-directory';
+                _sfxPickerPending = true;
+                updateSfxDirButton();
                 console.info('[SFX] Waiting for the editor.html directory. Run loadSfxDictionaryFromEditorDir() or open a workdir and select the editor directory when prompted.', { backend: _sfxBackend, stats: sfxEntryStats() });
                 return false;
             }
@@ -6964,6 +7563,8 @@
             if (!existed) {
                 _sfxUser = {};
                 _sfxSource = 'fs:missing-sfx_dictionary.json';
+                _sfxPickerPending = false;
+                updateSfxDirButton();
                 console.warn('[SFX] sfx_dictionary.json was not found in the editor directory; dictionary is empty until you add entries.', { backend: _sfxBackend, directory: dir.name });
                 try { if (storage.currentTask) renderBlockEditors(); } catch (e) {}
                 return false;
@@ -7076,6 +7677,7 @@
 
         // Build the candidate-chips row for a block's translation box (null if nothing to show).
         function buildSfxRow(block, textarea) {
+            if (editorReadOnly()) return null;
             const raw = (block.text || '').trim();
             const normalizedRaw = sfxNormalize(raw);
             if (!raw || !normalizedRaw || [...normalizedRaw].length > SFX_MAX_LEN) return null;
@@ -7145,6 +7747,7 @@
 
         elements.boxScale.onchange = () => {
             if (!storage.currentTask) return;
+            if (editorReadOnly()) return;
             let v = parseFloat(elements.boxScale.value);
             if (!isFinite(v) || v <= 0) v = 1;
             v = Math.min(5, Math.max(0.5, Math.round(v * 100) / 100));
@@ -7173,6 +7776,7 @@
         // Set/clear a per-task render override (empty input → inherit config.toml).
         function setTaskOverride(key, raw, isFloat) {
             if (!storage.currentTask) return;
+            if (editorReadOnly()) return;
             const d = storage.currentTask.data;
             const s = String(raw).trim();
             if (s === '') { delete d[key]; }
@@ -7188,6 +7792,7 @@
         // global render settings. Flipping the flag leaves geometry untouched, so an
         // auto'd box keeps the size it currently has and just regains auto-fit font.
         function toggleBlockFixed(bIndex) {
+            if (editorReadOnly()) return;
             const page = storage.currentTask && storage.currentTask.data.pages[state.currentPageIndex];
             const b = page && page.blocks[bIndex];
             if (!b) return;
@@ -7197,6 +7802,7 @@
         }
         function convertFixedToAuto(scope) {
             if (!storage.currentTask) { showToast(t('emptySelectPage'), 'error'); return; }
+            if (editorReadOnly()) return;
             const pages = scope === 'task'
                 ? storage.currentTask.data.pages
                 : [storage.currentTask.data.pages[state.currentPageIndex]];
@@ -7219,6 +7825,7 @@
         // move cursor over a block body, so small regions are easy to grab.
         function updateHoverCursor(e) {
             if (_eyedropTarget != null) { elements.canvas.style.cursor = 'crosshair'; return; }
+            if (state.renderPreviewMode) { elements.canvas.style.cursor = 'default'; return; }
             if (!state.editMode || drag || !storage.currentTask || state.currentPageIndex < 0) return;
             const { x, y, scale } = canvasToImg(e);
             const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks || [];
@@ -7246,6 +7853,7 @@
 
         elements.canvas.addEventListener('mousedown', (e) => {
             if (!storage.currentTask || state.currentPageIndex < 0) return;
+            if (state.renderPreviewMode) return;
             const { x, y, scale } = canvasToImg(e);
             const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks || [];
             if (!state.editMode) {
