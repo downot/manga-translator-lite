@@ -58,3 +58,21 @@ def test_page_from_dict_basenames_name_and_original():
     assert p.original == "orig.png"
     # clean is a relative read path — kept intact (confined later at render time).
     assert p.clean == "clean/0001.png"
+
+
+def test_page_preserves_chapter_start_marker():
+    p = schema.Page.from_dict({
+        "index": 1,
+        "name": "001.png",
+        "original": "001.png",
+        "size": [10, 10],
+        "clean": "clean/0001.png",
+        "blocks": [],
+        "chapter_start": True,
+        "chapter_name": "CH1",
+    })
+
+    assert p.chapter_start is True
+    assert p.chapter_name == "CH1"
+    assert p.to_dict()["chapter_start"] is True
+    assert p.to_dict()["chapter_name"] == "CH1"

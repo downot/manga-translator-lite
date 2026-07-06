@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import json
 import asyncio
+import re
 import unicodedata
 from typing import List, Optional
 
@@ -19,7 +20,8 @@ from ..translators import TranslationItem, build_translator
 from ..utils import get_logger
 from .schema import (
     Block, Page, Workspace, Translation,
-    discover_tasks, load_workspace, load_translations, save_translations, get_translations_dir
+    discover_tasks, load_workspace, load_translations, save_translations, get_translations_dir,
+    safe_workspace_path
 )
 
 logger = get_logger('translate')
@@ -119,6 +121,163 @@ def _load_story_description(root_dir: str) -> Optional[str]:
     return None
 
 
+def _build_story_script(workspace: Workspace, pages: Optional[List[Page]] = None) -> str:
+    lines = []
+    for page in pages or workspace.pages:
+        if page.no_text:
+            continue
+        page_lines = [b.text.strip() for b in page.blocks if b.text and b.text.strip()]
+        if page_lines:
+            lines.append(f"--- Page {page.index} ---")
+            lines.extend(page_lines)
+    return "\n".join(lines)
+
+
+def _page_source_text(page: Page) -> str:
+    return "\n".join(b.text.strip() for b in page.blocks if b.text and b.text.strip())
+
+
+def _guess_chapter_starts(workspace: Workspace) -> List[int]:
+    starts = [0]
+    title_re = re.compile(
+        r"(第\s*[0-9０-９一二三四五六七八九十百零〇]+\s*[话話章回]|chapter\s*\d+|ch\.?\s*\d+|episode\s*\d+)",
+        re.IGNORECASE,
+    )
+    for i, page in enumerate(workspace.pages[1:], 1):
+        haystack = f"{page.name}\n{page.original}\n{_page_source_text(page)[:300]}"
+        if title_re.search(haystack):
+            starts.append(i)
+    return starts
+
+
+def _chapter_ranges(workspace: Workspace) -> tuple[List[dict], bool]:
+    manual = [i for i, page in enumerate(workspace.pages) if page.chapter_start]
+    starts = manual or (_guess_chapter_starts(workspace) if len(workspace.pages) >= 30 else [0])
+    if 0 not in starts:
+        starts.insert(0, 0)
+    starts = sorted(set(i for i in starts if 0 <= i < len(workspace.pages)))
+    chapters = []
+    for n, start in enumerate(starts, 1):
+        end = starts[n] if n < len(starts) else len(workspace.pages)
+        page = workspace.pages[start]
+        chapters.append({"name": page.chapter_name.strip() or f"CH{n}", "pages": workspace.pages[start:end]})
+    return chapters, bool(manual)
+
+
+def _chapter_story_path(workspace: Workspace, name: str) -> str:
+    safe = re.sub(r"[^\w.-]+", "_", name, flags=re.UNICODE).strip("._") or "chapter"
+    return os.path.join(workspace.root, "story", f"{safe[:80]}.txt")
+
+
+def _load_text_file(path: str) -> Optional[str]:
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read().strip()
+        return text or None
+    except Exception as e:
+        logger.warning(f"Failed to read story context {path}: {e}")
+        return None
+
+
+def _load_review_story_context(workspace: Workspace) -> Optional[str]:
+    parts = []
+    global_story = _load_story_description(workspace.root)
+    if global_story:
+        parts.append(global_story)
+    story_dir = os.path.join(workspace.root, "story")
+    if os.path.isdir(story_dir):
+        for name in sorted(os.listdir(story_dir)):
+            if not name.lower().endswith(".txt"):
+                continue
+            text = _load_text_file(os.path.join(story_dir, name))
+            if text:
+                parts.append(f"[{name}]\n{text}")
+    return "\n\n".join(parts) if parts else None
+
+
+async def _story_contexts_by_chapter(
+    workspace: Workspace,
+    translator,
+    global_story: Optional[str],
+) -> tuple[List[dict], dict[int, str]]:
+    chapters, has_manual_markers = _chapter_ranges(workspace)
+    contexts: dict[int, str] = {}
+
+    if len(chapters) <= 1:
+        story = global_story
+        if not story:
+            story = await _generate_story_description(
+                workspace,
+                translator,
+                story_path=os.path.join(workspace.root, "story.txt"),
+            )
+        if story:
+            for page in workspace.pages:
+                contexts[page.index] = story
+        return chapters, contexts
+
+    if has_manual_markers:
+        logger.info(f"[task: {workspace.task_name}] Using {len(chapters)} user-marked chapter(s).")
+    else:
+        logger.info(f"[task: {workspace.task_name}] No user chapter markers; using temporary OCR/title guesses for {len(chapters)} chapter(s).")
+
+    for chapter in chapters:
+        chapter_story = None
+        path = _chapter_story_path(workspace, chapter["name"])
+        if has_manual_markers:
+            chapter_story = _load_text_file(path)
+        if not chapter_story:
+            chapter_story = await _generate_story_description(
+                workspace,
+                translator,
+                pages=chapter["pages"],
+                story_path=path if has_manual_markers else None,
+            )
+        parts = [p for p in [global_story, chapter_story] if p]
+        if parts:
+            for page in chapter["pages"]:
+                contexts[page.index] = "\n\n".join(parts)
+    return chapters, contexts
+
+
+def _page_image_path(workspace: Workspace, page: Page) -> str:
+    # page.clean comes from client-writable pages.json; confine it to the workspace
+    # so a tampered path can't leak arbitrary files to the LLM via vision.
+    return safe_workspace_path(workspace.root, page.clean) or ""
+
+
+async def _generate_story_description(
+    workspace: Workspace,
+    translator,
+    pages: Optional[List[Page]] = None,
+    story_path: Optional[str] = None,
+) -> Optional[str]:
+    if not hasattr(translator, "summarize_story"):
+        return None
+
+    script = _build_story_script(workspace, pages)
+    if not script:
+        return None
+
+    try:
+        logger.info(f"[task: {workspace.task_name}] Generating story context from dialogue...")
+        story_description = (await translator.summarize_story(script)).strip()
+        if not story_description:
+            return None
+        if story_path:
+            os.makedirs(os.path.dirname(story_path), exist_ok=True)
+            with open(story_path, "w", encoding="utf-8") as f:
+                f.write(story_description)
+                f.write("\n")
+            logger.info(f"[task: {workspace.task_name}] Auto-generated {os.path.relpath(story_path, workspace.root)}")
+        return story_description
+    except Exception as e:
+        logger.warning(f"[task: {workspace.task_name}] Failed to auto-generate story.txt: {e}")
+        return None
+
+
 async def _run_review_for_task(
     workspace: Workspace,
     translations: dict[str, Translation],
@@ -146,7 +305,7 @@ async def _run_review_for_task(
     logger.info(f"[task: {workspace.task_name}] Starting translation review...")
 
     # Load story description
-    story_description = _load_story_description(workspace.root)
+    story_description = _load_review_story_context(workspace)
     if not story_description:
         logger.warning(f"[task: {workspace.task_name}] No story description file (story.txt / script.txt / etc.) found in workspace. Polishing without specific story details.")
 
@@ -208,6 +367,9 @@ async def _translate_task(
     translator = build_translator(cfg.translator)
     if cfg.translator.provider == LLMProvider.none:
         logger.warning("Translator provider is 'none'; no API calls will be made.")
+    story_description = _load_story_description(workspace.root)
+    if story_description and hasattr(translator, "set_story_context"):
+        translator.set_story_context(story_description)
 
     # Load existing translations for the target language
     translations = load_translations(workspace.root, workspace.target_lang)
@@ -236,7 +398,7 @@ async def _translate_task(
             for b in page.blocks:
                 t = translations.get(b.id)
                 if t and t.text:
-                    page_translations.append(t.text)
+                    page_translations.append(f"{b.text} => {t.text}")
             if page_translations:
                 translator.add_context_page(page_translations)
             continue
@@ -246,7 +408,7 @@ async def _translate_task(
         for b in page.blocks:
             t = translations.get(b.id)
             if t and t.text:
-                page_translations.append(t.text)
+                page_translations.append(f"{b.text} => {t.text}")
         is_fully_translated = len(page_translations) == len(page.blocks) and len(page.blocks) > 0
         if not overwrite and is_fully_translated:
             # Fully translated, add to context and skip
@@ -273,13 +435,19 @@ async def _translate_task(
                     pcode, ptext = pivot
                     refs.pop(pcode, None)
                     all_items.append(TranslationItem(id=blk.id, text=ptext,
-                                                     references=refs, pivot_lang=pcode))
+                                                     references=refs, pivot_lang=pcode,
+                                                     page_index=page.index,
+                                                     image_path=_page_image_path(workspace, page)))
                     block_map[blk.id] = (page, blk)
                     continue
-            all_items.append(TranslationItem(id=blk.id, text=blk.text, references=refs))
+            all_items.append(TranslationItem(id=blk.id, text=blk.text, references=refs,
+                                             page_index=page.index,
+                                             image_path=_page_image_path(workspace, page)))
             block_map[blk.id] = (page, blk)
 
     if all_items:
+        chapters, story_contexts = await _story_contexts_by_chapter(workspace, translator, story_description)
+
         total_blocks = sum(len(p.blocks) for p in workspace.pages)
         no_text_pages = sum(1 for p in workspace.pages if p.no_text)
         logger.info(f"[task: {workspace.task_name}] {len(workspace.pages)} page(s) "
@@ -288,11 +456,27 @@ async def _translate_task(
                     f"{len(all_items)} block(s) → {workspace.target_lang}")
 
         # Perform translation
-        await translator.translate(all_items)
+        translated_ids = set()
+        for chapter in chapters:
+            page_indexes = {p.index for p in chapter["pages"]}
+            chapter_items = [item for item in all_items if item.page_index in page_indexes]
+            if not chapter_items:
+                continue
+            if hasattr(translator, "set_story_context"):
+                translator.set_story_context(story_contexts.get(chapter_items[0].page_index, ""))
+            logger.info(f"[task: {workspace.task_name}] Translating {chapter['name']}: {len(chapter_items)} block(s)")
+            await translator.translate(chapter_items)
+            translated_ids.update(item.id for item in chapter_items)
+        remaining_items = [item for item in all_items if item.id not in translated_ids]
+        if remaining_items:
+            if hasattr(translator, "set_story_context"):
+                translator.set_story_context(story_description or "")
+            await translator.translate(remaining_items)
 
         # Write back translations
         for item in all_items:
-            translations[item.id] = Translation(text=item.translation, edited=False)
+            if item.translation:
+                translations[item.id] = Translation(text=item.translation, edited=False)
 
         # Final save
         save_translations(workspace.root, workspace.target_lang, translations)

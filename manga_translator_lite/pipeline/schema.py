@@ -105,6 +105,8 @@ class Page:
     clean: str                            # path to text-removed image, relative to workspace root
     blocks: List[Block] = field(default_factory=list)
     no_text: bool = False                 # True if no text was detected (OCR-empty page)
+    chapter_start: bool = False           # user-marked chapter boundary; preserved in pages.json
+    chapter_name: str = ""                # optional user-facing chapter title/name
     # Regions detected as text but rejected by the translation rules (empty OCR,
     # symbols, handwritten kana, too-short). They are still erased during extract;
     # stored here as 4-point polygons so reclean can rebuild the full erase mask.
@@ -121,6 +123,10 @@ class Page:
         }
         if self.no_text:
             d["no_text"] = True
+        if self.chapter_start:
+            d["chapter_start"] = True
+        if self.chapter_name:
+            d["chapter_name"] = self.chapter_name
         if self.erase_regions:
             d["erase_regions"] = self.erase_regions
         return d
@@ -139,6 +145,8 @@ class Page:
             clean=str(data.get("clean", "")).replace("\\", "/"),
             blocks=[Block.from_dict(b) for b in data.get("blocks", [])],
             no_text=bool(data.get("no_text", False)),
+            chapter_start=bool(data.get("chapter_start", False)),
+            chapter_name=str(data.get("chapter_name", "")),
             erase_regions=[[[int(p[0]), int(p[1])] for p in poly]
                            for poly in data.get("erase_regions", [])],
         )

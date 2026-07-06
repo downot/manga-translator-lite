@@ -8,7 +8,9 @@ Google Gemini.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
+import mimetypes
 import re
 from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Sequence
@@ -47,7 +49,7 @@ SYSTEM_PROMPT = (
 
 USER_PROMPT_HEADER = (
     "Translate the following numbered lines into {to_lang}. "
-    "You MUST reply with the translations prefixed by their exact corresponding tags, e.g., <|1|>translation, <|2|>translation, etc., one per line. "
+    "You MUST reply with the translations prefixed by their exact corresponding tags, e.g., <|p0001_b000|>translation, <|p0001_b001|>translation, etc., one per line. "
     "Do NOT use the literal placeholder '<|i|>' or '<|index|>' as tags. "
     "Do NOT add any introductory text, greetings, explanations, or notes. Output ONLY the tagged translations."
 )
@@ -103,6 +105,23 @@ PROOFREAD_USER_PROMPT_HEADER = (
     "Dialogue blocks:\n"
 )
 
+STORY_SYSTEM_PROMPT = (
+    "You are a manga story analyst. Read the full dialogue script and infer the "
+    "story context for a translator. Keep the output concise and practical. "
+    "Use the source language when it is clear; otherwise use English. "
+    "Do not translate the script."
+)
+
+STORY_USER_PROMPT = (
+    "Summarize the following manga dialogue script for later translation. Include:\n"
+    "- Core plot and setting\n"
+    "- Main characters, relationships, and likely gender/role if inferable\n"
+    "- Important recurring terms, names, honorifics, and tone notes\n"
+    "- Any uncertainty as 'unclear' rather than guessing too strongly\n\n"
+    "Script:\n"
+    "{script}"
+)
+
 
 
 @dataclass
@@ -120,6 +139,8 @@ class TranslationItem:
     # translate from this instead. The prompt labels the line so the model knows the
     # source language differs.
     pivot_lang: str = ""
+    page_index: int = 0
+    image_path: str = ""
 
 
 @dataclass
@@ -149,7 +170,9 @@ def make_batches(
         # References are added to the prompt too, so count them toward the budget.
         ref_len = sum(len(v) + 16 for v in item.references.values()) if item.references else 0
         item_len = len(item.text) + 8 + ref_len  # + tag / label overhead
-        if current.items and current.char_count + item_len > batch_chars:
+        page_changed = current.items and current.items[-1].page_index != item.page_index
+        near_limit = current.char_count >= int(batch_chars * 0.8)
+        if current.items and (current.char_count + item_len > batch_chars or (page_changed and near_limit)):
             batches.append(current)
             current = TranslationBatch()
         current.items.append(item)
@@ -163,13 +186,17 @@ def _build_prompt(
     items: Sequence[TranslationItem],
     to_lang_human: str,
     context: Optional[str] = None,
+    story_context: Optional[str] = None,
     extra_instructions: Optional[str] = None,
 ) -> str:
     parts = [USER_PROMPT_HEADER.format(to_lang=to_lang_human)]
     if extra_instructions:
         parts.append(extra_instructions.strip())
+    if story_context:
+        parts.append("Overall story context (use for characters, relationships, setting, and tone):")
+        parts.append(story_context.strip())
     if context:
-        parts.append("Recent translated context (for tone reference only, do not retranslate):")
+        parts.append("Recent source→translation context (for continuity only, do not retranslate):")
         parts.append(context.strip())
     # When any line carries a cross-language reference, explain how to use it.
     has_refs = any(item.references for item in items)
@@ -188,9 +215,15 @@ def _build_prompt(
             f"is its existing translation in that language. Translate that text into {to_lang_human}."
         )
     parts.append("Lines to translate:")
-    for i, item in enumerate(items, 1):
+    # Page indices are 0-based, so compare against a sentinel rather than testing
+    # truthiness (page 0 must still get its marker).
+    last_page: Optional[int] = None
+    for item in items:
+        if item.page_index != last_page:
+            parts.append(f"--- Page {item.page_index} ---")
+            last_page = item.page_index
         tag = f" [from {_normalise_lang(item.pivot_lang)}]" if item.pivot_lang else ""
-        parts.append(f"<|{i}|>{item.text}{tag}")
+        parts.append(f"<|{item.id}|>{item.text}{tag}")
         for code, ref_text in item.references.items():
             ref_text = (ref_text or "").strip()
             if ref_text:
@@ -198,19 +231,15 @@ def _build_prompt(
     return "\n".join(parts)
 
 
-def _parse_response(text: str, count: int) -> List[str]:
-    """Parse <|i|>... blocks from an LLM response with high fault tolerance."""
-    # Robust regex matching tags like <|1|>, <|1>, <| 1 |>, <| 1 >, and spaces between < and | like < | 1 | >
-    tag_pattern = r"<\s*\|\s*(\d+)\s*\|?\s*>"
+def _parse_response(text: str, expected_ids: Sequence[str]) -> List[str]:
+    """Parse <|block_id|>... blocks from an LLM response with high fault tolerance."""
+    # Robust regex matching tags like <|p0001_b000|> or <| p0001_b000 |>.
+    tag_pattern = r"<\s*\|\s*([a-zA-Z0-9_-]+)\s*\|?\s*>"
     pieces = re.split(tag_pattern, text)
     
-    out: dict[int, str] = {}
+    out: dict[str, str] = {}
     for i in range(1, len(pieces) - 1, 2):
-        try:
-            idx = int(pieces[i])
-        except ValueError:
-            continue
-        out[idx] = pieces[i + 1].strip()
+        out[pieces[i].strip()] = pieces[i + 1].strip()
         
     if not out:
         # Fallback 1: The model may have returned literal <|i|> or similar prefix per line,
@@ -221,31 +250,31 @@ def _parse_response(text: str, count: int) -> List[str]:
             if not ln:
                 continue
             # Strip literal placeholder tags like <|i|>, <|i>, <|index|>, <|idx|>, or numeric tags
-            ln = re.sub(r"^<\s*\|\s*(i|idx|index|\d+)\s*\|?\s*>\s*", "", ln, flags=re.IGNORECASE)
+            ln = re.sub(r"^<\s*\|\s*(i|idx|index|[a-zA-Z0-9_-]+)\s*\|?\s*>\s*", "", ln, flags=re.IGNORECASE)
             lines.append(ln)
             
-        if len(lines) == count:
+        if len(lines) == len(expected_ids):
             logger.info("Successfully parsed translations using line-by-line fallback after stripping tags.")
             return lines
             
         # Log raw response for debugging purposes when parsing fails
         logger.warning(
-            f"Failed parsing response. Expected {count} lines, got {len(lines)} lines via fallback. "
+            f"Failed parsing response. Expected {len(expected_ids)} lines, got {len(lines)} lines via fallback. "
             f"Raw LLM response was:\n{text}"
         )
         raise InvalidServerResponse(
-            f"Could not parse <|i|> entries from response (got {len(lines)} lines, expected {count})."
+            f"Could not parse tagged entries from response (got {len(lines)} lines, expected {len(expected_ids)})."
         )
         
     # Check for missing translation indices
-    missing_indices = [i for i in range(1, count + 1) if i not in out]
-    if missing_indices:
+    missing_ids = [bid for bid in expected_ids if bid not in out]
+    if missing_ids:
         logger.warning(
-            f"Some translation indices were missing in LLM response: {missing_indices}. "
+            f"Some translation IDs were missing in LLM response: {missing_ids}. "
             f"These will be rendered as empty strings. Raw response was:\n{text}"
         )
         
-    return [out.get(i, "") for i in range(1, count + 1)]
+    return [out.get(bid, "") for bid in expected_ids]
 
 
 def _parse_review_response(text: str, expected_ids: List[str]) -> dict[str, str]:
@@ -310,6 +339,7 @@ class LLMTranslator:
         self.cfg = cfg
         self.target_human = _normalise_lang(cfg.target_lang)
         self._context_pages: List[List[str]] = []  # translated lines per past page
+        self._story_context: str = ""
 
     # ---- Public API ----
 
@@ -319,8 +349,22 @@ class LLMTranslator:
             self._context_pages.append(lines)
         # keep only the most recent N pages
         n = max(0, self.cfg.context_pages)
+        if n == 0:
+            self._context_pages = []
+            return
         if len(self._context_pages) > n:
             self._context_pages = self._context_pages[-n:]
+
+    def set_story_context(self, story_context: str) -> None:
+        self._story_context = (story_context or "").strip()
+
+    async def summarize_story(self, script: str) -> str:
+        prompt = STORY_USER_PROMPT.format(script=script.strip())
+        if self.cfg.provider == LLMProvider.openai:
+            return await self._request_openai(prompt, system_prompt=STORY_SYSTEM_PROMPT)
+        if self.cfg.provider == LLMProvider.gemini:
+            return await self._request_gemini(prompt, system_prompt=STORY_SYSTEM_PROMPT)
+        return ""
 
     async def translate(self, items: Sequence[TranslationItem]) -> None:
         """Translate items in place by batching them."""
@@ -336,7 +380,7 @@ class LLMTranslator:
         for batch_no, batch in enumerate(batches, 1):
             logger.info(f"Batch {batch_no}/{len(batches)}: {len(batch.items)} blocks, ~{batch.char_count} chars")
             try:
-                translations = await self._request(batch, len(batch.items))
+                translations = await self._request(batch)
 
                 table = Table(show_header=True, header_style="bold magenta")
                 table.add_column("Source Text", style="cyan", width=50)
@@ -344,13 +388,27 @@ class LLMTranslator:
 
                 for item, trans in zip(batch.items, translations):
                     item.translation = trans
-                    table.add_row(item.text.replace("\n", " "), trans.replace("\n", " "))
+                    if not item.translation:
+                        try:
+                            item.translation = (await self._request(TranslationBatch([item], len(item.text))))[0]
+                        except InvalidServerResponse as single_err:
+                            logger.error(f"Block {item.id} failed after missing-output retry: {single_err}. Leaving untranslated.")
+                    table.add_row(item.text.replace("\n", " "), item.translation.replace("\n", " "))
 
                 console.print(table)
                 print() # Add a newline after the table
+                self.add_context_page(
+                    f"{item.text} => {item.translation}" for item in batch.items if item.translation
+                )
             except InvalidServerResponse as e:
-                logger.error(f"Batch {batch_no} failed after {self.cfg.max_retries} attempts: {e}. Skipping this batch.")
-                continue
+                logger.error(f"Batch {batch_no} failed after {self.cfg.max_retries} attempts: {e}. Retrying one block at a time.")
+                for item in batch.items:
+                    try:
+                        item.translation = (await self._request(TranslationBatch([item], len(item.text))))[0]
+                        if item.translation:
+                            self.add_context_page([f"{item.text} => {item.translation}"])
+                    except InvalidServerResponse as single_err:
+                        logger.error(f"Block {item.id} failed after single-block retry: {single_err}. Leaving untranslated.")
 
     async def review(self, items: List[tuple[str, str, str]], story_description: str) -> dict[str, str]:
         """Review and polish translations based on story description."""
@@ -498,24 +556,32 @@ class LLMTranslator:
 
     # ---- Provider dispatch ----
 
-    async def _request(self, batch: TranslationBatch, expected: int) -> List[str]:
+    async def _request(self, batch: TranslationBatch) -> List[str]:
         last_err: Optional[Exception] = None
+        image_paths = []
+        if self.cfg.use_vision:
+            seen = set()
+            for item in batch.items:
+                if item.image_path and item.image_path not in seen:
+                    image_paths.append(item.image_path)
+                    seen.add(item.image_path)
         for attempt in range(1, self.cfg.max_retries + 1):
             ctx = self._context_text()
             prompt = _build_prompt(
                 batch.items,
                 self.target_human,
                 context=ctx,
+                story_context=self._story_context,
                 extra_instructions=self.cfg.extra_instructions,
             )
             try:
                 if self.cfg.provider == LLMProvider.openai:
-                    text = await self._request_openai(prompt)
+                    text = await self._request_openai(prompt, image_paths=image_paths)
                 elif self.cfg.provider == LLMProvider.gemini:
-                    text = await self._request_gemini(prompt)
+                    text = await self._request_gemini(prompt, image_paths=image_paths)
                 else:
                     raise ValueError(f"Unsupported provider: {self.cfg.provider}")
-                return _parse_response(text, expected)
+                return _parse_response(text, [item.id for item in batch.items])
             except Exception as e:
                 last_err = e
                 logger.warning(f"LLM request attempt {attempt}/{self.cfg.max_retries} failed: {e}")
@@ -528,7 +594,12 @@ class LLMTranslator:
                     await asyncio.sleep(min(2 ** attempt, 10))
         raise InvalidServerResponse(f"All {self.cfg.max_retries} attempts failed: {last_err}")
 
-    async def _request_openai(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    async def _request_openai(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        image_paths: Optional[Sequence[str]] = None,
+    ) -> str:
         try:
             import openai
         except ImportError as e:
@@ -549,20 +620,39 @@ class LLMTranslator:
         client = openai.AsyncOpenAI(**client_kwargs)
 
         sys_prompt = system_prompt or SYSTEM_PROMPT.format(to_lang=self.target_human)
+        user_content = prompt
+        if image_paths:
+            user_content = [{"type": "text", "text": prompt}]
+            for path in image_paths:
+                mime = mimetypes.guess_type(path)[0] or "image/png"
+                try:
+                    with open(path, "rb") as f:
+                        encoded = base64.b64encode(f.read()).decode("ascii")
+                    user_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime};base64,{encoded}"},
+                    })
+                except OSError as e:
+                    logger.warning(f"Could not attach vision image {path}: {e}")
         resp = await asyncio.wait_for(
             client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": prompt},
+                    {"role": "user", "content": user_content},
                 ],
-                temperature=0.3,
+                temperature=self.cfg.temperature,
             ),
             timeout=self.cfg.timeout,
         )
         return resp.choices[0].message.content or ""
 
-    async def _request_gemini(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    async def _request_gemini(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        image_paths: Optional[Sequence[str]] = None,
+    ) -> str:
         try:
             from google import genai
             from google.genai import types
@@ -578,11 +668,20 @@ class LLMTranslator:
         sys_prompt = system_prompt or SYSTEM_PROMPT.format(to_lang=self.target_human)
         cfg = types.GenerateContentConfig(
             system_instruction=sys_prompt,
-            temperature=0.3,
+            temperature=self.cfg.temperature,
         )
 
         def _call() -> str:
-            resp = client.models.generate_content(model=model, contents=prompt, config=cfg)
+            contents = [prompt]
+            if image_paths:
+                for path in image_paths:
+                    mime = mimetypes.guess_type(path)[0] or "image/png"
+                    try:
+                        with open(path, "rb") as f:
+                            contents.append(types.Part.from_bytes(data=f.read(), mime_type=mime))
+                    except OSError as e:
+                        logger.warning(f"Could not attach vision image {path}: {e}")
+            resp = client.models.generate_content(model=model, contents=contents, config=cfg)
             return resp.text or ""
 
         return await asyncio.wait_for(asyncio.to_thread(_call), timeout=self.cfg.timeout)

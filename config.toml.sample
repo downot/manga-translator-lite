@@ -175,6 +175,16 @@ batch_chars = 1500
 # 日  範囲 0–3 · 文脈として送る翻訳済みページ数 · ページ間の一貫性を上げるなら増やす(トークン/コスト増)、節約なら 0
 context_pages = 1
 
+# EN  range 0–1 · LLM sampling temperature; lower is more consistent, higher is more varied · keep 0.3 for translation, lower if names/register drift
+# 中  范围 0–1 · LLM 采样温度；越低越稳定，越高越发散 · 翻译默认 0.3，人物名/语气漂移时调低
+# 日  範囲 0–1 · LLM のサンプリング温度；低いほど安定、高いほど多様 · 翻訳は 0.3 推奨、名前/口調が揺れる時は下げる
+temperature = 0.3
+
+# EN  true|false · attach each batch's cleaned page image to vision-capable providers · costs more and may be slower; enable when visual context matters
+# 中  true|false · 给支持视觉的模型附上本批对应的清理后页面图 · 成本更高/更慢；需要画面语境时开启
+# 日  true|false · vision 対応プロバイダにバッチ対象ページのクリーニング済み画像を添付 · 高コスト/低速；絵の文脈が必要な時のみ有効化
+use_vision = false
+
 # EN  range 60–300 s · per-request timeout · raise for slow or local models, lower for fast hosted models
 # 中  范围 60–300 秒 · 单次请求超时 · 慢速/本地模型调大，快速云端模型调小
 # 日  範囲 60–300 秒 · 1 リクエストのタイムアウト · 遅い/ローカルモデルは上げ、高速なホスト型は下げる

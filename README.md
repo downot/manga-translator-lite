@@ -167,6 +167,8 @@ api_key = ""                 # Or leave empty and set the OPENAI_API_KEY env var
 target_lang = "ENG"
 batch_chars = 1500           # ~1000–2000 chars per LLM request
 context_pages = 1            # number of past pages sent as tone context
+temperature = 0.3            # lower = more consistent names/register; higher = more varied
+use_vision = false           # attach page images for vision-capable LLMs (slower/costlier)
 concurrency = 1              # task-level parallelism; use 3–5 for cloud LLMs
 # reference_langs unset = auto (reference every human-reviewed language); [] = off;
 # ["CHS"] = reference exactly these. Referenced languages are read-only.
@@ -340,6 +342,8 @@ To address inconsistency in tone and lack of context when translating long or co
 
 ### 1. Mechanism & Idempotency
 * **Review & Polish**: After completing the initial translation, the pipeline automatically compiles all translated blocks in chronological reading order, then invokes the LLM to polish them based on the **overall story description** for consistency and character voice.
+* **Rolling Context**: Translation batches now carry recent source → translation pairs forward, so names, pronouns, honorifics, and register stay steadier across long jobs.
+* **Page-aware Prompts**: Initial translation prompts include page separators and stable block IDs (e.g. `<|p0001_b000|>`), reducing response misalignment. Failed or missing batch outputs are retried one block at a time and empty failures are not written over existing translations.
 * **Idempotency**: A `<lang>.reviewed` marker file (e.g. `CHS.reviewed`) is created in the `translations/` folder upon a successful review. Subsequent `translate` runs will skip both translation and review.
 * **Incremental Run**: If a task is fully translated but not yet reviewed, running `translate` will skip the translation phase and **incrementally run the review step**; using the `--overwrite` flag forces both re-translation and re-review.
 
@@ -347,9 +351,12 @@ To address inconsistency in tone and lack of context when translating long or co
 Simply place a text file named `story.txt` (or `script.txt`, `description.txt`) in your task folder (e.g. `work/task_a/`). The program will automatically search for it. You can also specify it in `pages.json` under the `"story"` key.
 Write character bios, relationship details, and style/tone notes in it. The LLM will leverage this outline to perform highly immersive, consistent translations.
 
+If no story file exists, `translate` can generate one before translation by summarizing the OCR dialogue. For multi-chapter tasks, mark chapter starts in the editor; each marker stores `chapter_start` plus an editable `chapter_name` (default `CH1`, `CH2`, ...). User-marked chapters are authoritative and can produce per-chapter story files under `story/<chapter_name>.txt`. If no markers exist, tasks under 30 pages are treated as a single chapter; tasks with 30+ pages may use temporary OCR/title guesses for chapter boundaries, but those guesses are not saved.
+
 ### 3. Visual Story Editor & Prompts
 Story context management has been fully integrated into the **Visual Editor (`editor.html`)**:
 * **New Story Tab**: A sidebar "Story" tab has been added to write, edit, and save `story.txt` on the fly.
+* **Chapter Markers**: The page list includes a chapter-start bookmark button. When enabled, it asks for an editable chapter name and saves it to `pages.json`, making later chapter summaries and table-of-contents generation easier.
 * **Genre-based Templates**: Built-in multi-lingual (EN/ZH/JA) genre templates (Daily Romance, Fantasy Adventure, Gag/Comedy, Mature/Adult 18+) to bootstrap context writing.
 * **Serverless Local Writing**: Utilizing the HTML5 File System Access API, it saves `story.txt` directly to your local workspace disk without needing any active backend server process. It also automatically synchronizes via API when running in `server.py` mode.
 

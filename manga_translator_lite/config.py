@@ -136,6 +136,10 @@ class TranslatorConfig(BaseModel):
     """Approximate character budget per LLM request (1000-2000 recommended)."""
     context_pages: int = 1
     """How many previously translated pages to send as context."""
+    temperature: float = 0.3
+    """LLM sampling temperature for translation/review/story requests."""
+    use_vision: bool = False
+    """Attach page images to translation batches when the provider supports vision."""
     timeout: int = 120
     """Request timeout in seconds."""
     max_retries: int = 3

@@ -465,6 +465,7 @@
         .page-item:hover .page-del-btn { opacity: 1; }
         .page-del-btn:hover { background: rgba(255, 80, 80, 0.18); color: #ff5b5b; }
 
+        .page-chapter-btn,
         .page-flag-btn,
         .page-info-btn {
             flex: 0 0 auto;
@@ -483,7 +484,13 @@
             color: var(--flag-color);
             opacity: 1;
         }
+        .page-chapter-btn.active {
+            color: var(--success);
+            opacity: 1;
+        }
+        .page-chapter-btn:hover { background: rgba(16, 185, 129, 0.18); color: var(--success); }
         .page-item:hover .page-flag-btn,
+        .page-item:hover .page-chapter-btn,
         .page-item:hover .page-info-btn { opacity: 1; }
         .page-flag-btn:hover { background: rgba(99, 102, 241, 0.18); color: var(--flag-color, var(--accent)); }
         .page-info-btn:hover { background: rgba(99, 102, 241, 0.18); color: var(--accent); }
@@ -1286,6 +1293,7 @@
         body.view-only #btn-page-bg,
         body.view-only #tab-pipeline,
         body.view-only #btn-save-story,
+        body.view-only .page-chapter-btn,
         body.view-only .page-flag-btn,
         body.view-only .page-del-btn,
         body.view-only .blk-bg-btn,
@@ -2216,6 +2224,9 @@
         i18n.en.pageDragTip = 'Drag to reorder; Shift-click selects a contiguous range to drag together';
         i18n.ja.pageDragTip = 'ドラッグで並べ替え。Shift+クリックで連続範囲を選択してまとめて移動';
         i18n.zh.pageFlagTip = '设置页面旗子'; i18n.en.pageFlagTip = 'Set page flag'; i18n.ja.pageFlagTip = 'ページ旗を設定';
+        i18n.zh.pageChapterTip = '切换新章节标记'; i18n.en.pageChapterTip = 'Toggle chapter start'; i18n.ja.pageChapterTip = '章開始マークを切替';
+        i18n.zh.pageChapterNamePrompt = '章节名称'; i18n.en.pageChapterNamePrompt = 'Chapter name'; i18n.ja.pageChapterNamePrompt = '章名';
+        i18n.zh.pageChapterSaved = '章节标记已更新'; i18n.en.pageChapterSaved = 'Chapter marker updated'; i18n.ja.pageChapterSaved = '章マークを更新しました';
         i18n.zh.pageFlagJump = '跳转到 P{page}: {name}'; i18n.en.pageFlagJump = 'Jump to P{page}: {name}'; i18n.ja.pageFlagJump = 'P{page}: {name} へ移動';
         i18n.zh.pageFlagClear = '清除旗子'; i18n.en.pageFlagClear = 'Clear flag'; i18n.ja.pageFlagClear = '旗を解除';
         i18n.zh.pageFlagSaved = '页面旗子已更新'; i18n.en.pageFlagSaved = 'Page flag updated'; i18n.ja.pageFlagSaved = 'ページ旗を更新しました';
@@ -3160,7 +3171,8 @@
             eyeOff: '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>',
             pipette: '<path d="m2 22 1-1h3l9-9"></path><path d="M3 21v-3l9-9"></path><path d="m15 6 3.4-3.4a2.1 2.1 0 0 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"></path>',
             sparkles: '<path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8L12 3z"></path><path d="M19 14l.7 1.9 1.9.7-1.9.7L19 19.2l-.7-1.9-1.9-.7 1.9-.7L19 14z"></path>',
-            flag: '<path d="M4 21V4"></path><path d="M4 5h13l-2 4 2 4H4"></path>'
+            flag: '<path d="M4 21V4"></path><path d="M4 5h13l-2 4 2 4H4"></path>',
+            bookmark: '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>'
         };
         const PAGE_FLAG_COLORS = [
             { id: 'red', color: '#ef4444', label: 'flagRed' },
@@ -4252,6 +4264,34 @@
             }
         }
 
+        async function togglePageChapterStart(index) {
+            if (!storage.currentTask || editorReadOnly()) return;
+            const pages = storage.currentTask.data.pages || [];
+            const page = pages[index];
+            if (!page) return;
+            if (page.chapter_start) {
+                delete page.chapter_start;
+                delete page.chapter_name;
+            } else {
+                const n = pages.filter(p => p && p.chapter_start).length + 1;
+                const name = prompt(t('pageChapterNamePrompt'), page.chapter_name || `CH${n}`);
+                if (name == null) return;
+                page.chapter_start = true;
+                page.chapter_name = (name.trim() || `CH${n}`).slice(0, 80);
+            }
+            elements.statusLoader.style.display = 'block';
+            try {
+                await savePagesJson();
+                renderPageList();
+                await selectPage(Math.min(index, pages.length - 1));
+                showToast(t('pageChapterSaved'), 'success');
+            } catch (e) {
+                showToast(e.message || String(e), 'error');
+            } finally {
+                elements.statusLoader.style.display = 'none';
+            }
+        }
+
         function showPageFlagPalette(index, anchorEl) {
             if (editorReadOnly()) return;
             closePageFlagPalette();
@@ -4524,6 +4564,14 @@
 
                 const flag = sanitizePageFlag(page);
                 const flagDef = pageFlagDef(flag);
+                const chapterBtn = document.createElement('button');
+                chapterBtn.className = 'page-chapter-btn' + (page.chapter_start ? ' active' : '');
+                chapterBtn.appendChild(svgIcon(ICONS.bookmark, 14));
+                chapterBtn.title = t('pageChapterTip');
+                chapterBtn.setAttribute('aria-label', t('pageChapterTip'));
+                chapterBtn.onclick = (e) => { e.stopPropagation(); togglePageChapterStart(index); };
+                item.appendChild(chapterBtn);
+
                 const flagBtn = document.createElement('button');
                 flagBtn.className = 'page-flag-btn' + (flagDef ? ' active' : '');
                 if (flagDef) flagBtn.style.setProperty('--flag-color', flagDef.color);
