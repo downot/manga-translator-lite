@@ -1,13 +1,79 @@
 import asyncio
+import importlib.util
+import logging
+import pathlib
+import sys
+import types
 
-from manga_translator_lite.config import LLMProvider, TranslatorConfig
-from manga_translator_lite.translators.llm import (
-    LLMTranslator,
-    TranslationItem,
-    _build_prompt,
-    _parse_response,
-    make_batches,
-)
+REPO = pathlib.Path(__file__).resolve().parents[1]
+
+
+def _load_llm_with_stubs():
+    pkg_name = "mtl_llm_stub"
+    pkg = types.ModuleType(pkg_name)
+    pkg.__path__ = []
+    sys.modules[pkg_name] = pkg
+
+    translators_pkg = types.ModuleType(f"{pkg_name}.translators")
+    translators_pkg.__path__ = []
+    sys.modules[f"{pkg_name}.translators"] = translators_pkg
+
+    dotenv = types.ModuleType("dotenv")
+    dotenv.load_dotenv = lambda *a, **k: None
+    sys.modules.setdefault("dotenv", dotenv)
+
+    rich = types.ModuleType("rich")
+    rich_table = types.ModuleType("rich.table")
+    rich_console = types.ModuleType("rich.console")
+
+    class Table:
+        def __init__(self, *a, **k):
+            pass
+
+        def add_column(self, *a, **k):
+            pass
+
+        def add_row(self, *a, **k):
+            pass
+
+    class Console:
+        def print(self, *a, **k):
+            pass
+
+    rich_table.Table = Table
+    rich_console.Console = Console
+    sys.modules.setdefault("rich", rich)
+    sys.modules.setdefault("rich.table", rich_table)
+    sys.modules.setdefault("rich.console", rich_console)
+
+    utils = types.ModuleType(f"{pkg_name}.utils")
+    utils.get_logger = lambda name: logging.getLogger(name)
+    sys.modules[f"{pkg_name}.utils"] = utils
+
+    for rel, modname in [
+        ("config.py", f"{pkg_name}.config"),
+        ("translators/common.py", f"{pkg_name}.translators.common"),
+        ("translators/keys.py", f"{pkg_name}.translators.keys"),
+        ("translators/llm.py", f"{pkg_name}.translators.llm"),
+    ]:
+        src = REPO / "manga_translator_lite" / rel
+        spec = importlib.util.spec_from_file_location(modname, src)
+        mod = importlib.util.module_from_spec(spec)
+        mod.__package__ = modname.rpartition(".")[0]
+        sys.modules[modname] = mod
+        spec.loader.exec_module(mod)
+
+    return sys.modules[f"{pkg_name}.config"], sys.modules[f"{pkg_name}.translators.llm"]
+
+
+cfg, llm = _load_llm_with_stubs()
+LLMProvider = cfg.LLMProvider
+TranslatorConfig = cfg.TranslatorConfig
+LLMTranslator = llm.LLMTranslator
+TranslationItem = llm.TranslationItem
+_build_prompt = llm._build_prompt
+_parse_response = llm._parse_response
+make_batches = llm.make_batches
 
 
 def test_build_prompt_includes_story_context():
