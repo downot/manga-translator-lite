@@ -51,7 +51,7 @@ class TokenManager:
         if not self.work_dir.exists():
             return
         for item in self.work_dir.iterdir():
-            if item.is_dir() and not item.name.startswith('.'):
+            if item.is_dir() and (item / 'pages.json').exists():
                 task_name = item.name
                 if task_name not in self.tasks:
                     token = hashlib.sha256((task_name + self.secret).encode()).hexdigest()[:16]
@@ -354,43 +354,53 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                     raise ValueError("Payload too large")
                 post_data = self.rfile.read(content_length) if content_length else b'{}'
                 payload = json.loads(post_data or b'{}')
+                page_index = payload.get('page_index')
                 clean_name = payload.get('clean')
                 block_ids = set(payload.get('block_ids', []))
-                result = {"status": "success", "image_removed": False, "langs_updated": []}
+                result = {"status": "success", "image_removed": False, "langs_updated": [], "page_removed": False}
 
-                # 1. Delete the clean image (guard against path traversal).
-                if clean_name and "/" not in clean_name and "\\" not in clean_name:
-                    for sub in ("clean", "clean_v2"):
-                        img_path = task_path / sub / clean_name
-                        if img_path.exists():
-                            try:
+                with _SAVE_LOCK:
+                    if page_index is not None:
+                        pages_path = task_path / "pages.json"
+                        with open(pages_path, "r", encoding="utf-8") as fh:
+                            pages_data = json.load(fh)
+                        pages = pages_data.get("pages") if isinstance(pages_data, dict) else None
+                        if not isinstance(pages, list) or not isinstance(page_index, int) or page_index < 0 or page_index >= len(pages):
+                            self.send_error(400, "Invalid page index")
+                            return
+                        pages.pop(page_index)
+
+                    if clean_name and "/" not in clean_name and "\\" not in clean_name:
+                        for sub in ("clean", "clean_v2"):
+                            img_path = task_path / sub / clean_name
+                            if img_path.exists():
                                 img_path.unlink()
                                 result["image_removed"] = True
-                            except Exception as e:
-                                if self.logger:
-                                    self.logger.warning(f"Failed to delete image {img_path}: {e}")
 
-                # 2. Strip the block ids from every language's translation file.
-                trans_dir = task_path / "translations"
-                if block_ids and trans_dir.is_dir():
-                    for f in trans_dir.iterdir():
-                        if f.suffix != ".json" or not f.is_file():
-                            continue
-                        try:
-                            with open(f, "r", encoding="utf-8") as fh:
-                                data = json.load(fh)
-                        except Exception:
-                            continue
-                        if not isinstance(data, dict):
-                            continue
-                        removed = [bid for bid in block_ids if bid in data]
-                        if removed:
-                            with _SAVE_LOCK:
+                    trans_dir = task_path / "translations"
+                    if block_ids and trans_dir.is_dir():
+                        for f in trans_dir.iterdir():
+                            if f.suffix != ".json" or not f.is_file():
+                                continue
+                            try:
+                                with open(f, "r", encoding="utf-8") as fh:
+                                    data = json.load(fh)
+                            except Exception:
+                                continue
+                            if not isinstance(data, dict):
+                                continue
+                            removed = [bid for bid in block_ids if bid in data]
+                            if removed:
                                 for bid in removed:
                                     data.pop(bid, None)
                                 with open(f, "w", encoding="utf-8") as fh:
                                     json.dump(data, fh, ensure_ascii=False, indent=2)
-                            result["langs_updated"].append(f.stem)
+                                result["langs_updated"].append(f.stem)
+
+                    if page_index is not None:
+                        with open(task_path / "pages.json", "w", encoding="utf-8") as fh:
+                            json.dump(pages_data, fh, ensure_ascii=False, indent=2)
+                        result["page_removed"] = True
 
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")

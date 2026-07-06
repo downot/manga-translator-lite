@@ -31,6 +31,23 @@ logger = get_logger('render')
 DEFAULT_FONT = os.path.join(BASE_PATH, 'fonts', 'Arial-Unicode-Regular.ttf')
 
 
+def _ordered_output_name(page: Page, position: int) -> str:
+    """Return the strict reading-order output filename for a page.
+
+    ``workspace.pages`` is the editable reading order. Render output must sort in
+    that same order regardless of the source filename, so every page gets a
+    monotonic basename while preserving the most useful extension.
+    """
+    _, ext = os.path.splitext(page.name or "")
+    if not ext:
+        _, ext = os.path.splitext(page.original or "")
+    if not ext:
+        _, ext = os.path.splitext(page.clean or "")
+    if not ext:
+        ext = ".png"
+    return f"{position + 1:04d}{ext.lower()}"
+
+
 def _scale_poly(pts, scale: float) -> np.ndarray:
     """Scale a set of points about their bounding-box center; returns int32 array."""
     arr = np.array(pts, dtype=np.float64).reshape(-1, 2)
@@ -254,14 +271,6 @@ async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cf
     # Load translations for the target language
     translations = load_translations(workspace.root, workspace.target_lang)
 
-    # If basenames are not unique (e.g. merged chapters that each contain 01.jpg),
-    # naming outputs by basename would either overwrite pages or, with a numeric
-    # suffix, interleave them when the folder is sorted by name. In that case
-    # prefix every output with its reading-order index so the directory always
-    # sorts in page order. Unique names are left untouched.
-    names = [p.name for p in workspace.pages]
-    has_dupes = len(set(names)) != len(names)
-
     # Translator signature: a low-key credit baked into the chosen pages (first/last/
     # every) after the normal render, so it also lands on no_text pass-through pages.
     from ..rendering.signature import needs_signature, apply_signature_to_file
@@ -273,7 +282,7 @@ async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cf
 
     written: List[str] = []
     for i, page in enumerate(workspace.pages):
-        out_name = f"{i + 1:04d}_{page.name}" if has_dupes else page.name
+        out_name = _ordered_output_name(page, i)
         path = await _render_page(page, workspace, cfg, task_out_dir, translations, out_name)
         if path:
             written.append(path)
