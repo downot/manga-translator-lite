@@ -2436,6 +2436,16 @@
 
         const IS_FILE_MODE = window.location.protocol === 'file:';
 
+        async function readJsonFile(file, label, emptyValue) {
+            const text = await file.text();
+            if (!text.trim() && emptyValue !== undefined) return emptyValue;
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                throw new Error(`${label}: ${e.message}`);
+            }
+        }
+
         const storage = {
             isServer: !IS_FILE_MODE && new URLSearchParams(window.location.search).has('t'),
             token: new URLSearchParams(window.location.search).get('t'),
@@ -2574,7 +2584,7 @@
                 try {
                     clearImageCaches();
                     const file = await task.pagesJsonHandle.getFile();
-                    task.data = JSON.parse(await file.text());
+                    task.data = await readJsonFile(file, `${task.name}/pages.json`);
                     task.imageHandles = {};
                     const cleanDir = await task.handle.getDirectoryHandle('clean');
                     for await (const entry of cleanDir.values()) if (entry.kind === 'file') task.imageHandles[entry.name] = entry;
@@ -3511,7 +3521,7 @@
                     const taskHandle = task.handle;
                     const pagesJsonHandle = await taskHandle.getFileHandle('pages.json');
                     const pagesFile = await pagesJsonHandle.getFile();
-                    const taskData = JSON.parse(await pagesFile.text());
+                    const taskData = await readJsonFile(pagesFile, `${task.name}/pages.json`);
 
                     const cleanDir = await taskHandle.getDirectoryHandle('clean');
                     const transDir = await taskHandle.getDirectoryHandle('translations').catch(() => null);
@@ -3574,7 +3584,7 @@
                                 if (!mergedTranslations[lang]) mergedTranslations[lang] = {};
 
                                 const transFile = await entry.getFile();
-                                const transData = JSON.parse(await transFile.text());
+                                const transData = await readJsonFile(transFile, `${task.name}/translations/${entry.name}`, {});
                                 // Remap each translation onto the re-keyed block id so it
                                 // stays attached to the right page/block after merging.
                                 for (const [oldId, val] of Object.entries(transData)) {
@@ -6263,6 +6273,7 @@
         };
 
         elements.btnReload.onclick = async () => {
+            if (!storage.currentTask) { showToast(t('emptySelectPage'), 'error'); return; }
             if (state.isDirty && !confirm(t('confirmSwitch'))) return;
             if (storage.isServer) {
                 await storage.loadServerTask();
