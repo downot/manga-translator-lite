@@ -11,6 +11,7 @@ import threading
 import queue
 import asyncio
 import logging
+import shutil
 from pathlib import Path
 
 # Add project root to sys.path so manga_translator_lite can be imported *if present*.
@@ -43,6 +44,7 @@ class TokenManager:
     def __init__(self, work_dir, secret=None):
         self.work_dir = Path(work_dir)
         self.secret = secret or secrets.token_hex(16)
+        self.super_token = hashlib.sha256(("super:" + self.secret).encode()).hexdigest()[:16]
         self.tokens = {} # token -> task_name
         self.tasks = {} # task_name -> token
         self.refresh()
@@ -69,6 +71,16 @@ class TokenManager:
         for token, task_name in self.tokens.items():
             links.append((task_name, f"{base_url}?t={token}"))
         return links
+
+    def is_super_token(self, token):
+        return bool(token) and secrets.compare_digest(token, self.super_token)
+
+    def get_all_tasks(self):
+        self.refresh()
+        return [
+            {"name": task_name, "token": token, "perm": "edit"}
+            for task_name, token in sorted(self.tasks.items())
+        ]
 
 _COLLAB_LOCK = threading.Lock()
 _SAVE_LOCK = threading.Lock()
@@ -137,6 +149,17 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         # editor startup before any task/token exists, so it bypasses the token gate.
         if parsed.path.endswith("/api/sfx-dict"):
             self.serve_sfx_dict()
+            return
+
+        if parsed.path.endswith("/api/tasks"):
+            super_token = params.get('super', [None])[0]
+            if not self.token_manager.is_super_token(super_token):
+                self.send_error(403, "Super token required")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(self.token_manager.get_all_tasks()).encode())
             return
 
         if not token:
@@ -408,6 +431,24 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(result).encode())
             except Exception as e:
                 self.send_error(500, str(e))
+        elif parsed.path.endswith("/api/image/inpaint-region"):
+            try:
+                content_length = int(self.headers.get('Content-Length', 0) or 0)
+                if content_length > 1024 * 1024:
+                    raise ValueError("Payload too large")
+                payload = json.loads(self.rfile.read(content_length) or b'{}')
+                self.inpaint_image_region(task_path, payload)
+            except Exception as e:
+                self.send_error(500, str(e))
+        elif parsed.path.endswith("/api/image/inpaint-undo"):
+            try:
+                content_length = int(self.headers.get('Content-Length', 0) or 0)
+                if content_length > 1024 * 1024:
+                    raise ValueError("Payload too large")
+                payload = json.loads(self.rfile.read(content_length) or b'{}')
+                self.undo_inpaint_image_region(task_path, payload)
+            except Exception as e:
+                self.send_error(500, str(e))
         elif parsed.path.endswith("/api/pipeline/run"):
             try:
                 content_length = int(self.headers.get('Content-Length', 0) or 0)
@@ -421,6 +462,116 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                     self.send_error(500, str(e))
         else:
             self.send_error(404)
+
+    def inpaint_image_region(self, task_path, payload):
+        img_name = payload.get("name")
+        rect = payload.get("rect") or {}
+        img_path = self.find_editable_image(task_path, img_name)
+        if not img_path:
+            return
+        ext = os.path.splitext(img_name)[1].lower()
+
+        try:
+            from PIL import Image
+            import numpy as np
+
+            img = Image.open(img_path)
+            image = np.array(img.convert("RGB"))
+            h, w = image.shape[:2]
+            x = max(0, min(w - 1, int(round(float(rect.get("x", 0))))))
+            y = max(0, min(h - 1, int(round(float(rect.get("y", 0))))))
+            rw = max(1, int(round(float(rect.get("w", 0)))))
+            rh = max(1, int(round(float(rect.get("h", 0)))))
+            x2 = max(x + 1, min(w, x + rw))
+            y2 = max(y + 1, min(h, y + rh))
+            if x2 - x < 4 or y2 - y < 4:
+                self.send_error(400, "Region too small")
+                return
+
+            pad = max(2, int(round(float(payload.get("pad", 6)))))
+            x = max(0, x - pad); y = max(0, y - pad)
+            x2 = min(w, x2 + pad); y2 = min(h, y2 + pad)
+            mask = np.zeros((h, w), dtype=np.uint8)
+            mask[y:y2, x:x2] = 255
+
+            from manga_translator_lite.config import Config, Inpainter
+            from manga_translator_lite.inpainting import dispatch as dispatch_inpainting
+
+            cfg = Config.load(None)
+            cfg.inpainter.inpainter = Inpainter.lama_large
+            device = "cpu"
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    device = "cuda"
+                elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+                    device = "mps"
+            except Exception:
+                pass
+
+            async def run():
+                return await dispatch_inpainting(
+                    cfg.inpainter.inpainter, image, mask, cfg.inpainter,
+                    cfg.inpainter.inpainting_size, device=device)
+
+            with EditorHandler.pipeline_lock:
+                loop = asyncio.new_event_loop()
+                try:
+                    undo_dir = task_path / ".inpaint_undo"
+                    undo_dir.mkdir(exist_ok=True)
+                    shutil.copy2(img_path, undo_dir / f"{img_path.parent.name}__{img_name}")
+                    result = loop.run_until_complete(run())
+                    out = Image.fromarray(result)
+                    fmt = img.format or ext.lstrip(".").upper()
+                    save_kwargs = {}
+                    if fmt == "JPEG" or ext in (".jpg", ".jpeg"):
+                        fmt = "JPEG"; save_kwargs = {"quality": 95, "subsampling": 0, "optimize": True}
+                    elif fmt == "WEBP" or ext == ".webp":
+                        fmt = "WEBP"; save_kwargs = {"quality": 85, "method": 6}
+                    elif fmt == "PNG" or ext == ".png":
+                        fmt = "PNG"; save_kwargs = {"optimize": True}
+                    out.save(img_path, format=fmt, **save_kwargs)
+                finally:
+                    loop.close()
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success", "mtime": os.path.getmtime(img_path)}).encode())
+        except ImportError as e:
+            self.send_error(500, f"Inpainting unavailable: {e}")
+
+    def undo_inpaint_image_region(self, task_path, payload):
+        img_name = payload.get("name")
+        img_path = self.find_editable_image(task_path, img_name)
+        if not img_path:
+            return
+        undo_path = task_path / ".inpaint_undo" / f"{img_path.parent.name}__{img_name}"
+        if not undo_path.exists():
+            self.send_error(404, "No redraw undo available")
+            return
+        with EditorHandler.pipeline_lock:
+            shutil.copy2(undo_path, img_path)
+            undo_path.unlink()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "success", "mtime": os.path.getmtime(img_path)}).encode())
+
+    def find_editable_image(self, task_path, img_name):
+        if not img_name:
+            self.send_error(400, "Image name required")
+            return None
+        ext = os.path.splitext(img_name)[1].lower()
+        if "/" in img_name or "\\" in img_name or ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+            self.send_error(403, "Invalid image name")
+            return None
+        for sub in ("clean", "clean_v2"):
+            p = task_path / sub / img_name
+            if p.exists():
+                return p
+        self.send_error(404, "Image not found")
+        return None
 
     def run_pipeline_task(self, args, task_path):
         cmd = args.get('cmd')
@@ -743,6 +894,8 @@ def run_server(work_dir, port=8000, host="127.0.0.1", log_file="server.log"):
         logger.info(" Available Task Links:")
         for name, link in links:
             logger.info(f" - {name}: {link}")
+    base = f"http://{host if host not in ('0.0.0.0', '127.0.0.1') else 'localhost'}:{port}/"
+    logger.info(f" Super Mode: {base}?super={tm.super_token}")
 
     with socketserver.ThreadingTCPServer((host, port), EditorHandler) as httpd:
         try:

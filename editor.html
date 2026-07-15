@@ -173,6 +173,21 @@
             background: var(--warning);
         }
 
+        #btn-inpaint-region.active {
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        #btn-inpaint-region,
+        #btn-inpaint-undo {
+            display: none;
+        }
+
+        body.server-edit #btn-inpaint-region,
+        body.server-edit #btn-inpaint-undo {
+            display: flex;
+        }
+
         button {
             background-color: var(--accent);
             color: white;
@@ -380,10 +395,10 @@
         }
 
         .page-item {
-            display: flex;
+            display: grid;
+            grid-template-columns: 38px minmax(2.6em, 1fr) auto auto 18px 18px 18px 18px;
             align-items: center;
-            justify-content: space-between;
-            gap: 6px;
+            gap: 3px;
         }
         .page-item[draggable="true"] {
             cursor: grab;
@@ -433,7 +448,7 @@
             filter: brightness(1.12);
         }
         .page-item .page-name {
-            flex: 1;
+            min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -450,17 +465,21 @@
             border: 1px solid var(--border);
         }
         .page-del-btn {
-            flex: 0 0 auto;
+            width: 18px;
+            height: 22px;
             border: none;
             background: transparent;
             cursor: pointer;
             color: var(--text-secondary, #888);
             font-size: 0.8rem;
             line-height: 1;
-            padding: 3px 5px;
+            padding: 0;
             border-radius: 4px;
             opacity: 0.45;
             transition: opacity 0.15s, background 0.15s, color 0.15s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .page-item:hover .page-del-btn { opacity: 1; }
         .page-del-btn:hover { background: rgba(255, 80, 80, 0.18); color: #ff5b5b; }
@@ -468,17 +487,21 @@
         .page-chapter-btn,
         .page-flag-btn,
         .page-info-btn {
-            flex: 0 0 auto;
+            width: 18px;
+            height: 22px;
             border: none;
             background: transparent;
             cursor: pointer;
             color: var(--text-secondary);
             font-size: 0.8rem;
             line-height: 1;
-            padding: 3px 5px;
+            padding: 0;
             border-radius: 4px;
             opacity: 0.45;
             transition: opacity 0.15s, background 0.15s, color 0.15s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .page-flag-btn.active {
             color: var(--flag-color);
@@ -531,12 +554,12 @@
 
         /* Per-page translation progress badge (translated / total blocks). */
         .page-prog {
-            flex: 0 0 auto;
             font-size: 0.66rem;
             font-weight: 600;
             padding: 1px 6px;
             border-radius: 8px;
             line-height: 1.5;
+            white-space: nowrap;
         }
         .page-prog.done { color: var(--success); background: rgba(16, 185, 129, 0.14); }
         .page-prog.partial { color: var(--warning); background: rgba(245, 158, 11, 0.14); }
@@ -546,7 +569,6 @@
         /* Per-page QA badge: count of blocks that overflow their box or render far
            smaller than the rest of the page. Hidden when the page is clean. */
         .page-qa {
-            flex: 0 0 auto;
             font-size: 0.66rem;
             font-weight: 700;
             padding: 1px 6px;
@@ -554,6 +576,7 @@
             line-height: 1.5;
             color: #fff;
             background: var(--danger);
+            white-space: nowrap;
         }
         .page-qa.none { display: none; }
         .list-item.active .page-qa { background: rgba(255, 255, 255, 0.28); color: #fff; }
@@ -2018,6 +2041,22 @@
                     <input type="checkbox" id="btn-edit-region">
                     <span data-i18n="btnEditRegionShort">图片区域编辑</span>
                 </label>
+                <button id="btn-inpaint-region" class="secondary" data-i18n-title="btnInpaintRegion" title="Remove text and redraw selected image region">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m7 21 10-10"></path>
+                        <path d="m15 5 4 4"></path>
+                        <path d="m5 19 4 4"></path>
+                        <path d="m14 6 4-4 4 4-4 4"></path>
+                    </svg>
+                    <span data-i18n="btnInpaintRegionShort">去字重绘</span>
+                </button>
+                <button id="btn-inpaint-undo" class="secondary" data-i18n-title="btnInpaintUndo" title="Undo last redraw" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 14 4 9l5-5"></path>
+                        <path d="M4 9h10a6 6 0 0 1 0 12h-1"></path>
+                    </svg>
+                    <span data-i18n="btnInpaintUndoShort">撤销重绘</span>
+                </button>
                 <button id="btn-render-preview" class="secondary mode-switch" data-i18n-title="renderPreviewTitle" title="Render preview">
                     <span class="mode-knob"></span>
                     <span class="mode-option edit" data-i18n="renderPreviewEdit">Edit</span>
@@ -2372,6 +2411,45 @@
         i18n.zh.btnEditRegionShort = '图片区域编辑';
         i18n.en.btnEditRegionShort = 'Image regions';
         i18n.ja.btnEditRegionShort = '画像領域';
+        i18n.zh.btnInpaintRegion = '去字重绘：拖拽框选区域并用 LaMa 重绘';
+        i18n.en.btnInpaintRegion = 'Remove text and redraw: drag-select a region and repaint it with LaMa';
+        i18n.ja.btnInpaintRegion = '文字消し再描画：ドラッグで範囲選択し LaMa で再描画';
+        i18n.zh.btnInpaintRegionShort = '去字重绘';
+        i18n.en.btnInpaintRegionShort = 'Remove Text';
+        i18n.ja.btnInpaintRegionShort = '文字消し';
+        i18n.zh.inpaintModeOn = '去字重绘：拖拽框选要重绘的区域';
+        i18n.en.inpaintModeOn = 'Remove text mode: drag-select the region to redraw';
+        i18n.ja.inpaintModeOn = '文字消し再描画：再描画する範囲をドラッグ選択';
+        i18n.zh.inpaintModeOff = '已退出去字重绘';
+        i18n.en.inpaintModeOff = 'Remove text mode off';
+        i18n.ja.inpaintModeOff = '文字消し再描画モード終了';
+        i18n.zh.inpaintServerOnly = '去字重绘仅在 server.py 服务端模式可用';
+        i18n.en.inpaintServerOnly = 'Remove text redraw is available in server mode only';
+        i18n.ja.inpaintServerOnly = '文字消し再描画はサーバーモードでのみ利用できます';
+        i18n.zh.inpaintRunning = '区域重绘中…';
+        i18n.en.inpaintRunning = 'Redrawing region…';
+        i18n.ja.inpaintRunning = '範囲を再描画中…';
+        i18n.zh.inpaintDone = '区域已重绘';
+        i18n.en.inpaintDone = 'Region redrawn';
+        i18n.ja.inpaintDone = '範囲を再描画しました';
+        i18n.zh.inpaintFail = '重绘失败：{err}';
+        i18n.en.inpaintFail = 'Redraw failed: {err}';
+        i18n.ja.inpaintFail = '再描画失敗：{err}';
+        i18n.zh.btnInpaintUndo = '撤销最近一次区域重绘';
+        i18n.en.btnInpaintUndo = 'Undo the most recent region redraw';
+        i18n.ja.btnInpaintUndo = '直前の範囲再描画を元に戻す';
+        i18n.zh.btnInpaintUndoShort = '撤销重绘';
+        i18n.en.btnInpaintUndoShort = 'Undo';
+        i18n.ja.btnInpaintUndoShort = '元に戻す';
+        i18n.zh.inpaintUndoNone = '没有可撤销的重绘';
+        i18n.en.inpaintUndoNone = 'No redraw to undo';
+        i18n.ja.inpaintUndoNone = '元に戻せる再描画はありません';
+        i18n.zh.inpaintUndoRunning = '正在撤销重绘…';
+        i18n.en.inpaintUndoRunning = 'Undoing redraw…';
+        i18n.ja.inpaintUndoRunning = '再描画を元に戻しています…';
+        i18n.zh.inpaintUndoDone = '已撤销重绘';
+        i18n.en.inpaintUndoDone = 'Redraw undone';
+        i18n.ja.inpaintUndoDone = '再描画を元に戻しました';
         // Keyboard-shortcut help overlay.
         i18n.zh.titleShortcuts = '快捷键'; i18n.zh.scPageNav = '上一页 / 下一页'; i18n.zh.scHistory = '页面历史：返回 / 前进（回到刚才所在的页）'; i18n.zh.scUpDown = '切换文字块 / 任务 / 页面（随当前焦点区域）'; i18n.zh.scAltArrow = '编辑译文时也能翻页'; i18n.zh.scSave = '保存'; i18n.zh.scClear = '清空当前译文'; i18n.zh.scHelp = '显示本快捷键帮助';
         i18n.en.titleShortcuts = 'Keyboard Shortcuts'; i18n.en.scPageNav = 'Previous / next page'; i18n.en.scHistory = 'Page history: back / forward (jump to the page you came from)'; i18n.en.scUpDown = 'Move between blocks / tasks / pages (by focus area)'; i18n.en.scAltArrow = 'Page nav even while editing text'; i18n.en.scSave = 'Save'; i18n.en.scClear = 'Clear the current translation'; i18n.en.scHelp = 'Show this shortcut help';
@@ -2447,8 +2525,9 @@
         }
 
         const storage = {
-            isServer: !IS_FILE_MODE && new URLSearchParams(window.location.search).has('t'),
+            isServer: !IS_FILE_MODE && (new URLSearchParams(window.location.search).has('t') || new URLSearchParams(window.location.search).has('super')),
             token: new URLSearchParams(window.location.search).get('t'),
+            superToken: new URLSearchParams(window.location.search).get('super'),
             pipelineAvailable: false,   // set true only if the server reports the pipeline is usable
             permission: 'edit',         // 'edit' | 'view' (server-reported in server mode)
             viewOnly: false,            // true when the logged-in user may only view this task
@@ -2472,7 +2551,8 @@
                 let serverTasks = null;
                 if (!IS_FILE_MODE) {
                     try {
-                        const r = await fetch('api/tasks');
+                        const q = this.superToken ? `?super=${encodeURIComponent(this.superToken)}` : '';
+                        const r = await fetch(`api/tasks${q}`);
                         if (r.ok) serverTasks = await r.json();
                     } catch (e) { /* not an auth server → fall through */ }
                 }
@@ -2704,7 +2784,8 @@
 
             async getImageUrl(page) {
                 if (this.isServer) {
-                    return `api/image?t=${this.token}&name=${encodeURIComponent(page.clean.split('/').pop())}`;
+                    const v = page._image_mtime ? `&v=${encodeURIComponent(page._image_mtime)}` : '';
+                    return `api/image?t=${this.token}&name=${encodeURIComponent(page.clean.split('/').pop())}${v}`;
                 } else {
                     const handle = this.currentTask.imageHandles[page.clean.split('/').pop()];
                     if (!handle) return null;
@@ -2717,7 +2798,8 @@
             // image only as input, then downsizes it in-browser and caches the blob.
             async getThumbUrl(page) {
                 if (this.isServer) {
-                    return `api/thumb?t=${this.token}&name=${encodeURIComponent(page.clean.split('/').pop())}`;
+                    const v = page._image_mtime ? `&v=${encodeURIComponent(page._image_mtime)}` : '';
+                    return `api/thumb?t=${this.token}&name=${encodeURIComponent(page.clean.split('/').pop())}${v}`;
                 }
                 return getLocalThumbUrl(page);
             },
@@ -3103,6 +3185,7 @@
             renderPreviewMode: false,
             needsSort: false,
             editMode: false,        // region-edit mode (drag to resize/move/add boxes)
+            inpaintMode: false,     // drag a rectangle and redraw that image region
             activeFocusArea: 'pages', // which pane arrow keys navigate: tasks/pages/editor/canvas
             // Browser-style page navigation history (back/forward), per task.
             pageHistory: [], histPos: -1, histTaskKey: null, _histNavigating: false,
@@ -3124,6 +3207,8 @@
             btnPreviewFilter: document.getElementById('btn-preview-filter'),
             btnSfxDir: document.getElementById('btn-sfx-dir'),
             btnEditRegion: document.getElementById('btn-edit-region'),
+            btnInpaintRegion: document.getElementById('btn-inpaint-region'),
+            btnInpaintUndo: document.getElementById('btn-inpaint-undo'),
             regionEditWrap: document.getElementById('region-edit-wrap'),
             btnRenderPreview: document.getElementById('btn-render-preview'),
             btnRenderSettings: document.getElementById('btn-render-settings'),
@@ -3686,6 +3771,7 @@
         function applyViewOnly() {
             const vo = !!storage.viewOnly;
             document.body.classList.toggle('view-only', vo);
+            document.body.classList.toggle('server-edit', !!storage.isServer && !vo);
             const ro = editorReadOnly();
             document.querySelectorAll('#blocks-container textarea, #story-content').forEach(el => el.readOnly = ro);
             updateReadOnlyControls();
@@ -7216,6 +7302,7 @@
         let _editLegendTimer = null;
         function setEditMode(enabled, opts = {}) {
             state.editMode = !!enabled;
+            if (state.editMode && state.inpaintMode) setInpaintMode(false, { toast: false, render: false });
             if (state.editMode && state.renderPreviewMode) {
                 state.renderPreviewMode = false;
                 updateRenderPreviewUI();
@@ -7246,6 +7333,100 @@
             setEditMode(!state.editMode);
         }
         elements.btnEditRegion.onchange = () => setEditMode(elements.btnEditRegion.checked);
+
+        function setInpaintMode(enabled, opts = {}) {
+            if (enabled && (!storage.isServer || editorReadOnly())) {
+                showToast(t('inpaintServerOnly'), 'error');
+                enabled = false;
+            }
+            state.inpaintMode = !!enabled;
+            if (state.inpaintMode && state.editMode) setEditMode(false, { toast: false, render: false });
+            if (state.inpaintMode && state.renderPreviewMode) {
+                state.renderPreviewMode = false;
+                updateRenderPreviewUI();
+            }
+            if (elements.btnInpaintRegion) elements.btnInpaintRegion.classList.toggle('active', state.inpaintMode);
+            elements.canvas.style.cursor = state.inpaintMode ? 'crosshair' : (state.editMode ? 'crosshair' : 'default');
+            const legend = document.getElementById('edit-mode-legend');
+            legend.textContent = state.inpaintMode ? t('inpaintModeOn') : t('editModeOn');
+            legend.classList.remove('compact');
+            legend.style.display = (state.inpaintMode || state.editMode) ? 'block' : 'none';
+            clearTimeout(_editLegendTimer);
+            if (state.inpaintMode) {
+                _editLegendTimer = setTimeout(() => legend.classList.add('compact'), 2600);
+            } else if (opts.toast !== false) {
+                showToast(t('inpaintModeOff'));
+            }
+            if (opts.render !== false) renderPage();
+        }
+        function refreshEditedPageImage(page, mtime) {
+            if (!page) return;
+            page._image_mtime = mtime || Date.now();
+            previewBackgroundCache = null;
+            currentImageEl = null;
+            renderPage();
+            const item = elements.pageList.children[state.currentPageIndex];
+            const thumb = item && item.querySelector('.page-thumb');
+            if (thumb) { thumb.dataset.loaded = ''; loadPageThumb(thumb, page); }
+        }
+        async function applyInpaintRegion(rect) {
+            const page = storage.currentTask && storage.currentTask.data.pages[state.currentPageIndex];
+            const name = currentTaskImageName(page);
+            if (!page || !name) return;
+            const body = { name, rect: { x: rect.minX, y: rect.minY, w: rect.maxX - rect.minX, h: rect.maxY - rect.minY } };
+            elements.statusLoader.style.display = 'block';
+            showToast(t('inpaintRunning'), 'info');
+            try {
+                const resp = await fetch(`api/image/inpaint-region?t=${storage.token}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (!resp.ok) throw new Error((await resp.text()).replace(/<[^>]*>/g, ' ').trim() || resp.statusText);
+                const res = await resp.json();
+                refreshEditedPageImage(page, res.mtime);
+                if (elements.btnInpaintUndo) {
+                    elements.btnInpaintUndo.disabled = false;
+                    elements.btnInpaintUndo.dataset.name = name;
+                    elements.btnInpaintUndo.dataset.pageIndex = String(state.currentPageIndex);
+                }
+                showToast(t('inpaintDone'), 'success');
+            } catch (err) {
+                showToast(t('inpaintFail', { err: err.message || String(err) }), 'error');
+            } finally {
+                elements.statusLoader.style.display = 'none';
+            }
+        }
+        elements.btnInpaintRegion.onclick = () => setInpaintMode(!state.inpaintMode);
+        async function undoInpaintRegion() {
+            if (!storage.isServer || editorReadOnly()) { showToast(t('inpaintServerOnly'), 'error'); return; }
+            const name = elements.btnInpaintUndo && elements.btnInpaintUndo.dataset.name;
+            const pageIndex = +(elements.btnInpaintUndo && elements.btnInpaintUndo.dataset.pageIndex);
+            const page = storage.currentTask && storage.currentTask.data.pages[pageIndex];
+            if (!name || !page) { showToast(t('inpaintUndoNone'), 'info'); return; }
+            elements.statusLoader.style.display = 'block';
+            showToast(t('inpaintUndoRunning'), 'info');
+            try {
+                const resp = await fetch(`api/image/inpaint-undo?t=${storage.token}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if (!resp.ok) throw new Error((await resp.text()).replace(/<[^>]*>/g, ' ').trim() || resp.statusText);
+                const res = await resp.json();
+                if (state.currentPageIndex !== pageIndex) await selectPage(pageIndex);
+                refreshEditedPageImage(page, res.mtime);
+                elements.btnInpaintUndo.disabled = true;
+                delete elements.btnInpaintUndo.dataset.name;
+                delete elements.btnInpaintUndo.dataset.pageIndex;
+                showToast(t('inpaintUndoDone'), 'success');
+            } catch (err) {
+                showToast(t('inpaintFail', { err: err.message || String(err) }), 'error');
+            } finally {
+                elements.statusLoader.style.display = 'none';
+            }
+        }
+        elements.btnInpaintUndo.onclick = undoInpaintRegion;
 
         // Keyboard-shortcut help overlay (reuses the modal-overlay/modal-panel styles).
         function showShortcutsHelp() {
@@ -8278,6 +8459,7 @@
         function updateHoverCursor(e) {
             if (_eyedropTarget != null) { elements.canvas.style.cursor = 'crosshair'; return; }
             if (state.renderPreviewMode) { elements.canvas.style.cursor = 'default'; return; }
+            if (state.inpaintMode) { elements.canvas.style.cursor = 'crosshair'; return; }
             if (!state.editMode || drag || !storage.currentTask || state.currentPageIndex < 0) return;
             const { x, y, scale } = canvasToImg(e);
             const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks || [];
@@ -8308,6 +8490,12 @@
             if (state.renderPreviewMode) return;
             const { x, y, scale } = canvasToImg(e);
             const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks || [];
+            if (state.inpaintMode) {
+                drag = { type: 'inpaint', startX: x, startY: y, cur: { minX: x, minY: y, maxX: x, maxY: y } };
+                elements.canvas.style.cursor = 'crosshair';
+                e.preventDefault();
+                return;
+            }
             if (!state.editMode) {
                 const f = hitTestBlock(blocks, x, y);
                 if (f !== -1) selectBlock(f);
@@ -8368,7 +8556,18 @@
             if (!drag) return;
             const { x, y } = canvasToImg(e);
             const blocks = storage.currentTask.data.pages[state.currentPageIndex].blocks;
-            if (drag.type === 'sig-resize') {
+            if (drag.type === 'inpaint') {
+                drag.cur = { minX: Math.min(drag.startX, x), minY: Math.min(drag.startY, y), maxX: Math.max(drag.startX, x), maxY: Math.max(drag.startY, y) };
+                redraw();
+                ctx.save();
+                ctx.strokeStyle = '#f59e0b';
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.14)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 5]);
+                ctx.fillRect(drag.cur.minX, drag.cur.minY, drag.cur.maxX - drag.cur.minX, drag.cur.maxY - drag.cur.minY);
+                ctx.strokeRect(drag.cur.minX, drag.cur.minY, drag.cur.maxX - drag.cur.minX, drag.cur.maxY - drag.cur.minY);
+                ctx.restore();
+            } else if (drag.type === 'sig-resize') {
                 const d = Math.max(1, Math.hypot(x - drag.anchorX, y - drag.anchorY));
                 let sc = drag.startScale * (d / drag.startDist);
                 sc = Math.max(0.3, Math.min(5, sc));
@@ -8423,9 +8622,19 @@
             }
         });
 
-        document.addEventListener('mouseup', () => {
+        document.addEventListener('mouseup', async () => {
             if (!drag) return;
             const page = storage.currentTask.data.pages[state.currentPageIndex];
+            if (drag.type === 'inpaint') {
+                const r = drag.cur;
+                drag = null;
+                redraw();
+                if ((r.maxX - r.minX) > 5 && (r.maxY - r.minY) > 5) {
+                    await applyInpaintRegion(r);
+                }
+                if (state.inpaintMode) elements.canvas.style.cursor = 'crosshair';
+                return;
+            }
             if (drag.type === 'sig-resize' || drag.type === 'sig-move') {
                 persistGeometry();   // save signature_scale / signature_offset to pages.json
                 drag = null;
