@@ -341,6 +341,9 @@ async def _process_image(
                 cfg.ocr.ignore_bubble,
                 verbose,
                 cfg.kernel_size,
+                cfg.mask_bubble_text_fill,
+                cfg.mask_bubble_text_fill_threshold,
+                cfg.mask_bubble_text_fill_padding,
             )
 
     # 4b. Secondary-detector-only regions have no stroke-level mask (the primary missed
