@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from dataclasses import asdict, dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -111,6 +112,8 @@ class Page:
     # symbols, handwritten kana, too-short). They are still erased during extract;
     # stored here as 4-point polygons so reclean can rebuild the full erase mask.
     erase_regions: List[List[List[int]]] = field(default_factory=list)
+    source_size: Optional[int] = None
+    source_mtime_ns: Optional[int] = None
 
     def to_dict(self) -> dict:
         d = {
@@ -129,6 +132,10 @@ class Page:
             d["chapter_name"] = self.chapter_name
         if self.erase_regions:
             d["erase_regions"] = self.erase_regions
+        if self.source_size is not None:
+            d["source_size"] = self.source_size
+        if self.source_mtime_ns is not None:
+            d["source_mtime_ns"] = self.source_mtime_ns
         return d
 
     @classmethod
@@ -149,6 +156,9 @@ class Page:
             chapter_name=str(data.get("chapter_name", "")),
             erase_regions=[[[int(p[0]), int(p[1])] for p in poly]
                            for poly in data.get("erase_regions", [])],
+            source_size=(int(data["source_size"]) if data.get("source_size") is not None else None),
+            source_mtime_ns=(int(data["source_mtime_ns"])
+                             if data.get("source_mtime_ns") is not None else None),
         )
 
 
@@ -204,10 +214,25 @@ class Workspace:
             out.extend(p.blocks)
         return out
 
+def _atomic_write_json(path: str, data: dict) -> None:
+    """Write JSON atomically so an interrupted checkpoint stays readable."""
+    directory = os.path.dirname(path) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(prefix=".tmp-", suffix=".json", dir=directory)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+
 def save_workspace(ws: Workspace) -> str:
     os.makedirs(ws.root, exist_ok=True)
-    with open(ws.pages_json_path, 'w', encoding='utf-8') as f:
-        json.dump(ws.to_dict(), f, ensure_ascii=False, indent=2)
+    _atomic_write_json(ws.pages_json_path, ws.to_dict())
     return ws.pages_json_path
 
 
@@ -237,8 +262,7 @@ def save_translations(root: str, lang: str, translations: Dict[str, Translation]
     os.makedirs(get_translations_dir(root), exist_ok=True)
     path = get_translation_path(root, lang)
     data = {bid: t.to_dict() for bid, t in translations.items()}
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    _atomic_write_json(path, data)
 
 
 def safe_workspace_path(root: str, rel: str) -> Optional[str]:

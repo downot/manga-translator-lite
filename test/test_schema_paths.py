@@ -76,3 +76,37 @@ def test_page_preserves_chapter_start_marker():
     assert p.chapter_name == "CH1"
     assert p.to_dict()["chapter_start"] is True
     assert p.to_dict()["chapter_name"] == "CH1"
+
+
+def test_page_round_trips_source_fingerprint():
+    p = schema.Page.from_dict({
+        "index": 1,
+        "name": "001.png",
+        "original": "001.png",
+        "size": [10, 10],
+        "clean": "clean/0001.png",
+        "blocks": [],
+        "source_size": 123,
+        "source_mtime_ns": 456,
+    })
+
+    assert p.source_size == 123
+    assert p.source_mtime_ns == 456
+    assert p.to_dict()["source_size"] == 123
+    assert p.to_dict()["source_mtime_ns"] == 456
+
+
+def test_save_workspace_is_readable_and_leaves_no_temp_file(tmp_path):
+    workspace = schema.Workspace(root=str(tmp_path), pages=[schema.Page(
+        index=0,
+        name="001.png",
+        size=(10, 10),
+        original="001.png",
+        clean="clean/0001.png",
+    )])
+
+    schema.save_workspace(workspace)
+
+    loaded = schema.load_workspace(str(tmp_path))
+    assert loaded.pages[0].name == "001.png"
+    assert not list(tmp_path.glob(".tmp-*.json"))

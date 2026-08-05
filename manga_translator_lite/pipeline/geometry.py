@@ -9,7 +9,7 @@ standalone without pulling in the ML stack. These back three documented behaviou
 """
 from __future__ import annotations
 
-from typing import List, Sequence
+from typing import List, Sequence, Tuple
 
 
 def _iou_xyxy(a: Sequence[float], b: Sequence[float]) -> float:
@@ -60,3 +60,33 @@ def _compute_iou(box1: List[int], box2: List[int]) -> float:
     if union_area == 0:
         return 0.0
     return inter_area / union_area
+
+
+def match_boxes_by_iou(
+    new_boxes: Sequence[Sequence[int]],
+    old_boxes: Sequence[Sequence[int]],
+    min_iou: float = 0.3,
+) -> List[Tuple[int, int]]:
+    """Return deterministic one-to-one box matches, sorted by descending IoU.
+
+    Translation carry-over must never map one old block onto several newly split
+    blocks. The strongest remaining pair wins each round; ties are resolved by
+    the original block order so repeated runs are stable.
+    """
+    candidates = []
+    for new_idx, new_box in enumerate(new_boxes):
+        for old_idx, old_box in enumerate(old_boxes):
+            iou = _compute_iou(list(new_box), list(old_box))
+            if iou > min_iou:
+                candidates.append((-iou, new_idx, old_idx))
+
+    used_new = set()
+    used_old = set()
+    matches = []
+    for _, new_idx, old_idx in sorted(candidates):
+        if new_idx in used_new or old_idx in used_old:
+            continue
+        used_new.add(new_idx)
+        used_old.add(old_idx)
+        matches.append((new_idx, old_idx))
+    return matches

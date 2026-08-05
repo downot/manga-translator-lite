@@ -5,9 +5,9 @@ Walks the input path, runs the local CV pipeline on each image, and writes:
   - workspace/<task>/clean/<idx>_<name>.png    text-removed image
   - workspace/<task>/pages.json                metadata + OCR text per block
 
-When the input directory contains subdirectories, each subdirectory is treated
-as a separate *task*.  When the input is a flat directory of images (no sub-
-directories), a single task named after the directory basename is created.
+Each image-bearing subdirectory is treated as a separate *task*. Root-level
+images remain their own task even when subdirectories are present, and a single
+input image remains a one-image task.
 
 Translation is left blank for the translate step to fill in.
 """
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 import shutil
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set
 
 import cv2
 import numpy as np
@@ -28,14 +28,14 @@ from ..inpainting import dispatch as dispatch_inpainting, prepare as prepare_inp
 from ..mask_refinement import dispatch as dispatch_mask_refinement
 from ..ocr import dispatch as dispatch_ocr, prepare as prepare_ocr
 from ..textline_merge import dispatch as dispatch_textline_merge
-from .geometry import _compute_iou, _iou_xyxy, _overlap_min
+from .geometry import _iou_xyxy, _overlap_min, match_boxes_by_iou
+from .input_discovery import discover_input_tasks, source_fingerprint, source_matches
 from ..utils import (
     TextBlock,
     cv2_imwrite,
     get_logger,
     is_valuable_text,
     load_image,
-    natural_sort,
     sort_regions,
 )
 from .schema import (
@@ -44,9 +44,6 @@ from .schema import (
 )
 
 logger = get_logger('extract')
-
-IMG_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tif', '.tiff'}
-
 
 def _select_device(use_gpu: bool) -> str:
     if not use_gpu:
@@ -175,48 +172,6 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
     return textlines, mask_raw, mask, secondary_only
 
 
-def _list_images(input_path: str) -> List[str]:
-    if os.path.isfile(input_path):
-        return [input_path]
-    files: List[str] = []
-    for n in natural_sort(os.listdir(input_path)):
-        ext = os.path.splitext(n)[1].lower()
-        if ext in IMG_EXTS and not n.startswith('.'):
-            files.append(os.path.join(input_path, n))
-    return files
-
-
-def _discover_input_tasks(input_path: str) -> List[Tuple[str, str]]:
-    """Discover tasks from the input directory.
-
-    Returns a list of (task_name, task_input_dir) tuples.
-    - If input_path contains image-bearing subdirectories, each subdirectory
-      becomes a separate task.
-    - If input_path is a flat directory of images (or a single file), it becomes
-      one task named after the directory's basename.
-    """
-    input_path = os.path.abspath(input_path)
-
-    if os.path.isfile(input_path):
-        parent = os.path.dirname(input_path)
-        return [(os.path.basename(parent), parent)]
-
-    # Check if input_path has subdirectories with images
-    subdirs: List[Tuple[str, str]] = []
-    for entry in natural_sort(os.listdir(input_path)):
-        full = os.path.join(input_path, entry)
-        if os.path.isdir(full) and not entry.startswith('.'):
-            # Check if this subdir has images
-            if _list_images(full):
-                subdirs.append((entry, full))
-
-    if subdirs:
-        return subdirs
-
-    # No subdirectories with images — treat as single flat task
-    return [(os.path.basename(input_path), input_path)]
-
-
 def _polygon_from_lines(region: TextBlock) -> List[List[int]]:
     rect = region.min_rect.reshape(-1, 2)
     return [[int(p[0]), int(p[1])] for p in rect[:4]]
@@ -269,6 +224,7 @@ async def _process_image(
     pil = Image.open(img_path).convert('RGB')
     img_rgb, _ = load_image(pil)
     h, w = img_rgb.shape[:2]
+    source_size, source_mtime_ns = source_fingerprint(img_path)
 
     # 1. detection (optionally fused with a secondary detector to boost recall)
     # Free the previous page's inpaint-sized reserved blocks before ctd allocates its
@@ -295,6 +251,8 @@ async def _process_image(
             clean=clean_rel,
             blocks=[],
             no_text=True,
+            source_size=source_size,
+            source_mtime_ns=source_mtime_ns,
         )
 
     # 2. OCR — keep every detected line. OCR text may be empty for handwriting/symbols;
@@ -410,6 +368,8 @@ async def _process_image(
         blocks=blocks,
         erase_regions=erase_only_quads,
         no_text=(not blocks and not erase_only_quads),
+        source_size=source_size,
+        source_mtime_ns=source_mtime_ns,
     )
 
 
@@ -439,27 +399,32 @@ def _merge_task_translations(workspace: Workspace, existing_pages: Dict[str, Pag
                         if new_b.id in old_trans:
                             new_trans[new_b.id] = old_trans[new_b.id]
                         continue
-                    best_iou = 0.0
-                    best_old_b_id = None
-                    for old_b in old_p.blocks:
-                        iou = _compute_iou(new_b.bbox, old_b.bbox)
-                        if iou > best_iou:
-                            best_iou = iou
-                            best_old_b_id = old_b.id
-
-                    if best_iou > 0.3 and best_old_b_id in old_trans:
-                        new_trans[new_b.id] = old_trans[best_old_b_id]
+                new_detected = [b for b in new_p.blocks if not getattr(b, 'user_added', False)]
+                old_detected = [b for b in old_p.blocks if not getattr(b, 'user_added', False)]
+                for new_idx, old_idx in match_boxes_by_iou(
+                    [b.bbox for b in new_detected],
+                    [b.bbox for b in old_detected],
+                ):
+                    old_block = old_detected[old_idx]
+                    if old_block.id in old_trans:
+                        new_trans[new_detected[new_idx].id] = old_trans[old_block.id]
 
         save_translations(workspace.root, lang, new_trans)
 
 
-def _reinsert_user_blocks(workspace: Workspace, existing_pages: Dict[str, Page]) -> int:
+def _reinsert_user_blocks(
+    workspace: Workspace,
+    existing_pages: Dict[str, Page],
+    page_names: Optional[Set[str]] = None,
+) -> int:
     """Carry manually-added (user_added) blocks from the old workspace into the
     freshly re-extracted pages, matched by original filename. Re-detection never
     produces these, so without this they would be lost on ``--overwrite``."""
     restored = 0
     for new_p in workspace.pages:
         fname = os.path.basename(new_p.original)
+        if page_names is not None and fname not in page_names:
+            continue
         old_p = existing_pages.get(fname)
         if not old_p:
             continue
@@ -511,7 +476,7 @@ def _remap_translation_keys(workspace: Workspace, id_map: Dict[str, str]) -> Non
 
 async def _extract_task(
     task_name: str,
-    task_input_dir: str,
+    files: List[str],
     task_work_dir: str,
     cfg: Config,
     device: str,
@@ -519,10 +484,9 @@ async def _extract_task(
     target_lang: Optional[str],
     overwrite: bool,
 ) -> Workspace:
-    """Extract a single task (one subdirectory worth of images)."""
-    files = _list_images(task_input_dir)
+    """Extract a single task from its explicit list of input images."""
     if not files:
-        raise FileNotFoundError(f"No images found under {task_input_dir}")
+        raise FileNotFoundError(f"No images found for task {task_name}")
 
     logger.info(f"[task: {task_name}] Found {len(files)} image(s)")
 
@@ -546,16 +510,30 @@ async def _extract_task(
         source_lang=cfg.translator.source_lang,
         task_name=task_name,
     )
+    failures = []
+    reextracted_existing_pages: Set[str] = set()
     for i, path in enumerate(files):
         fname = os.path.basename(path)
-        if not overwrite and fname in existing_pages:
-            page = existing_pages[fname]
-            page.index = i
-            workspace.pages.append(page)
-            logger.info(f"[task: {task_name}] [page {i}] skipped (already processed): {os.path.basename(path)}")
-            continue
-
         try:
+            if not overwrite and fname in existing_pages:
+                page = existing_pages[fname]
+                if page.source_size is None or page.source_mtime_ns is None:
+                    page.source_size, page.source_mtime_ns = source_fingerprint(path)
+                    page.index = i
+                    workspace.pages.append(page)
+                    logger.info(f"[task: {task_name}] [page {i}] skipped (source fingerprint initialized): "
+                                f"{os.path.basename(path)}")
+                    continue
+                if source_matches(path, page.source_size, page.source_mtime_ns):
+                    page.index = i
+                    workspace.pages.append(page)
+                    logger.info(f"[task: {task_name}] [page {i}] skipped (source unchanged): "
+                                f"{os.path.basename(path)}")
+                    continue
+                logger.info(f"[task: {task_name}] [page {i}] source changed; re-extracting: "
+                            f"{os.path.basename(path)}")
+                reextracted_existing_pages.add(fname)
+
             page = await _process_image(path, i, cfg, device, workspace, verbose)
             workspace.pages.append(page)
             # Periodic checkpoint for crash recovery (avoid an O(n^2) full
@@ -566,10 +544,26 @@ async def _extract_task(
             logger.error(f"[task: {task_name}] Failed on {path}: {e}")
             if verbose:
                 raise
+            failures.append((os.path.basename(path), e))
+            # Preserve the prior page on a failed refresh. Its stale fingerprint makes
+            # the next run retry it, while keeping translations and manual edits intact.
+            if fname in existing_pages:
+                old_page = existing_pages[fname]
+                old_page.index = i
+                workspace.pages.append(old_page)
 
-    if overwrite and existing_pages:
-        # Preserve manually-added blocks across the re-extraction, then migrate translations.
-        restored = _reinsert_user_blocks(workspace, existing_pages)
+    if failures:
+        save_workspace(workspace)
+        failed_names = ', '.join(name for name, _ in failures)
+        raise RuntimeError(
+            f"[task: {task_name}] {len(failures)} page(s) failed: {failed_names}. "
+            "Completed pages were checkpointed; rerun extract to retry the failed pages."
+        )
+
+    if (overwrite or reextracted_existing_pages) and existing_pages:
+        # Preserve manually-added blocks across re-extraction, then migrate translations.
+        page_names = None if overwrite else reextracted_existing_pages
+        restored = _reinsert_user_blocks(workspace, existing_pages, page_names)
         if restored:
             logger.info(f"[task: {task_name}] Preserved {restored} manually-added block(s) across re-extract")
         _merge_task_translations(workspace, existing_pages)
@@ -601,7 +595,7 @@ async def run_extract(
     work_dir = os.path.abspath(os.path.expanduser(work_dir))
     os.makedirs(work_dir, exist_ok=True)
 
-    tasks = _discover_input_tasks(input_path)
+    tasks = discover_input_tasks(input_path)
     if not tasks:
         raise FileNotFoundError(f"No images found under {input_path}")
 
@@ -620,10 +614,10 @@ async def run_extract(
         await prepare_inpainting(cfg.inpainter.inpainter, device)
 
     workspaces: List[Workspace] = []
-    for task_name, task_input_dir in tasks:
+    for task_name, task_files in tasks:
         task_work_dir = os.path.join(work_dir, task_name)
         ws = await _extract_task(
-            task_name, task_input_dir, task_work_dir, cfg, device,
+            task_name, task_files, task_work_dir, cfg, device,
             verbose, target_lang, overwrite,
         )
         workspaces.append(ws)

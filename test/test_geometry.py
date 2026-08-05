@@ -83,3 +83,21 @@ def test_compute_iou_quarter_overlap():
 def test_compute_iou_zero_area_boxes_no_zerodivision():
     # union_area == 0 must be handled, not raise ZeroDivisionError.
     assert geo._compute_iou([0, 0, 0, 0], [0, 0, 0, 0]) == 0.0
+
+
+def test_match_boxes_by_iou_is_one_to_one_after_a_block_splits():
+    matches = geo.match_boxes_by_iou(
+        [[0, 0, 10, 10], [0, 0, 9, 9]],
+        [[0, 0, 10, 10]],
+    )
+
+    assert matches == [(0, 0)]
+
+
+def test_match_boxes_by_iou_keeps_distinct_matches():
+    matches = geo.match_boxes_by_iou(
+        [[0, 0, 10, 10], [20, 0, 10, 10]],
+        [[0, 0, 10, 10], [20, 0, 10, 10]],
+    )
+
+    assert matches == [(0, 0), (1, 1)]
