@@ -29,6 +29,8 @@ def test_defaults_sane():
     assert c.translator.concurrency == 1
     assert c.render.font_size_minimum == -1
     assert c.use_gpu is False
+    assert c.detector.erase_detection_threshold == 0.0
+    assert c.detector.secondary_box_fill is False
 
 
 def test_load_sample_toml(tmp_path):

@@ -210,7 +210,7 @@ RT-DETR shines when it catches regions your primary detector misses on stylized 
 
 #### Fusing two detectors (`secondary_detector`)
 
-If a second detector catches regions your primary misses, you don't have to choose — **fuse** them. Set a `[detector] secondary_detector` and the extract step runs both: it keeps your primary detector's stroke-level masks for clean erasing, then **adds the secondary's regions that the primary missed** (IoU below `fusion_iou`) to detection. Those extra regions are OCR'd, translated, and erased like any other — just with a coarser box-fill mask, since the primary had no strokes there.
+If a second detector catches regions your primary misses, you don't have to choose — **fuse** them. Set a `[detector] secondary_detector` and the extract step runs both: it keeps your primary detector's stroke-level masks for clean erasing, then **adds the secondary's regions that the primary missed** (IoU below `fusion_iou`) to detection. Those extra regions are OCR'd and translated normally; for cleaning, extract derives a conservative local stroke mask rather than erasing the whole detector box. Set `secondary_box_fill = true` only to restore the legacy whole-box behavior.
 
 ```toml
 [detector]
@@ -226,7 +226,7 @@ fusion_max_area_ratio = 0.1     # drop secondary boxes larger than this fraction
 
 **Avoiding duplicate extraction.** A box detector returns large region-level boxes, while a stroke detector returns small per-line boxes — so a secondary box sitting *on top of* primary text lines has a low IoU and would slip through as "new", getting OCR'd a second time (often as a partial copy). `fusion_overlap_limit` also rejects a secondary box when it covers, or is covered by, that fraction of any primary box (intersection over the smaller box), so such overlaps are dropped before OCR. Lower it (e.g. `0.3`) if the same text still comes out twice.
 
-**Avoiding large false erasures.** A box detector can return one huge box for a stylized title or SFX that spans the artwork; since secondary regions are erased by box-fill, that would wipe a large area. `fusion_max_area_ratio` drops any secondary box covering more than that fraction of the page (default `0.1` = 10%), so oversized region boxes are neither translated nor erased — the art is left intact. Lower it (e.g. `0.06`) if you still see big rectangular wipes; set `0` to disable the cap.
+**Avoiding large false erasures.** A box detector can return one huge box for a stylized title or SFX that spans the artwork. `fusion_max_area_ratio` drops any secondary box covering more than that fraction of the page (default `0.1` = 10%), so oversized region boxes are neither translated nor erased — the art is left intact. Lower it (e.g. `0.06`) if uncertain large regions remain; set `0` to disable the cap.
 
 #### VRAM & speed
 
@@ -430,7 +430,7 @@ python -m manga_translator_lite render work/<task> -o out
 
 It reads the same `config.toml`, so tuning `[detector]` (e.g. lower `text_threshold`, enable `det_gamma_correct`) improves what it catches.
 
-> The `extract` step now erases **every detected region** — including symbols/handwriting that the translation rules reject — and records the rejected ones as `erase_regions` in `pages.json`. So a fresh `extract --overwrite` already cleans most residue; `reclean.py` is for touching up existing tasks.
+> `extract` erases regions that pass the primary detector's erase threshold, including symbols/handwriting rejected by translation rules, and records erased non-translation regions as `erase_regions` in `pages.json`. Low OCR confidence no longer makes a primary detector hit miss cleaning; secondary detectors such as RT-DETR derive a local stroke mask by default rather than erasing the whole box. `reclean.py` is for touching up existing tasks.
 
 ---
 

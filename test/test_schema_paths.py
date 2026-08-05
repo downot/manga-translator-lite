@@ -76,3 +76,31 @@ def test_page_preserves_chapter_start_marker():
     assert p.chapter_name == "CH1"
     assert p.to_dict()["chapter_start"] is True
     assert p.to_dict()["chapter_name"] == "CH1"
+
+
+def test_legacy_page_schema_round_trips_without_new_fields():
+    """A pre-v4-style page remains valid after extract behaviour changes.
+
+    New extraction still writes the established blocks/erase_regions shapes; this
+    guards the reader used by render/editor against requiring any new field.
+    """
+    legacy = {
+        "index": 2,
+        "name": "0003.jpg",
+        "original": "0003.jpg",
+        "size": [1200, 1800],
+        "clean": "clean/0002_0003.jpg",
+        "blocks": [{
+            "id": "p0002_b000",
+            "text": "old OCR",
+            "bbox": [10, 20, 30, 40],
+            "polygon": [[10, 20], [40, 20], [40, 60], [10, 60]],
+            "lines": [[[10, 20], [40, 20], [40, 60], [10, 60]]],
+        }],
+        "erase_regions": [[[50, 20], [80, 20], [80, 60], [50, 60]]],
+    }
+    page = schema.Page.from_dict(legacy)
+
+    assert page.clean == "clean/0002_0003.jpg"  # old JPEG intermediates remain readable
+    assert page.blocks[0].ocr_text == "old OCR"  # old files lacked ocr_text
+    assert page.to_dict()["erase_regions"] == legacy["erase_regions"]

@@ -103,6 +103,14 @@ def _is_tiny_component_inside_line(area: int, overlap_ratio: float, keep_thresho
 def complete_mask(img: np.ndarray, mask: np.ndarray, textlines: List[Quadrilateral], keep_threshold = 1e-2, dilation_offset = 0,kernel_size=3):
     bboxes = [txtln.aabb.xywh for txtln in textlines]
     polys = [Polygon(txtln.pts) for txtln in textlines]
+    # Most detector-mask components are far away from most text lines.  Keep a
+    # cheap expanded-AABB index so the expensive Shapely intersections/distances
+    # only run for plausible neighbours instead of every component × every line.
+    # The expansion is deliberately based on the largest line size, which safely
+    # includes the nearby-line fallback below.
+    bbox_arr = np.asarray(bboxes, dtype=np.float32)
+    max_font_size = max([max(int(t.font_size), 10) for t in textlines], default=10)
+    search_margin = float(max_font_size)
     for (x, y, w, h) in bboxes:
         cv2.rectangle(mask, (x, y), (x + w, y + h), (0), 1)
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask)
@@ -112,8 +120,6 @@ def complete_mask(img: np.ndarray, mask: np.ndarray, textlines: List[Quadrilater
     textline_tiny_ccs = [np.zeros_like(mask) for _ in range(M)]
     iinfo = np.iinfo(labels.dtype)
     textline_rects = np.full(shape = (M, 4), fill_value = [iinfo.max, iinfo.max, iinfo.min, iinfo.min], dtype = labels.dtype)
-    ratio_mat = np.zeros(shape = (num_labels, M), dtype = np.float32)
-    dist_mat = np.zeros(shape = (num_labels, M), dtype = np.float32)
     valid = False
     for label in range(1, num_labels):
         x1 = stats[label, cv2.CC_STAT_LEFT]
@@ -123,27 +129,43 @@ def complete_mask(img: np.ndarray, mask: np.ndarray, textlines: List[Quadrilater
         area1 = stats[label, cv2.CC_STAT_AREA]
         cc_pts = np.array([[x1, y1], [x1 + w1, y1], [x1 + w1, y1 + h1], [x1, y1 + h1]])
         cc_poly = Polygon(cc_pts)
+        # A line can only be accepted when it overlaps this component or is close
+        # enough for the nearby-line fallback.  This AABB test is intentionally
+        # broader than that fallback, so it does not change valid assignments.
+        candidates = np.where(
+            (bbox_arr[:, 0] <= x1 + w1 + search_margin) &
+            (bbox_arr[:, 0] + bbox_arr[:, 2] >= x1 - search_margin) &
+            (bbox_arr[:, 1] <= y1 + h1 + search_margin) &
+            (bbox_arr[:, 1] + bbox_arr[:, 3] >= y1 - search_margin)
+        )[0]
+        if len(candidates) == 0:
+            continue
 
-        for tl_idx in range(M):
+        best_ratio = -1.0
+        best_idx = int(candidates[0])
+        distances = {}
+        for tl_idx in candidates:
             area2 = polys[tl_idx].area
             overlapping_area = polys[tl_idx].intersection(cc_poly).area
-            ratio_mat[label, tl_idx] = overlapping_area / min(area1, area2)
-            dist_mat[label, tl_idx] = polys[tl_idx].distance(cc_poly.centroid)
-            # print(textlines[tl_idx].pts, cc_pts, '->', overlapping_area, min(area1, area2), '=', overlapping_area / min(area1, area2), '|', polys[tl_idx].distance(cc_poly))
+            ratio = overlapping_area / min(area1, area2)
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_idx = int(tl_idx)
+            distances[int(tl_idx)] = polys[tl_idx].distance(cc_poly.centroid)
 
-        avg = np.argmax(ratio_mat[label])
+        avg = best_idx
         area2 = polys[avg].area
         if area1 >= area2:
             continue
-        overlap = ratio_mat[label, avg]
+        overlap = best_ratio
         is_tiny = area1 <= 9
         if is_tiny:
             if not _is_tiny_component_inside_line(area1, overlap, keep_threshold):
                 continue
         elif overlap <= keep_threshold:
-            avg = np.argmin(dist_mat[label])
+            avg = min(distances, key=distances.get)
             unit = max(min([textlines[avg].font_size, w1, h1]), 10)
-            if dist_mat[label, avg] >= 0.5 * unit:
+            if distances[avg] >= 0.5 * unit:
                 continue
 
         textline_ccs[avg][y1:y1+h1, x1:x1+w1][labels[y1:y1+h1, x1:x1+w1] == label] = 255

@@ -23,7 +23,7 @@ kernel_size = 3
 # EN  range 0–50 px · larger erases more around text (covers glow/outline halos) but can eat nearby art · raise if text halos remain after erase, lower if inpaint bites into art
 # 中  范围 0–50 像素 · 调大向文字周围多擦(覆盖发光/描边残影)但可能吃到邻近画面 · 擦后残留文字光晕时调大，重绘吃到画面时调小
 # 日  範囲 0–50px · 大きいほど文字周辺を広く消す(発光/縁取りの残りを除去)が近くの絵も消えうる · 消去後にハロが残る時は上げ、絵が削れる時は下げる
-mask_dilation_offset = 30
+mask_dilation_offset = 12
 
 # EN  true|false · false = panel-aware reading order (correct manga flow), true = plain top-to-bottom / RTL · set true only if panel detection mis-orders blocks on unusual layouts
 # 中  true|false · false=按分镜阅读顺序(符合漫画流)，true=纯上到下/从右到左 · 仅当异形排版下分镜排序出错时设 true
@@ -101,6 +101,16 @@ fusion_overlap_limit = 0.5
 # 中  范围 0.05–0.2(0=不限) · 丢弃面积超过整页此比例的次检测框；框检测器会把花字标题/SFX 检成一个大框，整框填充会涂花画面 · 仍有大块矩形误擦时调低，正常大气泡被误丢时调高
 # 日  範囲 0.05–0.2(0=無制限) · ページのこの割合を超える副枠を破棄；ボックス検出器は様式化タイトル/SFX を巨大枠で返し塗りつぶしで絵が消える · 大きな矩形の誤消去が残る時は下げ、正常な大きい吹き出しが落ちる時は上げる
 fusion_max_area_ratio = 0.1
+
+# EN  range 0–1 · independent erase gate for PRIMARY detector hits; 0 keeps every box already accepted by box_threshold, raise (e.g. 0.7) to protect artwork at the cost of residual text
+# 中  范围 0–1 · 主检测器擦除的独立置信门槛；0 保留所有已通过 box_threshold 的框，调高(如 0.7)可保护画面但可能留下文字
+# 日  範囲 0–1 · 主検出器の消去用独立信頼度ゲート；0 は box_threshold を通った全枠を残し、上げる(例 0.7)と絵を守れるが文字が残る可能性あり
+erase_detection_threshold = 0.0
+
+# EN  true|false · false derives a local stroke mask for secondary-only (e.g. RT-DETR) boxes, avoiding rectangular over-erasure; true restores the old whole-box erase behavior
+# 中  true|false · false 会对次检测器独有框(如 RT-DETR)提取局部笔画 mask，避免整框误擦；true 恢复旧的整框擦除行为
+# 日  true|false · false は副検出器のみの枠(例 RT-DETR)から局所ストローク mask を作り矩形誤消去を避ける；true で旧来の枠全体消去に戻す
+secondary_box_fill = false
 
 [ocr]
 # EN  32px|48px|48px_ctc|mocr · OCR model; 48px is the balanced default, mocr (manga-ocr) is strongest on Japanese · use mocr for JP-heavy books, 48px for mixed/other languages

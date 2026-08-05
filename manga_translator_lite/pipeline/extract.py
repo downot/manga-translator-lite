@@ -14,7 +14,6 @@ Translation is left blank for the translate step to fill in.
 from __future__ import annotations
 
 import os
-import shutil
 from typing import Dict, List, Optional, Tuple
 
 import cv2
@@ -31,7 +30,6 @@ from ..textline_merge import dispatch as dispatch_textline_merge
 from .geometry import _compute_iou, _iou_xyxy, _overlap_min
 from ..utils import (
     TextBlock,
-    cv2_imwrite,
     get_logger,
     is_valuable_text,
     load_image,
@@ -123,8 +121,8 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
     regions that the primary missed (IoU below fusion_iou with every primary region).
 
     Returns (textlines, mask_raw, mask, secondary_only) where ``secondary_only`` are the
-    extra Quadrilaterals contributed by the secondary detector — they have no stroke-level
-    mask data, so the caller box-fills them into the erase mask.
+    extra Quadrilaterals contributed by the secondary detector. They have no reliable
+    stroke-level mask, so the caller derives a conservative local mask before erasing.
     """
     # Resolve the detection size once for this page (auto-sizes when detection_size = -1)
     # and reuse it for the secondary detector so both run at the same resolution.
@@ -154,7 +152,7 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
         for s in sec_textlines:
             x1, y1, x2, y2 = s.xyxy
             # A box detector can return one huge box for a stylized title / SFX spanning the
-            # art; box-filling it would wipe a large region, so drop oversized candidates.
+            # art; even local-mask fallback is not worth the risk, so drop it.
             if max_area > 0 and (x2 - x1) * (y2 - y1) > max_area:
                 oversize += 1
                 continue
@@ -233,6 +231,94 @@ def _quad_from_textline(textline) -> List[List[int]]:
     return [[int(p[0]), int(p[1])] for p in pts[:4]]
 
 
+def _mask_blocks_from_lines(textlines: List) -> List[TextBlock]:
+    """Make the lightweight geometry objects required by mask refinement.
+
+    The refiner immediately flattens ``TextBlock.lines`` back into individual
+    quadrilaterals.  Building full merged text regions here used to repeat the
+    O(n²) text-line merge performed for translation, without changing the erase
+    mask.  One block per line preserves exactly the geometry the refiner needs.
+    """
+    return [TextBlock([tl.pts], [tl.text or ''], font_size=max(1, tl.font_size))
+            for tl in textlines]
+
+
+def _secondary_stroke_mask(
+    img_rgb: np.ndarray,
+    raw_mask: Optional[np.ndarray],
+    secondary_only: List,
+    legacy_box_fill: bool,
+) -> Tuple[np.ndarray, set]:
+    """Return a conservative erase mask for secondary-detector-only boxes.
+
+    RT-DETR finds useful missed regions but only supplies a rectangle.  Filling
+    that rectangle destroys balloon interiors and artwork.  Prefer the primary
+    detector's pixel mask inside the box; when it has no signal, fall back to a
+    dark-ink Otsu mask only in a light, low-texture balloon-like crop.  Complex
+    artwork is intentionally left untouched rather than guessed at.
+    """
+    h, w = img_rgb.shape[:2]
+    out = np.zeros((h, w), dtype=np.uint8)
+    erased_ids = set()
+    source_mask = raw_mask
+    if source_mask is not None and source_mask.shape[:2] != (h, w):
+        source_mask = cv2.resize(source_mask, (w, h), interpolation=cv2.INTER_LINEAR)
+
+    for region in secondary_only:
+        x1, y1, x2, y2 = (int(round(v)) for v in region.xyxy)
+        x1, x2 = max(0, min(w, x1)), max(0, min(w, x2))
+        y1, y2 = max(0, min(h, y1)), max(0, min(h, y2))
+        if x2 - x1 < 2 or y2 - y1 < 2:
+            continue
+
+        if legacy_box_fill:
+            cv2.rectangle(out, (x1, y1), (x2, y2), 255, thickness=-1)
+            erased_ids.add(id(region))
+            continue
+
+        # Keep the boundary out of the candidate area: it is often the balloon
+        # outline, not text.  A two-pixel inset is enough even for small labels.
+        inset = max(1, min(3, min(x2 - x1, y2 - y1) // 12))
+        ix1, iy1, ix2, iy2 = x1 + inset, y1 + inset, x2 - inset, y2 - inset
+        if ix2 - ix1 < 2 or iy2 - iy1 < 2:
+            continue
+        roi_area = (ix2 - ix1) * (iy2 - iy1)
+        candidate = np.zeros((iy2 - iy1, ix2 - ix1), dtype=np.uint8)
+
+        if source_mask is not None:
+            raw_roi = source_mask[iy1:iy2, ix1:ix2]
+            candidate[raw_roi > 0] = 255
+
+        coverage = float(cv2.countNonZero(candidate)) / roi_area
+        if coverage < 0.002:
+            # The fallback is deliberately limited to bright, low-detail regions.
+            # In an illustrated area, thresholding dark ink would also select line art.
+            rgb_roi = img_rgb[iy1:iy2, ix1:ix2]
+            gray = cv2.cvtColor(rgb_roi, cv2.COLOR_RGB2GRAY)
+            if float(gray.mean()) >= 170 and float(gray.std()) <= 65:
+                _, candidate = cv2.threshold(
+                    gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                coverage = float(cv2.countNonZero(candidate)) / roi_area
+
+        # A text mask should be sparse.  Dense masks are usually artwork, a dark
+        # balloon, or a detector failure; refusing them is safer than whole-box erase.
+        if not (0.002 <= coverage <= 0.35):
+            continue
+        candidate = cv2.dilate(
+            candidate,
+            cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)),
+        )
+        out[iy1:iy2, ix1:ix2] = cv2.bitwise_or(out[iy1:iy2, ix1:ix2], candidate)
+        erased_ids.add(id(region))
+
+    return out, erased_ids
+
+
+def _save_clean_png(img_rgb: np.ndarray, path: str) -> None:
+    """Persist a lossless workspace intermediate without recompressing artwork."""
+    Image.fromarray(img_rgb).save(path, format='PNG', compress_level=3)
+
+
 def _serialise_block(region: TextBlock, page_idx: int, block_idx: int) -> Block:
     fg, bg = region.get_font_colors()
     lines = [
@@ -276,17 +362,14 @@ async def _process_image(
     _free_vram(device)
     textlines, mask_raw, mask, secondary_only = await _detect_fused(cfg, img_rgb, device, verbose)
 
-    _, ext = os.path.splitext(os.path.basename(img_path))
-    if not ext:
-        ext = '.png'
-    clean_name = f"{page_idx:04d}_{os.path.splitext(os.path.basename(img_path))[0]}{ext}"
+    clean_name = f"{page_idx:04d}_{os.path.splitext(os.path.basename(img_path))[0]}.png"
     clean_rel = f"clean/{clean_name}"
     clean_abs = os.path.join(workspace.clean_dir, clean_name)
     os.makedirs(workspace.clean_dir, exist_ok=True)
 
     if not textlines:
-        logger.info(f"[page {page_idx}] no text detected — marked as no_text, copying original")
-        shutil.copy2(img_path, clean_abs)
+        logger.info(f"[page {page_idx}] no text detected — marked as no_text, writing lossless copy")
+        _save_clean_png(img_rgb, clean_abs)
         return Page(
             index=page_idx,
             name=os.path.basename(img_path),
@@ -297,9 +380,15 @@ async def _process_image(
             no_text=True,
         )
 
-    # 2. OCR — keep every detected line. OCR text may be empty for handwriting/symbols;
-    # those lines are still erased below (just not translated).
+    # 2. OCR — OCR returns only lines above its own recognition-confidence gate.
+    # Keep detector candidates separately: OCR confidence decides translation, not whether
+    # a high-confidence detected mark can be erased.
     ocr_textlines = await dispatch_ocr(cfg.ocr.ocr, img_rgb, textlines, cfg.ocr, device, verbose)
+    secondary_ids = {id(tl) for tl in secondary_only}
+    primary_erase_lines = [
+        tl for tl in textlines
+        if id(tl) not in secondary_ids and tl.prob >= cfg.detector.erase_detection_threshold
+    ]
 
     min_len = cfg.ocr.min_text_length
 
@@ -322,15 +411,16 @@ async def _process_image(
     else:
         text_regions = []
 
-    # 3b. Erase-only regions = detected lines rejected by the translation rules
-    # (empty OCR, symbols, handwritten kana). Recorded for reclean; still erased below.
-    erase_only_quads = [_quad_from_textline(tl) for tl in ocr_textlines if not _is_translatable(tl)]
+    # 3b. A block represents every translatable OCR line; the remaining detector
+    # candidates are erase-only.  This keeps pages.json backwards-compatible:
+    # blocks and erase_regions remain the complete reclean source of truth.
+    translation_line_ids = {id(tl) for tl in ocr_textlines if _is_translatable(tl)}
 
-    # 4. mask refinement — build the erase mask from ALL detected lines (translate set ∪
-    # erase-only set), so residual non-translated text gets inpainted too. mask_refinement
-    # needs merged TextBlocks (it reads .lines), so merge every detected line first.
-    if mask is None and ocr_textlines:
-        erase_blocks = await dispatch_textline_merge(ocr_textlines, w, h, verbose=verbose)
+    # 4. Mask refinement runs over detector-approved PRIMARY lines, not OCR output.
+    # The temporary one-line TextBlocks avoid a second expensive text-line merge; the
+    # refinement code only consumes their .lines geometry.
+    if mask is None and primary_erase_lines:
+        erase_blocks = _mask_blocks_from_lines(primary_erase_lines)
         if erase_blocks:
             mask = await dispatch_mask_refinement(
                 erase_blocks,
@@ -343,22 +433,34 @@ async def _process_image(
                 cfg.kernel_size,
             )
 
-    # 4b. Secondary-detector-only regions have no stroke-level mask (the primary missed
-    # them), so the stroke refinement above can't erase them. Box-fill their boxes into the
-    # mask — coarser than stroke masks, but it's only the extra recall the primary lacked.
+    # 4b. Secondary-only boxes do not have reliable stroke geometry.  Derive local
+    # strokes conservatively; whole-box fill is opt-in for legacy configurations.
+    secondary_erased_ids = set()
     if secondary_only:
-        if mask is None:
-            mask = np.zeros((h, w), dtype=np.uint8)
-        for q in secondary_only:
-            x1, y1, x2, y2 = (int(round(v)) for v in q.xyxy)
-            cv2.rectangle(mask, (x1, y1), (x2, y2), 255, thickness=-1)
+        secondary_mask, secondary_erased_ids = _secondary_stroke_mask(
+            img_rgb, mask_raw, secondary_only, cfg.detector.secondary_box_fill)
+        if secondary_mask.any():
+            if mask is None:
+                mask = secondary_mask
+            else:
+                mask = cv2.bitwise_or(mask, secondary_mask)
+
+    erase_only_quads = [
+        _quad_from_textline(tl)
+        for tl in primary_erase_lines
+        if id(tl) not in translation_line_ids
+    ]
+    erase_only_quads.extend(
+        _quad_from_textline(tl)
+        for tl in secondary_only
+        if id(tl) in secondary_erased_ids and id(tl) not in translation_line_ids
+    )
 
     # 5. inpainting
     # Release the detection/OCR stage's reserved VRAM before lama allocates its own
     # large activations — this is what keeps detection_size=2560 + secondary detector
     # from inflating peak VRAM / OOM-ing on big pages.
     _free_vram(device)
-    inpaint_done = False
     if mask is not None and mask.any():
         inpainted = await dispatch_inpainting(
             cfg.inpainter.inpainter,
@@ -369,32 +471,10 @@ async def _process_image(
             device,
             verbose,
         )
-        inpaint_done = True
     else:
         inpainted = img_rgb
 
-    if not inpaint_done:
-        shutil.copy2(img_path, clean_abs)
-    else:
-        pil_img = Image.fromarray(inpainted)
-        _, ext = os.path.splitext(clean_abs)
-        ext = ext.lower()
-        
-        try:
-            if pil.format == 'JPEG' or ext in ['.jpg', '.jpeg']:
-                # quality='keep' only works on images decoded from JPEG; this is a
-                # freshly created array, so save at high quality with 4:4:4
-                # subsampling to keep text edges crisp.
-                pil_img.save(clean_abs, format='JPEG', quality=95, subsampling=0, optimize=True)
-            elif pil.format == 'WEBP' or ext == '.webp':
-                pil_img.save(clean_abs, format='WEBP', quality=85, method=6)
-            elif pil.format == 'PNG' or ext == '.png':
-                pil_img.save(clean_abs, format='PNG', optimize=True)
-            else:
-                pil_img.save(clean_abs)
-        except Exception as e:
-            logger.warning(f"[page {page_idx}] PIL save failed for {clean_abs}, fallback to cv2: {e}")
-            cv2_imwrite(clean_abs, cv2.cvtColor(inpainted, cv2.COLOR_RGB2BGR))
+    _save_clean_png(inpainted, clean_abs)
 
     logger.info(f"[page {page_idx}] saved clean → {clean_rel} "
                 f"({len(text_regions)} blocks, {len(erase_only_quads)} erase-only)")

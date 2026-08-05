@@ -102,7 +102,18 @@ class DetectorConfig(BaseModel):
     fusion_max_area_ratio: float = 0.1
     """Drop secondary regions whose box covers more than this fraction of the page. A box
     detector (rtdetr) can return one huge box for a stylized title / SFX spanning the art;
-    box-filling that into the erase mask would wipe a large area. 0 disables the cap."""
+    even attempting a local erase there is risky. 0 disables the cap."""
+    erase_detection_threshold: float = 0.0
+    """Minimum detector confidence required before a PRIMARY detection can be erased.
+    Detection and OCR are deliberately independent: OCR may reject a real handwritten or
+    decorative line, but a sufficiently confident detector hit can still be cleaned. 0
+    keeps every region accepted by ``box_threshold``; raise this (for example 0.7) when
+    preserving artwork is more important than removing every last mark."""
+    secondary_box_fill: bool = False
+    """Use the legacy whole-rectangle erase mask for secondary-detector-only regions.
+    False (default) derives a conservative local stroke mask instead, preventing an
+    RT-DETR box over artwork from deleting its entire interior. Turn on only when a
+    trusted secondary detector consistently returns tight text boxes on simple balloons."""
 
 
 class OcrConfig(BaseModel):
@@ -262,7 +273,7 @@ class Config(BaseModel):
 
     kernel_size: int = 3
     """Convolution kernel size used to clean up text mask edges."""
-    mask_dilation_offset: int = 20
+    mask_dilation_offset: int = 12
     """How much to extend the text mask before inpainting."""
     force_simple_sort: bool = False
     """Skip panel-aware sort and use a simpler top-to-bottom / RTL sort."""
