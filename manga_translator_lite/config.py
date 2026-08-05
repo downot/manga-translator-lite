@@ -270,7 +270,7 @@ class Config(BaseModel):
     mask_bubble_text_fill_threshold: int = 185
     """Minimum local lightness (0-255) used to decide whether a text line sits on a
     speech-bubble-like background before applying the filled-line safety mask."""
-    mask_bubble_text_fill_padding: float = 0.18
+    mask_bubble_text_fill_padding: float = 0.24
     """Padding, as a fraction of the smaller line-box side, added around the speech-bubble
     filled-line safety mask."""
     force_simple_sort: bool = False

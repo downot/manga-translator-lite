@@ -35,10 +35,10 @@ mask_bubble_text_fill = true
 # 日  範囲 0–255 · 行塗りフォールバックを使う局所明度しきい値；高いほど厳格/安全、低いほど灰色の吹き出しも拾う · 灰色吹き出しに残る時は下げ、絵が塗られる時は上げる
 mask_bubble_text_fill_threshold = 185
 
-# EN  range 0–0.5 · padding around each filled text-line polygon, as a fraction of the smaller line-box side · raise if tiny halos remain, lower if the erase eats bubble borders
-# 中  范围 0–0.5 · 整行兜底 mask 的外扩比例，按文字行较短边计算 · 小残影仍在时调大，擦到气泡边框时调小
-# 日  範囲 0–0.5 · 行塗りマスクの余白比率（行ボックスの短辺基準） · 小さな残りがある時は上げ、吹き出し枠を食う時は下げる
-mask_bubble_text_fill_padding = 0.18
+# EN  range 0–0.5 · padding around each filled text-line polygon, as a fraction of the smaller line-box side (with a small 3px minimum for dots) · raise if tiny halos remain, lower if the erase eats bubble borders
+# 中  范围 0–0.5 · 整行兜底 mask 的外扩比例，按文字行较短边计算（细小标点至少外扩 3px）· 小残影仍在时调大，擦到气泡边框时调小
+# 日  範囲 0–0.5 · 行塗りマスクの余白比率（行ボックスの短辺基準、小さい句読点には最低3pxの余白） · 小さな残りがある時は上げ、吹き出し枠を食う時は下げる
+mask_bubble_text_fill_padding = 0.24
 
 # EN  true|false · false = panel-aware reading order (correct manga flow), true = plain top-to-bottom / RTL · set true only if panel detection mis-orders blocks on unusual layouts
 # 中  true|false · false=按分镜阅读顺序(符合漫画流)，true=纯上到下/从右到左 · 仅当异形排版下分镜排序出错时设 true

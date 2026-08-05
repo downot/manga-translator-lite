@@ -7,11 +7,24 @@ from ..utils import TextBlock, Quadrilateral
 from ..utils.bubble import is_ignore
 
 
+def _bubble_line_padding(
+    line_width: int,
+    font_size: int,
+    padding_ratio: float,
+) -> int:
+    """Return enough margin to cover clipped punctuation at a line's ends."""
+    return max(
+        3,
+        int(np.ceil(line_width * padding_ratio)),
+        int(np.ceil(max(line_width, font_size) * 0.12)),
+    )
+
+
 def _light_background_line_fill(
     raw_image: np.ndarray,
     text_regions: List[TextBlock],
     light_threshold: int = 185,
-    padding_ratio: float = 0.18,
+    padding_ratio: float = 0.24,
 ) -> np.ndarray:
     """Fill detected text-line boxes only when their local background is bubble-like.
 
@@ -40,10 +53,8 @@ def _light_background_line_fill(
             y2 = min(int(np.ceil(np.max(pts[:, 1]))), h - 1)
             bw = x2 - x1 + 1
             bh = y2 - y1 + 1
-            if bw <= 1 or bh <= 1:
-                continue
-
-            pad = max(2, int(round(min(bw, bh) * 0.35)))
+            line_width = min(bw, bh)
+            pad = _bubble_line_padding(line_width, region.font_size, padding_ratio)
             cx1 = max(x1 - pad, 0)
             cy1 = max(y1 - pad, 0)
             cx2 = min(x2 + pad, w - 1)
@@ -58,12 +69,15 @@ def _light_background_line_fill(
                 continue
 
             line_mask = np.zeros_like(fallback)
-            cv2.fillConvexPoly(line_mask, np.round(pts).astype(np.int32), 255)
-            dilate = max(1, int(round(min(bw, bh) * padding_ratio)))
-            if dilate > 0:
-                k = dilate * 2 + 1
-                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-                line_mask = cv2.dilate(line_mask, kernel, iterations=1)
+            if bw == 1 or bh == 1:
+                # Tiny dots can collapse to a one-pixel-wide quadrilateral after
+                # detector scaling. Keep them instead of silently skipping them.
+                cv2.rectangle(line_mask, (x1, y1), (x2, y2), 255, thickness=-1)
+            else:
+                cv2.fillConvexPoly(line_mask, np.round(pts).astype(np.int32), 255)
+            k = pad * 2 + 1
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+            line_mask = cv2.dilate(line_mask, kernel, iterations=1)
             fallback = cv2.bitwise_or(fallback, line_mask)
 
     return fallback
@@ -80,7 +94,7 @@ async def dispatch(
     kernel_size: int = 3,
     bubble_text_fill: bool = True,
     bubble_text_fill_threshold: int = 185,
-    bubble_text_fill_padding: float = 0.18,
+    bubble_text_fill_padding: float = 0.24,
 ) -> np.ndarray:
     # Larger sized mask images will probably have crisper and thinner mask segments due to being able to fit the text pixels better
     # so we dont want to size them down as much to not lose information
