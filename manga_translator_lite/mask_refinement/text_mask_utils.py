@@ -94,6 +94,12 @@ def refine_mask(rgbimg, rawmask):
     crf_mask = np.array(res * 255, dtype=np.uint8)
     return crf_mask
 
+
+def _is_tiny_component_inside_line(area: int, overlap_ratio: float, keep_threshold: float) -> bool:
+    """Keep small detector components only when they are inside a text line."""
+    return area <= 9 and overlap_ratio > keep_threshold
+
+
 def complete_mask(img: np.ndarray, mask: np.ndarray, textlines: List[Quadrilateral], keep_threshold = 1e-2, dilation_offset = 0,kernel_size=3):
     bboxes = [txtln.aabb.xywh for txtln in textlines]
     polys = [Polygon(txtln.pts) for txtln in textlines]
@@ -103,16 +109,13 @@ def complete_mask(img: np.ndarray, mask: np.ndarray, textlines: List[Quadrilater
 
     M = len(textlines)
     textline_ccs = [np.zeros_like(mask) for _ in range(M)]
+    textline_tiny_ccs = [np.zeros_like(mask) for _ in range(M)]
     iinfo = np.iinfo(labels.dtype)
     textline_rects = np.full(shape = (M, 4), fill_value = [iinfo.max, iinfo.max, iinfo.min, iinfo.min], dtype = labels.dtype)
     ratio_mat = np.zeros(shape = (num_labels, M), dtype = np.float32)
     dist_mat = np.zeros(shape = (num_labels, M), dtype = np.float32)
     valid = False
     for label in range(1, num_labels):
-        # skip area too small
-        if stats[label, cv2.CC_STAT_AREA] <= 9:
-            continue
-
         x1 = stats[label, cv2.CC_STAT_LEFT]
         y1 = stats[label, cv2.CC_STAT_TOP]
         w1 = stats[label, cv2.CC_STAT_WIDTH]
@@ -129,26 +132,23 @@ def complete_mask(img: np.ndarray, mask: np.ndarray, textlines: List[Quadrilater
             # print(textlines[tl_idx].pts, cc_pts, '->', overlapping_area, min(area1, area2), '=', overlapping_area / min(area1, area2), '|', polys[tl_idx].distance(cc_poly))
 
         avg = np.argmax(ratio_mat[label])
-        # print(avg, 'overlap:', ratio_mat[label, avg], '<=', keep_threshold)
         area2 = polys[avg].area
         if area1 >= area2:
             continue
-        if ratio_mat[label, avg] <= keep_threshold:
+        overlap = ratio_mat[label, avg]
+        is_tiny = area1 <= 9
+        if is_tiny:
+            if not _is_tiny_component_inside_line(area1, overlap, keep_threshold):
+                continue
+        elif overlap <= keep_threshold:
             avg = np.argmin(dist_mat[label])
-            area2 = polys[avg].area
             unit = max(min([textlines[avg].font_size, w1, h1]), 10)
-            # print("unit", unit, textlines[avg].font_size, w1, h1)
-            # if area1 < 0.4 * w1 * h1:
-            #     # ccs is probably angled
-            #     unit /= 2
-            # if avg == 0:
-            # print('no intersect', area1, '>=', area2, dist_mat[label, avg], '>=', 0.5 * unit)
             if dist_mat[label, avg] >= 0.5 * unit:
-                # print(dist_mat[label])
-                # print('CONTINUE')
                 continue
 
         textline_ccs[avg][y1:y1+h1, x1:x1+w1][labels[y1:y1+h1, x1:x1+w1] == label] = 255
+        if is_tiny:
+            textline_tiny_ccs[avg][y1:y1+h1, x1:x1+w1][labels[y1:y1+h1, x1:x1+w1] == label] = 255
         # if avg == 0:
         # print(avg)
         # cv2.imshow('ccs', image_resize(textline_ccs[avg], height = 800))
@@ -182,7 +182,11 @@ def complete_mask(img: np.ndarray, mask: np.ndarray, textlines: List[Quadrilater
         # cv2.imshow('cc before', image_resize(cc_region, height = 800))
         img_region = np.ascontiguousarray(img[y1: y1 + h1, x1: x1 + w1])
         # cv2.imshow('img', image_resize(img_region, height = 800))
-        cc_region = refine_mask(img_region, cc_region)
+        tiny_region = np.ascontiguousarray(textline_tiny_ccs[i][y1: y1 + h1, x1: x1 + w1])
+        if np.array_equal(cc_region, tiny_region):
+            cc_region = tiny_region
+        else:
+            cc_region = cv2.bitwise_or(refine_mask(img_region, cc_region), tiny_region)
         # cv2.imshow('cc after', image_resize(cc_region, height = 800))
         # cv2.waitKey(0)
         cc[y1: y1 + h1, x1: x1 + w1] = cc_region

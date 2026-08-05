@@ -7,82 +7,6 @@ from ..utils import TextBlock, Quadrilateral
 from ..utils.bubble import is_ignore
 
 
-def _bubble_line_padding(
-    line_width: int,
-    font_size: int,
-    padding_ratio: float,
-) -> int:
-    """Return enough margin to cover clipped punctuation at a line's ends."""
-    return max(
-        3,
-        int(np.ceil(line_width * padding_ratio)),
-        int(np.ceil(max(line_width, font_size) * 0.12)),
-    )
-
-
-def _light_background_line_fill(
-    raw_image: np.ndarray,
-    text_regions: List[TextBlock],
-    light_threshold: int = 185,
-    padding_ratio: float = 0.24,
-) -> np.ndarray:
-    """Fill detected text-line boxes only when their local background is bubble-like.
-
-    Stroke masks can miss tiny vertical punctuation or lightly printed kana, leaving
-    small stains after inpainting. Speech bubbles are usually locally bright and
-    low-detail, so a filled line polygon is a safe fallback there; on darker art or
-    screentones we skip it to avoid rectangular over-erasure.
-    """
-    h, w = raw_image.shape[:2]
-    fallback = np.zeros((h, w), dtype=np.uint8)
-    if not text_regions:
-        return fallback
-
-    gray = cv2.cvtColor(raw_image, cv2.COLOR_RGB2GRAY) if raw_image.ndim == 3 else raw_image
-    light_threshold = int(np.clip(light_threshold, 0, 255))
-    padding_ratio = max(float(padding_ratio), 0.0)
-
-    for region in text_regions:
-        for line in region.lines:
-            pts = np.asarray(line, dtype=np.float32).reshape(-1, 2)
-            if pts.shape[0] < 3:
-                continue
-            x1 = max(int(np.floor(np.min(pts[:, 0]))), 0)
-            y1 = max(int(np.floor(np.min(pts[:, 1]))), 0)
-            x2 = min(int(np.ceil(np.max(pts[:, 0]))), w - 1)
-            y2 = min(int(np.ceil(np.max(pts[:, 1]))), h - 1)
-            bw = x2 - x1 + 1
-            bh = y2 - y1 + 1
-            line_width = min(bw, bh)
-            pad = _bubble_line_padding(line_width, region.font_size, padding_ratio)
-            cx1 = max(x1 - pad, 0)
-            cy1 = max(y1 - pad, 0)
-            cx2 = min(x2 + pad, w - 1)
-            cy2 = min(y2 + pad, h - 1)
-            patch = gray[cy1:cy2 + 1, cx1:cx2 + 1]
-            if patch.size == 0:
-                continue
-
-            median = float(np.median(patch))
-            light_ratio = float(np.mean(patch >= light_threshold))
-            if median < light_threshold and light_ratio < 0.55:
-                continue
-
-            line_mask = np.zeros_like(fallback)
-            if bw == 1 or bh == 1:
-                # Tiny dots can collapse to a one-pixel-wide quadrilateral after
-                # detector scaling. Keep them instead of silently skipping them.
-                cv2.rectangle(line_mask, (x1, y1), (x2, y2), 255, thickness=-1)
-            else:
-                cv2.fillConvexPoly(line_mask, np.round(pts).astype(np.int32), 255)
-            k = pad * 2 + 1
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-            line_mask = cv2.dilate(line_mask, kernel, iterations=1)
-            fallback = cv2.bitwise_or(fallback, line_mask)
-
-    return fallback
-
-
 async def dispatch(
     text_regions: List[TextBlock],
     raw_image: np.ndarray,
@@ -92,9 +16,6 @@ async def dispatch(
     ignore_bubble: int = 0,
     verbose: bool = False,
     kernel_size: int = 3,
-    bubble_text_fill: bool = True,
-    bubble_text_fill_threshold: int = 185,
-    bubble_text_fill_padding: float = 0.24,
 ) -> np.ndarray:
     # Larger sized mask images will probably have crisper and thinner mask segments due to being able to fit the text pixels better
     # so we dont want to size them down as much to not lose information
@@ -126,15 +47,6 @@ async def dispatch(
     else:
         final_mask = cv2.resize(final_mask, (raw_image.shape[1], raw_image.shape[0]), interpolation = cv2.INTER_LINEAR)
         final_mask[final_mask > 0] = 255
-
-    if bubble_text_fill:
-        fallback_mask = _light_background_line_fill(
-            raw_image,
-            text_regions,
-            bubble_text_fill_threshold,
-            bubble_text_fill_padding,
-        )
-        final_mask = cv2.bitwise_or(final_mask, fallback_mask)
 
     if ignore_bubble < 1 or ignore_bubble > 50:
         return final_mask

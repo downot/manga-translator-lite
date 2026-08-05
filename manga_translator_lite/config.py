@@ -264,15 +264,6 @@ class Config(BaseModel):
     """Convolution kernel size used to clean up text mask edges."""
     mask_dilation_offset: int = 20
     """How much to extend the text mask before inpainting."""
-    mask_bubble_text_fill: bool = True
-    """Add a conservative filled-line safety mask for text detected on light speech-bubble
-    backgrounds. This catches tiny punctuation / kana fragments that stroke masks often miss."""
-    mask_bubble_text_fill_threshold: int = 185
-    """Minimum local lightness (0-255) used to decide whether a text line sits on a
-    speech-bubble-like background before applying the filled-line safety mask."""
-    mask_bubble_text_fill_padding: float = 0.24
-    """Padding, as a fraction of the smaller line-box side, added around the speech-bubble
-    filled-line safety mask."""
     force_simple_sort: bool = False
     """Skip panel-aware sort and use a simpler top-to-bottom / RTL sort."""
     use_gpu: bool = False
