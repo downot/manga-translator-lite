@@ -133,6 +133,13 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
 
     textlines, mask_raw, mask = await _dispatch_det(
         cfg, cfg.detector.detector, img_rgb, device, verbose, cfg.detector.box_threshold, eff_ds)
+    # OCR backends are allowed to mutate (or, when they merge lines, replace)
+    # Quadrilateral objects. Preserve the detector-stage facts on each original
+    # object before OCR so later steps never need object identity or OCR .prob.
+    for det_index, line in enumerate(textlines):
+        line.source_det_indices = (det_index,)
+        line.det_prob = float(line.prob)
+        line.is_secondary_only = False
 
     secondary = cfg.detector.secondary_detector
     secondary_only: List = []
@@ -164,6 +171,10 @@ async def _detect_fused(cfg: Config, img_rgb: np.ndarray, device: str, verbose: 
                    for pb in primary_boxes):
                 dup += 1
                 continue
+            det_index = len(textlines) + len(secondary_only)
+            s.source_det_indices = (det_index,)
+            s.det_prob = float(s.prob)
+            s.is_secondary_only = True
             secondary_only.append(s)
         textlines = textlines + secondary_only
         logger.info(f"detector fusion: {cfg.detector.detector.value}={len(primary_boxes)} "
@@ -243,6 +254,11 @@ def _mask_blocks_from_lines(textlines: List) -> List[TextBlock]:
             for tl in textlines]
 
 
+def _source_det_indices(region) -> set[int]:
+    """Stable detector-origin indexes carried through OCR and line merging."""
+    return set(getattr(region, 'source_det_indices', ()))
+
+
 def _secondary_stroke_mask(
     img_rgb: np.ndarray,
     raw_mask: Optional[np.ndarray],
@@ -259,7 +275,7 @@ def _secondary_stroke_mask(
     """
     h, w = img_rgb.shape[:2]
     out = np.zeros((h, w), dtype=np.uint8)
-    erased_ids = set()
+    erased_source_indices: set[int] = set()
     source_mask = raw_mask
     if source_mask is not None and source_mask.shape[:2] != (h, w):
         source_mask = cv2.resize(source_mask, (w, h), interpolation=cv2.INTER_LINEAR)
@@ -273,7 +289,7 @@ def _secondary_stroke_mask(
 
         if legacy_box_fill:
             cv2.rectangle(out, (x1, y1), (x2, y2), 255, thickness=-1)
-            erased_ids.add(id(region))
+            erased_source_indices.update(_source_det_indices(region))
             continue
 
         # Keep the boundary out of the candidate area: it is often the balloon
@@ -309,9 +325,9 @@ def _secondary_stroke_mask(
             cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)),
         )
         out[iy1:iy2, ix1:ix2] = cv2.bitwise_or(out[iy1:iy2, ix1:ix2], candidate)
-        erased_ids.add(id(region))
+        erased_source_indices.update(_source_det_indices(region))
 
-    return out, erased_ids
+    return out, erased_source_indices
 
 
 def _save_clean_png(img_rgb: np.ndarray, path: str) -> None:
@@ -380,21 +396,20 @@ async def _process_image(
             no_text=True,
         )
 
-    # 2. OCR — OCR returns only lines above its own recognition-confidence gate.
-    # Keep detector candidates separately: OCR confidence decides translation, not whether
-    # a high-confidence detected mark can be erased.
-    ocr_textlines = await dispatch_ocr(cfg.ocr.ocr, img_rgb, textlines, cfg.ocr, device, verbose)
-    secondary_ids = {id(tl) for tl in secondary_only}
+    # 2. Snapshot the detector-selected primary erase set BEFORE OCR.  OCR backends
+    # overwrite ``tl.prob`` with recognition confidence, so reading it afterwards
+    # silently mixes two incompatible confidence scales.
     primary_erase_lines = [
         tl for tl in textlines
-        if id(tl) not in secondary_ids and tl.prob >= cfg.detector.erase_detection_threshold
+        if not getattr(tl, 'is_secondary_only', False)
+        and tl.det_prob >= cfg.detector.erase_detection_threshold
     ]
+    # OCR returns only lines above its own recognition-confidence gate. OCR
+    # confidence decides translation; detector confidence only decides erase-only
+    # handling for marks that do not become final translation blocks.
+    ocr_textlines = await dispatch_ocr(cfg.ocr.ocr, img_rgb, textlines, cfg.ocr, device, verbose)
 
     min_len = cfg.ocr.min_text_length
-
-    def _is_translatable(tl) -> bool:
-        return bool(tl.text and tl.text.strip() and is_valuable_text(tl.text)
-                    and len(tl.text) >= min_len)
 
     # 3a. Translation set (rules unchanged): valuable OCR → merge → valuable filter → sort.
     valuable_textlines = [tl for tl in ocr_textlines if tl.text and tl.text.strip()]
@@ -411,33 +426,24 @@ async def _process_image(
     else:
         text_regions = []
 
-    # 3b. A block represents every translatable OCR line; the remaining detector
-    # candidates are erase-only.  This keeps pages.json backwards-compatible:
-    # blocks and erase_regions remain the complete reclean source of truth.
-    translation_line_ids = {id(tl) for tl in ocr_textlines if _is_translatable(tl)}
+    # Provenance is now a safety property rather than presentation metadata: a
+    # region with no detector source has no geometry that we can prove was
+    # erased. This should not occur with bundled OCR/merge backends, but failing
+    # closed prevents an extension backend from rendering over untouched source.
+    untraceable_regions = [r for r in text_regions if not _source_det_indices(r)]
+    if untraceable_regions:
+        logger.warning(
+            f"[page {page_idx}] skipped {len(untraceable_regions)} translated region(s) "
+            "without detector provenance"
+        )
+        text_regions = [r for r in text_regions if _source_det_indices(r)]
 
-    # 4. Mask refinement runs over detector-approved PRIMARY lines, not OCR output.
-    # The temporary one-line TextBlocks avoid a second expensive text-line merge; the
-    # refinement code only consumes their .lines geometry.
-    if mask is None and primary_erase_lines:
-        erase_blocks = _mask_blocks_from_lines(primary_erase_lines)
-        if erase_blocks:
-            mask = await dispatch_mask_refinement(
-                erase_blocks,
-                img_rgb,
-                mask_raw if mask_raw is not None else np.zeros((h, w), dtype=np.uint8),
-                'fit_text',
-                cfg.mask_dilation_offset,
-                cfg.ocr.ignore_bubble,
-                verbose,
-                cfg.kernel_size,
-            )
-
-    # 4b. Secondary-only boxes do not have reliable stroke geometry.  Derive local
-    # strokes conservatively; whole-box fill is opt-in for legacy configurations.
-    secondary_erased_ids = set()
+    # 3b. Secondary-only boxes do not have reliable stroke geometry. Derive local
+    # strokes conservatively; whole-box fill is opt-in. A secondary OCR result is
+    # allowed to become a Block only when this step has actually erased its source.
+    secondary_erased_source_indices: set[int] = set()
     if secondary_only:
-        secondary_mask, secondary_erased_ids = _secondary_stroke_mask(
+        secondary_mask, secondary_erased_source_indices = _secondary_stroke_mask(
             img_rgb, mask_raw, secondary_only, cfg.detector.secondary_box_fill)
         if secondary_mask.any():
             if mask is None:
@@ -445,15 +451,69 @@ async def _process_image(
             else:
                 mask = cv2.bitwise_or(mask, secondary_mask)
 
+        secondary_source_indices = set().union(
+            *(_source_det_indices(tl) for tl in secondary_only)
+        ) if secondary_only else set()
+        rejected_secondary_sources = secondary_source_indices - secondary_erased_source_indices
+        if rejected_secondary_sources:
+            dropped = [r for r in text_regions
+                       if _source_det_indices(r) & rejected_secondary_sources]
+            if dropped:
+                logger.warning(
+                    f"[page {page_idx}] skipped {len(dropped)} translated secondary region(s) "
+                    "because a safe erase mask could not be derived"
+                )
+                text_regions = [r for r in text_regions
+                                if not (_source_det_indices(r) & rejected_secondary_sources)]
+
+    # 3c. The invariant: every final Block must contribute its own geometry to the
+    # erase refinement input. Detector-confidence thresholds only govern extra,
+    # untranslated primary candidates; they may never exclude a rendered Block.
+    translated_source_indices = set().union(
+        *(_source_det_indices(region) for region in text_regions)
+    ) if text_regions else set()
+    primary_erase_only_lines = [
+        tl for tl in primary_erase_lines
+        if not (_source_det_indices(tl) & translated_source_indices)
+    ]
+
+    # 4. Refine final primary Block geometry plus threshold-approved untranslated
+    # primary candidates. OR it with any detector/secondary mask rather than
+    # replacing those masks, so translated text cannot be omitted by a threshold.
+    # ``TextBlock`` does not retain per-line secondary flags. A fused region is
+    # normally disjoint; include it here only if it has a primary source. Pure
+    # secondary regions are already covered by ``secondary_mask`` above.
+    primary_source_indices = {
+        index for tl in textlines if not getattr(tl, 'is_secondary_only', False)
+        for index in _source_det_indices(tl)
+    }
+    primary_block_regions = [
+        region for region in text_regions
+        if _source_det_indices(region) & primary_source_indices
+    ]
+    erase_blocks = primary_block_regions + _mask_blocks_from_lines(primary_erase_only_lines)
+    if erase_blocks:
+        refined_mask = await dispatch_mask_refinement(
+            erase_blocks,
+            img_rgb,
+            mask_raw if mask_raw is not None else np.zeros((h, w), dtype=np.uint8),
+            'fit_text',
+            cfg.mask_dilation_offset,
+            cfg.ocr.ignore_bubble,
+            verbose,
+            cfg.kernel_size,
+        )
+        mask = refined_mask if mask is None else cv2.bitwise_or(mask, refined_mask)
+
     erase_only_quads = [
         _quad_from_textline(tl)
-        for tl in primary_erase_lines
-        if id(tl) not in translation_line_ids
+        for tl in primary_erase_only_lines
     ]
     erase_only_quads.extend(
         _quad_from_textline(tl)
         for tl in secondary_only
-        if id(tl) in secondary_erased_ids and id(tl) not in translation_line_ids
+        if _source_det_indices(tl).issubset(secondary_erased_source_indices)
+        and not (_source_det_indices(tl) & translated_source_indices)
     )
 
     # 5. inpainting

@@ -34,6 +34,10 @@ TRANSLATIONS_DIR = "translations"
 class Translation:
     text: str = ""
     edited: bool = False
+    # Optional provenance fields. Old translations have none and remain trusted for
+    # compatibility; newly generated ones let translate detect changed OCR source.
+    source_hash: str = ""
+    profile: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -42,7 +46,9 @@ class Translation:
     def from_dict(cls, data: dict) -> "Translation":
         return cls(
             text=str(data.get("text", "")),
-            edited=bool(data.get("edited", False))
+            edited=bool(data.get("edited", False)),
+            source_hash=str(data.get("source_hash", "")),
+            profile=str(data.get("profile", "")),
         )
 
 
@@ -69,6 +75,12 @@ class Block:
     user_added: bool = False               # manually drawn in the editor; preserved across re-extract
     fixed_region: bool = False             # box is user-controlled → render fits text into it, never auto-expands
     scale_exempt: bool = False             # reserved: when True this block ignores the task-level box_scale
+    # Optional translation semantics. They are absent in older pages.json files
+    # and intentionally default to auto/empty so old workspaces load unchanged.
+    kind: str = "auto"                     # dialogue | narration | sfx | headline | body | caption | footnote | auto
+    speaker: str = ""
+    section_id: str = ""
+    article_id: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -93,6 +105,10 @@ class Block:
             user_added=bool(data.get("user_added", False)),
             fixed_region=bool(data.get("fixed_region", False)),
             scale_exempt=bool(data.get("scale_exempt", False)),
+            kind=str(data.get("kind", "auto")),
+            speaker=str(data.get("speaker", "")),
+            section_id=str(data.get("section_id", "")),
+            article_id=str(data.get("article_id", "")),
         )
 
 

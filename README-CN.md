@@ -8,7 +8,7 @@
 
 ## 与原项目的核心差异
 
-1.  **解耦的流水线**：将流程拆分为 `extract` (提取)、`translate` (翻译) 和 `render` (渲染)。中间结果存储在 `pages.json` 中，允许在最终渲染前进行人工审核或编辑。
+1.  **解耦的流水线**：将流程拆分为 `extract` (提取)、`translate` (翻译)、可选 `review` (润色) 和 `render` (渲染)。中间结果允许在最终渲染前进行人工审核或编辑。
 2.  **LLM 批量优化**：专为大语言模型 (LLM) 设计。支持跨页面的文本块合并，显著降低 API 成本并提供更好的翻译上下文。
 3.  **现代化与优化**：完全兼容 Python 3.10+，并针对 Apple Silicon (MPS/Metal) 和 NVIDIA (CUDA) 加速进行了优化。
 4.  **智能渲染**：采用二分搜索算法自动寻找最佳字号，在尊重原始检测边界的同时尽量填满气泡区域。
@@ -41,7 +41,8 @@
 | 步骤 | 功能 | 输出 |
 |---|---|---|
 | `extract` | 文本检测 → OCR → 掩码优化 → 图像修复 | `work/<任务>/clean/*.png`, `work/<任务>/pages.json` |
-| `translate` | 文本块分组 (~1500 字符)，调用 LLM，填充翻译字段。支持增量更新。 | 各任务更新后的 `pages.json` |
+| `translate` | 按页对文本块分组（约 1500 字符），调用 LLM，填充翻译字段。支持增量更新。 | 各任务更新后的 `pages.json` |
+| `review` | 可选地使用 LLM 润色已有译文；绝不自动执行。 | 已审阅的译文及标记文件 |
 | `render` | 使用智能排版将翻译后的文本绘制到修复后的图像上。可在渲染前选择性地进行拼写与流利度校对（通过 `--check` 选项） | `out/<任务>/*.png` (数量与输入一致) |
 | `run` | 一键完成 提取 → 翻译 → 渲染 | 工作目录及最终生成图像 |
 
@@ -60,6 +61,8 @@ python -m manga_translator_lite run -i ./in -w ./work -o ./out
 # 或分步骤运行
 python -m manga_translator_lite extract -i ./in -w ./work
 python -m manga_translator_lite translate ./work
+# 可选：显式执行整部作品的润色
+python -m manga_translator_lite review ./work
 python -m manga_translator_lite render ./work -o ./out
 ```
 
@@ -67,7 +70,7 @@ python -m manga_translator_lite render ./work -o ./out
 
 所有命令均通过 `python -m manga_translator_lite <命令> [参数]` 调用。
 
-**通用参数**（`extract`、`translate`、`render`、`run` 均可用）：
+**通用参数**（`extract`、`translate`、`review`、`render`、`run` 均可用）：
 
 | 参数 | 说明 |
 |---|---|
@@ -100,6 +103,16 @@ python -m manga_translator_lite render ./work -o ./out
 > python -m manga_translator_lite translate ./work --target-lang CHS
 > python -m manga_translator_lite translate ./work --target-lang JPN
 > ```
+
+### `review` — 可选的手工整篇译文润色
+
+`translate` 不会再通过 review 模型改写已完成译文。需要整篇一致性润色时，手动运行：
+
+```bash
+python -m manga_translator_lite review ./work --target-lang CHS
+```
+
+当 `translations/<语言>.reviewed` 已存在时，使用 `--overwrite` 可再次润色。建议在人工确认术语和 OCR 后再运行，因为它仍可能改变人物口吻或编辑文案。
 
 ### `render` — 步骤三：将译文渲染到清理后的图片
 
@@ -165,10 +178,16 @@ model = "gpt-4o-mini"
 api_base = ""                # 留空用提供商默认值，或填如 https://openrouter.ai/api/v1
 api_key = ""                 # 也可留空，改用环境变量 OPENAI_API_KEY
 target_lang = "CHS"
+source_lang = "auto"        # 原文语言提示；也可让模型逐行识别
+profile = "manga"           # manga | magazine | general
 batch_chars = 1500           # 每个请求约 1000–2000 字符
 context_pages = 1            # 发送前 N 页作为语境参考
 temperature = 0.3            # 越低越稳定（人名/语气更一致），越高越发散
 use_vision = false           # 为支持视觉的 LLM 附加页面图（更慢/成本更高）
+vision_max_pages_per_batch = 1
+prompt_token_budget = 6000   # 限制剧情/上下文对原文的挤占
+story_context_token_budget = 1200
+context_token_budget = 900
 concurrency = 1              # 任务级并发；云端 LLM 常用 3–5
 # reference_langs 不设 = 自动（参考所有经人工校对的语言）；[] = 关闭；
 # ["CHS"] = 只参考指定语言。被参考的语言全程只读。
@@ -210,7 +229,7 @@ pages = "first_last"         # none | first | last | first_last | every
 
 #### 融合两个检测器（`secondary_detector`）
 
-若第二个检测器能捕捉到主检测器漏掉的区域,你不必二选一——直接**融合**。设置 `[detector] secondary_detector` 后,extract 阶段会同时跑两个检测器:保留主检测器的笔画级 mask 以保证擦除干净,然后把**次检测器检出、而主检测器漏掉的区域**(IoU 低于 `fusion_iou`)加入检测。这些额外区域会照常 OCR、翻译；清图时默认仅提取保守的局部笔画 mask，而不再整框擦除。只有把 `secondary_box_fill = true` 才会恢复旧的整框行为。
+若第二个检测器能捕捉到主检测器漏掉的区域,你不必二选一——直接**融合**。设置 `[detector] secondary_detector` 后,extract 阶段会同时跑两个检测器:保留主检测器的笔画级 mask 以保证擦除干净,然后把**次检测器检出、而主检测器漏掉的区域**(IoU 低于 `fusion_iou`)加入检测。这些额外区域会先 OCR；只有成功提取出安全的局部笔画 mask 后才会成为翻译块。无法安全擦除时会跳过该区域，避免把译文绘制在原文上。只有把 `secondary_box_fill = true` 才会恢复旧的整框行为。
 
 ```toml
 [detector]
@@ -336,16 +355,15 @@ python server.py -w ./work -p 8000
 
 ---
 
-## 译文自动润色与剧本管理
+## 译文润色与剧本管理
 
-为解决长篇或连贯剧情漫画在分批翻译时可能出现的语气不连贯、上下文脱节等问题，本项目在 `translate` 阶段引入了**故事剧本级译文自动润色 (Review)** 功能。
+对于长篇或连贯剧情漫画，可在需要整篇一致性检查时显式运行**故事剧本级译文润色 (Review)**。它不再属于常规 `translate` 流程。
 
 ### 1. 运行原理与幂等性
-* **润色时机**：在 `translate` 步骤完成初版翻译后，系统会自动组织整章对话，根据**整体故事剧本描述**对所有译文进行全局连贯性与角色语气润色。
-* **滚动上下文**：翻译批次之间会继续传递最近的「原文 → 译文」对照，让人名、代词、敬语、角色语气在长任务里更稳定。
-* **按页组织 Prompt**：初译 prompt 会插入页分隔，并使用稳定的文字块 ID（如 `<|p0001_b000|>`）对齐结果，降低错位概率。整批失败或漏项时会降级为单块重试，最终仍为空的块不会覆盖已有译文。
-* **幂等性保障**：润色成功后会在 `translations` 下生成 `<目标语言>.reviewed` 标记文件。再次执行 `translate` 会自动跳过已润色的任务。
-* **增量与补齐**：对于已翻译但尚未润色的任务，再次执行 `translate` 将直接跳过翻译阶段，**智能补齐润色流程**；使用 `--overwrite` 参数则会强制重新翻译并重新润色。
+* **手工触发**：使用 `python -m manga_translator_lite review ./work` 按阅读顺序汇总已有译文，再由 LLM 参考整体剧本进行润色；`translate` 只生成或刷新译文。
+* **滚动上下文**：翻译只传递真实前页的「原文 → 译文」对照，章节边界会清空上下文；同页已确认文字会作为独立参考传入。
+* **严格的按页 Prompt**：初译 prompt 使用稳定文字块 ID（如 `<|p0001_b000|>`）并携带可选语义字段。缺失 ID 只会被定向补发，不会按位置错配到其他文字块。
+* **幂等性保障**：手工润色成功后在 `translations` 下生成 `<目标语言>.reviewed` 标记；需再次润色时使用 `review --overwrite`。
 
 ### 2. 故事剧本文件 (`story.txt`)
 您只需在任务工作目录下（如 `work/task_a/`）放置一个描述文件，程序会自动按顺序检索 `story.txt`/`script.txt`/`description.txt` 等。您也可以直接在 `pages.json` 中配置 `"story"` 字段。
@@ -371,12 +389,13 @@ python server.py -w ./work -p 8000
 
 * **原文始终是源。** 模型仍然从原文（如日文）翻译——参考只是语义/语气提示，绝非二次跳板翻译。Prompt 明确要求它据参考消歧含义、指代、专名与语域，但**不要**照抄其措辞。
 * **只读、不破坏。** 每种语言独立存放于 `translations/<语言>.json`，参考某语言只会**读取**它。翻译新语言绝不触碰已有语言，即便它们尚未译完；参考中缺失的行会自动退回普通的原文→目标翻译。
-* **默认自动。** 不带任何参数时，所有经过**人工校对**（含 `<语言>.reviewed` 标记——见[译文自动润色](#译文自动润色与剧本管理)）的其它语言都会被用作参考。翻译*第一种*语言时无可参考，行为与以往一致。
+* **默认自动。** 不带任何参数时，所有经过**人工校对**（含 `<语言>.reviewed` 标记——见[译文润色](#译文润色与剧本管理)）的其它语言都会被用作参考。翻译*第一种*语言时无可参考，行为与以往一致。
 
 ```bash
-# 1) 先翻译 + 润色 + 人工校正中文
+# 1) 先翻译、人工校正中文，再按需要润色
 python -m manga_translator_lite translate ./work --target-lang CHS
 #    ... 在编辑器里校对中文 ...
+python -m manga_translator_lite review ./work --target-lang CHS
 
 # 2) 翻译英文——自动参考已校对的中文
 python -m manga_translator_lite translate ./work --target-lang ENG

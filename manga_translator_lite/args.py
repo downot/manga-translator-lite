@@ -4,6 +4,7 @@ Subcommands:
 
     extract   detect + OCR + inpaint → workspace
     translate hit the LLM, fill in pages.json
+    review    manually polish existing translations with the LLM
     render    paint translations onto clean images
     run       extract + translate + render in one go
     config-help  print the config schema
@@ -93,6 +94,13 @@ def build_parser() -> argparse.ArgumentParser:
                            'Try 3-5; keep under your provider rate limits.')
     _add_reference_args(p_tx)
     _add_common(p_tx)
+
+    p_review = sub.add_parser('review',
+                              help='Manually review/polish existing translations with the configured LLM.')
+    p_review.add_argument('work_dir', help='Existing workspace directory.')
+    p_review.add_argument('--overwrite', action='store_true',
+                          help='Review again even if the language already has a .reviewed marker.')
+    _add_common(p_review)
 
     p_render = sub.add_parser('render',
                               help='Step 3: render translations onto clean images.')

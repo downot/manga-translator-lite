@@ -48,6 +48,12 @@ class LLMProvider(str, Enum):
     none = "none"              # No translation (passthrough)
 
 
+class TranslationProfile(str, Enum):
+    manga = "manga"
+    magazine = "magazine"
+    general = "general"
+
+
 class Alignment(str, Enum):
     auto = "auto"
     left = "left"
@@ -88,8 +94,9 @@ class DetectorConfig(BaseModel):
     secondary_detector: Detector = Detector.none
     """Optional second detector fused with the primary to boost recall (e.g. 'rtdetr').
     'none' disables fusion (default — behavior is unchanged). Regions the secondary finds
-    that the primary misses are added to detection: OCR'd, translated, and box-erased.
-    Keep a stroke detector (ctd/default) as the primary so erase masks stay clean."""
+    that the primary misses are OCR'd and rendered only when a safe local erase mask can
+    be derived; otherwise they are skipped. Keep a stroke detector (ctd/default) as the
+    primary so erase masks stay clean."""
     secondary_box_threshold: Optional[float] = None
     """box_threshold for the secondary detector (rtdetr likes ~0.3). None = reuse box_threshold."""
     fusion_iou: float = 0.4
@@ -104,11 +111,11 @@ class DetectorConfig(BaseModel):
     detector (rtdetr) can return one huge box for a stylized title / SFX spanning the art;
     even attempting a local erase there is risky. 0 disables the cap."""
     erase_detection_threshold: float = 0.0
-    """Minimum detector confidence required before a PRIMARY detection can be erased.
-    Detection and OCR are deliberately independent: OCR may reject a real handwritten or
-    decorative line, but a sufficiently confident detector hit can still be cleaned. 0
-    keeps every region accepted by ``box_threshold``; raise this (for example 0.7) when
-    preserving artwork is more important than removing every last mark."""
+    """Minimum detector confidence for erase-only PRIMARY detections.
+    Detector confidence is snapshotted before OCR, so it is never confused with OCR
+    confidence. Final translated Blocks are always included in mask refinement regardless
+    of this value; raise it (for example 0.7) only to preserve artwork around untranslated
+    detector candidates."""
     secondary_box_fill: bool = False
     """Use the legacy whole-rectangle erase mask for secondary-detector-only regions.
     False (default) derives a conservative local stroke mask instead, preventing an
@@ -142,7 +149,9 @@ class TranslatorConfig(BaseModel):
     target_lang: str = "ENG"
     """Destination language code (CHS, CHT, ENG, JPN, KOR, etc.)"""
     source_lang: str = "auto"
-    """Source language hint, or 'auto' to let the model detect."""
+    """Source language hint sent to the translator, or 'auto' for per-line detection."""
+    profile: TranslationProfile = TranslationProfile.manga
+    """Translation rules tuned for manga, magazine/editorial text, or general content."""
     batch_chars: int = 1500
     """Approximate character budget per LLM request (1000-2000 recommended)."""
     context_pages: int = 1
@@ -151,6 +160,14 @@ class TranslatorConfig(BaseModel):
     """LLM sampling temperature for translation/review/story requests."""
     use_vision: bool = False
     """Attach page images to translation batches when the provider supports vision."""
+    vision_max_pages_per_batch: int = 1
+    """Maximum distinct page images attached to one translation request. 0 disables images."""
+    prompt_token_budget: int = 6000
+    """Approximate total input-token cap per translation request, including story and context."""
+    story_context_token_budget: int = 1200
+    """Maximum approximate tokens allocated to chapter/story context in one request."""
+    context_token_budget: int = 900
+    """Maximum approximate tokens allocated to recent page and locked-page context."""
     timeout: int = 120
     """Request timeout in seconds."""
     max_retries: int = 3

@@ -27,6 +27,9 @@ def test_defaults_sane():
     assert c.translator.provider.value == "openai"
     assert c.translator.target_lang == "ENG"
     assert c.translator.concurrency == 1
+    assert c.translator.profile.value == "manga"
+    assert c.translator.vision_max_pages_per_batch == 1
+    assert c.translator.prompt_token_budget == 6000
     assert c.render.font_size_minimum == -1
     assert c.use_gpu is False
     assert c.detector.erase_detection_threshold == 0.0
@@ -46,6 +49,7 @@ def test_load_sample_toml(tmp_path):
     assert c.detector.detection_size > 0
     assert c.translator.provider.value in {"openai", "gemini", "none"}
     assert c.translator.concurrency == 1
+    assert c.translator.profile.value in {"manga", "magazine", "general"}
 
 
 def test_font_color_helpers():

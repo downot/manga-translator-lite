@@ -9,7 +9,7 @@ This project is deeply indebted to **frederik-uni** and **zyddnys** and the orig
 ## Core Differences from Original
 
 1.  **Decoupled Pipeline**: Splits the process into `extract`, `translate`, and `render`. Intermediate results are stored in `pages.json`, allowing manual review or editing before the final render.
-2.  **LLM Batching Optimization**: Specifically redesigned for Large Language Models. It batches text blocks across multiple pages to significantly reduce API costs and provide better context for translation.
+2.  **Context-safe LLM Translation**: Translates page by page, retaining only real preceding-page context and optional same-page approved text; prompt budgets keep long story notes from crowding out source lines.
 3.  **Modernized & Optimized**: Fully compatible with Python 3.10+ and optimized for Apple Silicon (MPS/Metal) and NVIDIA (CUDA) acceleration.
 4.  **Smart Rendering**: Features a binary-search font fitting algorithm that automatically maximizes font size to fill bubble areas while respecting the original detected boundaries.
 5.  **Multi-Task Support**: Automatically handles multiple manga folders as separate "tasks", keeping a clean workspace structure.
@@ -19,7 +19,7 @@ This project is deeply indebted to **frederik-uni** and **zyddnys** and the orig
 
 ---
 
-Local OCR + third-party LLM API. The pipeline is split into three reviewable steps so you can edit translations by hand before they get rendered back onto the page.
+Local OCR + third-party LLM API. The pipeline is split into reviewable stages so you can edit translations by hand and optionally run a separate whole-work review before rendering.
 
 ```text
   in/                                   work/                              out/
@@ -41,7 +41,8 @@ Each subdirectory under `in/` is treated as a separate **task**. The directory s
 | Step | What it does | Outputs |
 |---|---|---|
 | `extract` | text detection → OCR → mask refinement → inpainting | `work/<task>/clean/*.png`, `work/<task>/pages.json` |
-| `translate` | batches blocks (~1500 chars), calls LLM, fills `translation` fields. Supports incremental updates. | updated `pages.json` per task |
+| `translate` | batches blocks within each page (~1500 chars), calls the LLM, and fills `translation` fields. Supports incremental updates. | updated `pages.json` per task |
+| `review` | optionally polish existing translations with the LLM; never runs automatically. | reviewed translation files and marker |
 | `render` | paints translations onto the inpainted images using smart typesetting. Optional copyediting/proofreading check (--check) before rendering. | `out/<task>/*.png` (same count as input) |
 | `run` | extract → translate → render in one shot | Both workspace and final images |
 
@@ -60,6 +61,8 @@ python -m manga_translator_lite run -i ./in -w ./work -o ./out
 # Or step-by-step
 python -m manga_translator_lite extract -i ./in -w ./work
 python -m manga_translator_lite translate ./work
+# Optional, manual whole-work review
+python -m manga_translator_lite review ./work
 python -m manga_translator_lite render ./work -o ./out
 ```
 
@@ -67,7 +70,7 @@ python -m manga_translator_lite render ./work -o ./out
 
 All commands are invoked as `python -m manga_translator_lite <command> [options]`.
 
-**Common options** (available on `extract`, `translate`, `render`, `run`):
+**Common options** (available on `extract`, `translate`, `review`, `render`, `run`):
 
 | Option | Description |
 |---|---|
@@ -100,6 +103,16 @@ All commands are invoked as `python -m manga_translator_lite <command> [options]
 > python -m manga_translator_lite translate ./work --target-lang CHS
 > python -m manga_translator_lite translate ./work --target-lang JPN
 > ```
+
+### `review` — Optional manual whole-work translation polish
+
+`translate` never changes completed translations through the review model. Run review explicitly when a full-work consistency pass is desired:
+
+```bash
+python -m manga_translator_lite review ./work --target-lang CHS
+```
+
+`--overwrite` reviews a language again even when its `translations/<LANG>.reviewed` marker exists. This command is best used after a human has checked terminology and source OCR, since it can still change voice or editorial wording.
 
 ### `render` — Step 3: paint translations onto clean images
 
@@ -165,10 +178,16 @@ model = "gpt-4o-mini"
 api_base = ""                # Empty = provider default, or e.g. https://openrouter.ai/api/v1
 api_key = ""                 # Or leave empty and set the OPENAI_API_KEY env var
 target_lang = "ENG"
+source_lang = "auto"        # source-language hint, or let the model detect each line
+profile = "manga"           # manga | magazine | general
 batch_chars = 1500           # ~1000–2000 chars per LLM request
 context_pages = 1            # number of past pages sent as tone context
 temperature = 0.3            # lower = more consistent names/register; higher = more varied
 use_vision = false           # attach page images for vision-capable LLMs (slower/costlier)
+vision_max_pages_per_batch = 1
+prompt_token_budget = 6000   # cap story/context prompt growth
+story_context_token_budget = 1200
+context_token_budget = 900
 concurrency = 1              # task-level parallelism; use 3–5 for cloud LLMs
 # reference_langs unset = auto (reference every human-reviewed language); [] = off;
 # ["CHS"] = reference exactly these. Referenced languages are read-only.
@@ -210,7 +229,7 @@ RT-DETR shines when it catches regions your primary detector misses on stylized 
 
 #### Fusing two detectors (`secondary_detector`)
 
-If a second detector catches regions your primary misses, you don't have to choose — **fuse** them. Set a `[detector] secondary_detector` and the extract step runs both: it keeps your primary detector's stroke-level masks for clean erasing, then **adds the secondary's regions that the primary missed** (IoU below `fusion_iou`) to detection. Those extra regions are OCR'd and translated normally; for cleaning, extract derives a conservative local stroke mask rather than erasing the whole detector box. Set `secondary_box_fill = true` only to restore the legacy whole-box behavior.
+If a second detector catches regions your primary misses, you don't have to choose — **fuse** them. Set a `[detector] secondary_detector` and the extract step runs both: it keeps your primary detector's stroke-level masks for clean erasing, then **adds the secondary's regions that the primary missed** (IoU below `fusion_iou`) to detection. Extra regions are OCR'd, but become translation blocks only after extract derives a safe local stroke mask; when it cannot do so, the region is skipped instead of drawing a translation over source text. Set `secondary_box_fill = true` only to restore the legacy whole-box behavior.
 
 ```toml
 [detector]
@@ -338,14 +357,13 @@ The console prints a secure URL for each task (each ends with `?t=<token>`); ope
 
 ## Translation Review & Story Context Management
 
-To address inconsistency in tone and lack of context when translating long or continuous manga chapters in batches, this project introduces the **Story-Context-Aware Translation Review and Polish (Review)** feature during the `translate` stage.
+For long manga chapters, use the optional **Story-Context-Aware Translation Review and Polish (Review)** command when you intentionally want a separate whole-work pass. It is not part of normal `translate` runs.
 
 ### 1. Mechanism & Idempotency
-* **Review & Polish**: After completing the initial translation, the pipeline automatically compiles all translated blocks in chronological reading order, then invokes the LLM to polish them based on the **overall story description** for consistency and character voice.
-* **Rolling Context**: Translation batches now carry recent source → translation pairs forward, so names, pronouns, honorifics, and register stay steadier across long jobs.
-* **Page-aware Prompts**: Initial translation prompts include page separators and stable block IDs (e.g. `<|p0001_b000|>`), reducing response misalignment. Failed or missing batch outputs are retried one block at a time and empty failures are not written over existing translations.
-* **Idempotency**: A `<lang>.reviewed` marker file (e.g. `CHS.reviewed`) is created in the `translations/` folder upon a successful review. Subsequent `translate` runs will skip both translation and review.
-* **Incremental Run**: If a task is fully translated but not yet reviewed, running `translate` will skip the translation phase and **incrementally run the review step**; using the `--overwrite` flag forces both re-translation and re-review.
+* **Manual trigger**: `python -m manga_translator_lite review ./work` compiles translated blocks in chronological reading order and invokes the LLM using the overall story description. `translate` only creates or refreshes translations.
+* **Rolling context**: Translation requests retain recent source → translation pairs only from real preceding pages. Context is cleared at chapter boundaries, and already-approved text on a partially translated page is supplied separately.
+* **Strict page-aware prompts**: Prompts include stable block IDs (e.g. `<|p0001_b000|>`) plus optional block semantics. Missing IDs are repaired in a focused follow-up request; no partial response is positionally shifted onto another block.
+* **Idempotency**: A `<lang>.reviewed` marker file (e.g. `CHS.reviewed`) is created after a successful manual review. Repeat with `review --overwrite` to force it again.
 
 ### 2. Story Context File (`story.txt`)
 Simply place a text file named `story.txt` (or `script.txt`, `description.txt`) in your task folder (e.g. `work/task_a/`). The program will automatically search for it. You can also specify it in `pages.json` under the `"story"` key.
@@ -374,9 +392,10 @@ When you translate a chapter to several languages, the **first** language usuall
 * **Auto by default.** With no flag, every other language that has been **human-reviewed** (has a `<LANG>.reviewed` marker — see [Translation Review](#translation-review--story-context-management)) is used as reference. Translating the *first* language has nothing to reference, so behaviour is unchanged there.
 
 ```bash
-# 1) Translate + review + hand-correct Chinese first
+# 1) Translate, then hand-correct and optionally review Chinese first
 python -m manga_translator_lite translate ./work --target-lang CHS
 #    ... proofread CHS in the editor ...
+python -m manga_translator_lite review ./work --target-lang CHS
 
 # 2) Translate English — auto-references the reviewed Chinese
 python -m manga_translator_lite translate ./work --target-lang ENG

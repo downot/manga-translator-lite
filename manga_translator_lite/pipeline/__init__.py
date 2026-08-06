@@ -1,4 +1,4 @@
-"""Three-step pipeline: extract → translate → render."""
+"""Pipeline commands: extract → translate → optional review → render."""
 
 from .schema import (
     Block,

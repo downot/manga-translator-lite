@@ -8,7 +8,7 @@
 
 ## オリジナル版との主な違い
 
-1.  **デカップリングされたパイプライン**: プロセスを `extract` (抽出)、`translate` (翻訳)、`render` (描画) の 3 つのステップに分割。中間結果は `pages.json` に保存され、最終的な描画の前に手動で編集が可能です。
+1.  **デカップリングされたパイプライン**: プロセスを `extract` (抽出)、`translate` (翻訳)、任意の `review` (推敲)、`render` (描画) に分割。中間結果は最終描画前に手動で編集できます。
 2.  **LLM バッチ処理の最適化**: LLM 向けに再設計。複数のページにまたがるテキストブロックをバッチ処理することで、API コストを大幅に削減し、より適切な文脈での翻訳を可能にします。
 3.  **現代化と最適化**: Python 3.10+ と完全に互換性があり、Apple Silicon (MPS/Metal) および NVIDIA (CUDA) 加速向けに最適化されています。
 4.  **スマートレンダリング**: 二分探索アルゴリズムを採用し、元の検出境界を尊重しつつ、吹き出し領域を最大限に埋めるフォントサイズを自動的に決定します。
@@ -41,7 +41,8 @@
 | ステップ | 内容 | 出力 |
 |---|---|---|
 | `extract` | テキスト検出 → OCR → マスク精査 → インペイント | `work/<タスク>/clean/*.png`, `work/<タスク>/pages.json` |
-| `translate` | テキストを約 1500 文字のバッチにまとめ、LLM を呼び出し。インクリメンタル更新をサポート。 | 各タスクの更新された `pages.json` |
+| `translate` | ページごとにテキストを約 1500 文字のバッチにまとめ、LLM を呼び出し。インクリメンタル更新をサポート。 | 各タスクの更新された `pages.json` |
+| `review` | 既存訳を LLM で任意に推敲。自動では実行しません。 | レビュー済み翻訳とマーカー |
 | `render` | スマートな写植を用いて、翻訳されたテキストを画像に描画。レンダリング前にオプションでスペル＆流暢さの校正チェック（`--check`）を実行可能 | `out/<タスク>/*.png`（入力と同数） |
 | `run` | 抽出 → 翻訳 → 描画を一括実行 | ワークスペースと最終画像の両方 |
 
@@ -60,6 +61,8 @@ python -m manga_translator_lite run -i ./in -w ./work -o ./out
 # またはステップごとに実行
 python -m manga_translator_lite extract -i ./in -w ./work
 python -m manga_translator_lite translate ./work
+# 任意：作品全体の推敲を明示的に実行
+python -m manga_translator_lite review ./work
 python -m manga_translator_lite render ./work -o ./out
 ```
 
@@ -67,7 +70,7 @@ python -m manga_translator_lite render ./work -o ./out
 
 すべてのコマンドは `python -m manga_translator_lite <コマンド> [オプション]` で実行します。
 
-**共通オプション**（`extract`・`translate`・`render`・`run` で利用可能）：
+**共通オプション**（`extract`・`translate`・`review`・`render`・`run` で利用可能）：
 
 | オプション | 説明 |
 |---|---|
@@ -100,6 +103,16 @@ python -m manga_translator_lite render ./work -o ./out
 > python -m manga_translator_lite translate ./work --target-lang CHS
 > python -m manga_translator_lite translate ./work --target-lang JPN
 > ```
+
+### `review` — 任意の手動・全体翻訳推敲
+
+`translate` は review モデルで完成済みの訳文を書き換えません。全体の整合性を確認したい時だけ、明示的に実行します：
+
+```bash
+python -m manga_translator_lite review ./work --target-lang CHS
+```
+
+`translations/<LANG>.reviewed` が存在する場合も、`--overwrite` で再推敲できます。人物の口調や編集文に変更が入る可能性があるため、用語と OCR を人手で確認してからの実行を推奨します。
 
 ### `render` — ステップ3：翻訳をクリーン画像に描画
 
@@ -165,10 +178,16 @@ model = "gpt-4o-mini"
 api_base = ""                # 空でプロバイダ既定値、または例: https://openrouter.ai/api/v1
 api_key = ""                 # 空のままにして環境変数 OPENAI_API_KEY を使うことも可能
 target_lang = "JPN"
+source_lang = "auto"        # 原文言語ヒント；モデルによる行ごとの自動判別も可
+profile = "manga"           # manga | magazine | general
 batch_chars = 1500           # 1リクエストあたり約 1000–2000 文字
 context_pages = 1            # 文脈として送信する過去のページ数
 temperature = 0.3            # 低いほど名前/口調が安定、高いほど多様
 use_vision = false           # vision 対応 LLM にページ画像を添付（低速/高コスト）
+vision_max_pages_per_batch = 1
+prompt_token_budget = 6000   # ストーリー/文脈が原文を圧迫しないための上限
+story_context_token_budget = 1200
+context_token_budget = 900
 concurrency = 1              # タスク単位の並列数；クラウド LLM は 3–5 が目安
 # reference_langs 未設定 = 自動（人手レビュー済みの全言語を参照）；[] = 無効；
 # ["CHS"] = 指定言語のみ参照。参照される言語は読み取り専用。
@@ -210,7 +229,7 @@ RT-DETR は、様式化フォント / webtoon / SFX の多いページで主検�
 
 #### 2 つの検出器を融合する（`secondary_detector`）
 
-2 つ目の検出器が主検出器の見逃した領域を拾うなら、どちらか一方を選ぶ必要はありません——**融合**しましょう。`[detector] secondary_detector` を設定すると、extract ステージは両方を実行します。主検出器のストロークレベルのマスク（きれいな消去用）はそのまま使い、そのうえで**副検出器が見つけ、主検出器が見逃した領域**（IoU が `fusion_iou` 未満）を検出に追加します。追加領域は通常どおり OCR・翻訳され、消去時は枠全体を塗りつぶさず保守的な局所ストローク mask を作ります。旧来の枠全体消去に戻すには `secondary_box_fill = true` を設定します。
+2 つ目の検出器が主検出器の見逃した領域を拾うなら、どちらか一方を選ぶ必要はありません——**融合**しましょう。`[detector] secondary_detector` を設定すると、extract ステージは両方を実行します。主検出器のストロークレベルのマスク（きれいな消去用）はそのまま使い、そのうえで**副検出器が見つけ、主検出器が見逃した領域**（IoU が `fusion_iou` 未満）を検出に追加します。追加領域はまず OCR され、安全な局所ストローク mask を作れた場合だけ翻訳ブロックになります。安全に消去できない領域は原文の上に訳文を描かないようスキップします。旧来の枠全体消去に戻すには `secondary_box_fill = true` を設定します。
 
 ```toml
 [detector]
@@ -338,14 +357,13 @@ python server.py -w ./work -p 8000
 
 ## 翻訳推敲（Review）とストーリー背景管理
 
-長編や連話もののマンガにおいて、バッチごとに翻訳する際に発生しがちな「キャラクターの語気の不一致」や「文脈の断絶」を解決するため、本プロジェクトでは `translate` ステージに**ストーリー背景に基づいた自動翻訳推敲（Review）**機能を導入しました。
+長編・連話マンガで作品全体の一貫性を確認したい時は、**ストーリー背景に基づく翻訳推敲（Review）**を明示的に実行できます。通常の `translate` には含まれません。
 
 ### 1. 動作原理と冪等性
-* **推敲プロセス**：翻訳完了後、システムは全体の対話を自動的に収集し、**全体のストーリー概要**に基づいて、キャラクターの口調や会話の一貫性を高度に調整・推敲します。
-* **ローリング文脈**：翻訳バッチ間で直近の「原文 → 翻訳」ペアを引き継ぐため、長いタスクでも名前、代名詞、敬語、話し方が安定しやすくなります。
-* **ページ単位の Prompt**：初期翻訳の prompt にはページ区切りと安定したブロック ID（例：`<|p0001_b000|>`）が入り、出力のずれを減らします。バッチ失敗や欠落があった場合は 1 ブロック単位で再試行し、最後まで空のものは既存訳を上書きしません。
-* **冪等性の確保**：推敲完了後、`translations` フォルダ配下に `<ターゲット言語>.reviewed` マークファイルが作成されます。次回の `translate` 実行時は自動的にスキップされます。
-* **増分更新と補完**：すでに翻訳されているが推敲されていないタスクがある場合、`translate` を再実行すると、翻訳フェーズをスキップして**推敲プロセスのみをインテリジェントに実行**します。`--overwrite` オプションを指定した場合は、強制的に再翻訳と再推敲を行います。
+* **手動実行**：`python -m manga_translator_lite review ./work` は既訳を読順でまとめ、全体のストーリー背景を参照して LLM 推敲を実行します。`translate` は訳文の生成・更新だけを行います。
+* **ローリング文脈**：翻訳には実際に先行するページの「原文 → 訳文」だけを渡し、章境界では文脈を消去します。同じページの確定済み訳文は別の参照として渡されます。
+* **厳格なページ単位 Prompt**：初期 prompt は安定したブロック ID（例：`<|p0001_b000|>`）と任意の意味情報を含みます。欠けた ID は対象だけを再要求し、別ブロックへの位置ずれを防ぎます。
+* **冪等性**：手動推敲成功後に `translations` フォルダへ `<ターゲット言語>.reviewed` マーカーを作成します。再実行には `review --overwrite` を使います。
 
 ### 2. ストーリー背景ファイル (`story.txt`)
 タスクの作業ディレクトリ（例：`work/task_a/`）に `story.txt`、`script.txt`、または `description.txt` という名前のテキストファイルを置くだけで、プログラムが自動的に読み込みます。または、`pages.json` 内の `"story"` キーで指定することも可能です。
@@ -374,9 +392,10 @@ python server.py -w ./work -p 8000
 * **既定は自動。** フラグなしの場合、**人手レビュー済み**（`<言語>.reviewed` マーカーを持つ——[翻訳推敲](#翻訳推敲reviewとストーリー背景管理)を参照）の他のすべての言語が参照に使われます。*最初の*言語の翻訳時は参照対象がないため、従来どおりの動作です。
 
 ```bash
-# 1) まず中国語を翻訳＋推敲＋手動校正
+# 1) まず中国語を翻訳・手動校正し、必要なら推敲
 python -m manga_translator_lite translate ./work --target-lang CHS
 #    ... エディタで中国語を校正 ...
+python -m manga_translator_lite review ./work --target-lang CHS
 
 # 2) 英語を翻訳——レビュー済みの中国語を自動参照
 python -m manga_translator_lite translate ./work --target-lang ENG

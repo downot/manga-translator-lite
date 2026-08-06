@@ -102,9 +102,9 @@ fusion_overlap_limit = 0.5
 # 日  範囲 0.05–0.2(0=無制限) · ページのこの割合を超える副枠を破棄；ボックス検出器は様式化タイトル/SFX を巨大枠で返し塗りつぶしで絵が消える · 大きな矩形の誤消去が残る時は下げ、正常な大きい吹き出しが落ちる時は上げる
 fusion_max_area_ratio = 0.1
 
-# EN  range 0–1 · independent erase gate for PRIMARY detector hits; 0 keeps every box already accepted by box_threshold, raise (e.g. 0.7) to protect artwork at the cost of residual text
-# 中  范围 0–1 · 主检测器擦除的独立置信门槛；0 保留所有已通过 box_threshold 的框，调高(如 0.7)可保护画面但可能留下文字
-# 日  範囲 0–1 · 主検出器の消去用独立信頼度ゲート；0 は box_threshold を通った全枠を残し、上げる(例 0.7)と絵を守れるが文字が残る可能性あり
+# EN  range 0–1 · detector-confidence gate for erase-only PRIMARY hits; translated blocks are always mask-refined, so raising this (e.g. 0.7) only preserves artwork around untranslated candidates
+# 中  范围 0–1 · 仅作用于主检测器“只擦不译”候选的检测置信门槛；会渲染译文的文字始终进入 mask 优化，调高(如 0.7)只会更好保护未翻译候选周围画面
+# 日  範囲 0–1 · 主検出器の「消去のみ」候補にだけ効く検出信頼度ゲート；訳文を描画する文字は常に mask 精査に入るため、上げる(例 0.7)と未翻訳候補の周囲の絵をより保護するだけ
 erase_detection_threshold = 0.0
 
 # EN  true|false · false derives a local stroke mask for secondary-only (e.g. RT-DETR) boxes, avoiding rectangular over-erasure; true restores the old whole-box erase behavior
@@ -175,6 +175,11 @@ target_lang = "CHS"
 # 日  "auto" または言語コード · モデルへの原文言語ヒント · 通常は "auto"、自動判定が外す時に明示指定
 source_lang = "auto"
 
+# EN  manga|magazine|general · applies genre-aware translation rules · use manga for speech balloons/SFX, magazine to preserve facts and article structure, general for other image text
+# 中  manga|magazine|general · 应用相应体裁的翻译规则 · 气泡/拟声词用 manga，杂志文章且需保留事实与版式结构用 magazine，其他图文用 general
+# 日  manga|magazine|general · ジャンルに応じた翻訳規則を適用 · 吹き出し/SFX は manga、事実や記事構成を守る雑誌は magazine、その他は general
+profile = "manga"
+
 # EN  range 1000–2000 · approx chars per LLM request; larger = fewer calls + more context but risks truncation/timeout, smaller = more reliable · lower if the model truncates or times out, raise to cut API calls
 # 中  范围 1000–2000 · 每次 LLM 请求约多少字；调大=更少请求+更多上下文但易截断/超时，调小=更稳 · 模型截断/超时时调小，想减少调用时调大
 # 日  範囲 1000–2000 · 1 リクエストあたりの概算文字数；大=呼び出し減+文脈増だが切り捨て/タイムアウトのリスク、小=安定 · 切り捨て/タイムアウト時は下げ、API 呼び出しを減らすなら上げる
@@ -194,6 +199,18 @@ temperature = 0.3
 # 中  true|false · 给支持视觉的模型附上本批对应的清理后页面图 · 成本更高/更慢；需要画面语境时开启
 # 日  true|false · vision 対応プロバイダにバッチ対象ページのクリーニング済み画像を添付 · 高コスト/低速；絵の文脈が必要な時のみ有効化
 use_vision = false
+
+# EN  range 0–4 · max distinct page images attached to one request · 1 keeps visual grounding while limiting image tokens; 0 disables images even when use_vision=true
+# 中  范围 0–4 · 单次请求最多附上多少张不同页面图 · 1 可保留视觉语境并限制图片 token；即使 use_vision=true，设 0 也不附图
+# 日  範囲 0–4 · 1 リクエストに添付する異なるページ画像の上限 · 1 は視覚文脈を保ちつつ画像 token を抑制；use_vision=true でも 0 なら画像を添付しない
+vision_max_pages_per_batch = 1
+
+# EN  approximate input-token budgets · guard against long story/context files crowding out source lines; lower to reduce cost, raise only for models with enough context
+# 中  近似输入 token 预算 · 防止过长的剧情/上下文挤占原文；降低以省成本，仅在模型上下文足够时提高
+# 日  概算の入力 token 予算 · 長いストーリー/文脈が原文を圧迫するのを防止；コスト削減には下げ、十分なコンテキスト長のモデルでのみ上げる
+prompt_token_budget = 6000
+story_context_token_budget = 1200
+context_token_budget = 900
 
 # EN  range 60–300 s · per-request timeout · raise for slow or local models, lower for fast hosted models
 # 中  范围 60–300 秒 · 单次请求超时 · 慢速/本地模型调大，快速云端模型调小

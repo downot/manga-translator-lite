@@ -1,5 +1,5 @@
-"""Smoke tests for the core CLI command surface (extract / translate / render /
-run / config-help). Loads args.py standalone — it imports only argparse/os/urllib,
+"""Smoke tests for the core CLI command surface (extract / translate / review /
+render / run / config-help). Loads args.py standalone — it imports only argparse/os/urllib,
 so this needs no dependencies and never touches the heavy ML stack.
 
 This covers that the commands are registered, their required args are enforced, and
@@ -32,7 +32,7 @@ def _subcommands(parser):
 
 def test_all_core_commands_registered():
     cmds = _subcommands(_build_parser())
-    assert {"extract", "translate", "render", "run", "config-help"} <= cmds
+    assert {"extract", "translate", "review", "render", "run", "config-help"} <= cmds
 
 
 def test_extract_parsing(tmp_path):
@@ -55,6 +55,13 @@ def test_translate_parsing(tmp_path):
     assert ns.concurrency == 4
     # No reference flags → auto sentinel (None) + no_reference off.
     assert ns.reference_lang is None and ns.no_reference is False
+
+
+def test_review_parsing(tmp_path):
+    ns = _build_parser().parse_args(["review", str(tmp_path), "--overwrite"])
+    assert ns.cmd == "review"
+    assert ns.work_dir == str(tmp_path)
+    assert ns.overwrite is True
 
 
 def test_translate_reference_flags(tmp_path):

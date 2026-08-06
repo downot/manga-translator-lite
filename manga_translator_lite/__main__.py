@@ -38,6 +38,12 @@ async def _dispatch(args) -> int:
                             concurrency=getattr(args, 'concurrency', None))
         return 0
 
+    if args.cmd == 'review':
+        from .pipeline.translate import run_review
+        await run_review(args.work_dir, cfg, overwrite=args.overwrite,
+                         target_lang=args.target_lang)
+        return 0
+
     if args.cmd == 'render':
         from .pipeline.render import run_render
         await run_render(args.work_dir, args.output, cfg,

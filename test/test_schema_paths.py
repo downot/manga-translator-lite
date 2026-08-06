@@ -104,3 +104,15 @@ def test_legacy_page_schema_round_trips_without_new_fields():
     assert page.clean == "clean/0002_0003.jpg"  # old JPEG intermediates remain readable
     assert page.blocks[0].ocr_text == "old OCR"  # old files lacked ocr_text
     assert page.to_dict()["erase_regions"] == legacy["erase_regions"]
+
+
+def test_optional_translation_semantics_and_provenance_remain_backward_compatible():
+    block = schema.Block.from_dict({
+        "id": "p0000_b000", "text": "x", "bbox": [0, 0, 1, 1],
+        "polygon": [], "lines": [],
+    })
+    old_translation = schema.Translation.from_dict({"text": "y", "edited": False})
+
+    assert block.kind == "auto" and block.article_id == ""
+    assert old_translation.source_hash == "" and old_translation.profile == ""
+    assert schema.Translation(text="y", source_hash="hash", profile="magazine").to_dict()["profile"] == "magazine"

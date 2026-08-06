@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import json
 import asyncio
+import hashlib
 import re
 import unicodedata
 from typing import List, Optional
@@ -52,12 +53,43 @@ def _resolve_reference_lang_codes(root: str, target_lang: str,
     return [c for c in reference_langs if c and c != target_lang]
 
 
-def _load_reference_maps(root: str, codes: List[str]) -> dict[str, dict[str, str]]:
-    """Load each reference language as a read-only {block_id: text} map."""
+def _block_source_hash(block: Block) -> str:
+    """Fingerprint the source used for translation without changing old schemas."""
+    text = (block.ocr_text or block.text or '').strip()
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+
+def _translation_is_current(block: Block, translation: Optional[Translation], profile: str) -> bool:
+    """Trust legacy records, but invalidate new records after source/profile changes."""
+    if not translation or not translation.text:
+        return False
+    if translation.edited:
+        return True
+    source_ok = not translation.source_hash or translation.source_hash == _block_source_hash(block)
+    profile_ok = not translation.profile or translation.profile == profile
+    return source_ok and profile_ok
+
+
+def _load_reference_maps(
+    root: str,
+    codes: List[str],
+    blocks_by_id: dict[str, Block],
+    profile: str,
+) -> dict[str, dict[str, str]]:
+    """Load current, read-only {block_id: text} reference translations.
+
+    Legacy reference files without provenance remain valid. Newer records whose
+    OCR source or translation profile changed are deliberately excluded so stale
+    wording cannot silently steer a new target language.
+    """
     maps: dict[str, dict[str, str]] = {}
     for code in codes:
         tr = load_translations(root, code)
-        m = {bid: t.text for bid, t in tr.items() if t.text and t.text.strip()}
+        m = {
+            bid: t.text for bid, t in tr.items()
+            if t.text and t.text.strip()
+            and (bid not in blocks_by_id or _translation_is_current(blocks_by_id[bid], t, profile))
+        }
         if m:
             maps[code] = m
         else:
@@ -373,56 +405,51 @@ async def _translate_task(
 
     # Load existing translations for the target language
     translations = load_translations(workspace.root, workspace.target_lang)
+    profile = str(getattr(cfg.translator.profile, 'value', cfg.translator.profile))
+    blocks_by_id = {block.id: block for page in workspace.pages for block in page.blocks}
 
     # Resolve cross-language references (other languages are read-only here).
     ref_codes = _resolve_reference_lang_codes(workspace.root, workspace.target_lang, reference_langs)
-    ref_maps = _load_reference_maps(workspace.root, ref_codes) if ref_codes else {}
+    ref_maps = (_load_reference_maps(workspace.root, ref_codes, blocks_by_id, profile)
+                if ref_codes else {})
     if ref_maps:
         logger.info(f"[task: {workspace.task_name}] referencing {list(ref_maps.keys())} "
                     f"→ {workspace.target_lang}")
 
     # Collect all blocks that need translation across all pages
     all_items: List[TranslationItem] = []
-    block_map: dict[str, tuple[Page, Block]] = {}
 
     for page in workspace.pages:
         # Skip no_text pages — they have no blocks to translate
         if page.no_text:
             continue
 
-        # Logic for start_index and overwrite:
-        # 1. If page is before start_index, it's context-only. No translation allowed.
+        # Pages before start_index remain context-only.  Context is added later in
+        # actual page order; doing it here would leak future pages into the prompt.
         is_before_start = start_index is not None and page.index < start_index
         if is_before_start:
-            page_translations = []
-            for b in page.blocks:
-                t = translations.get(b.id)
-                if t and t.text:
-                    page_translations.append(f"{b.text} => {t.text}")
-            if page_translations:
-                translator.add_context_page(page_translations)
             continue
 
-        # 2. If no overwrite, we can skip fully translated pages
-        page_translations = []
-        for b in page.blocks:
-            t = translations.get(b.id)
-            if t and t.text:
-                page_translations.append(f"{b.text} => {t.text}")
-        is_fully_translated = len(page_translations) == len(page.blocks) and len(page.blocks) > 0
-        if not overwrite and is_fully_translated:
-            # Fully translated, add to context and skip
-            translator.add_context_page(page_translations)
-            continue
-
-        # 3. Otherwise, add blocks to the translation queue
+        # Add only blocks that are absent/stale. Hand edits always win; legacy
+        # translations with no provenance remain trusted for backwards compatibility.
         for blk in page.blocks:
-            # Skip if already translated and we are not overwriting. Hand-edited
-            # translations (edited=True) are preserved even under overwrite.
             t = translations.get(blk.id)
-            if t and t.text and (not overwrite or t.edited):
+            if t and t.text and ((not overwrite and _translation_is_current(blk, t, profile))
+                                 or t.edited):
                 continue
             refs = {code: m[blk.id] for code, m in ref_maps.items() if blk.id in m}
+            item_kwargs = dict(
+                references=refs,
+                page_index=page.index,
+                image_path=_page_image_path(workspace, page),
+                source_hash=_block_source_hash(blk),
+                kind=blk.kind,
+                speaker=blk.speaker,
+                section_id=blk.section_id,
+                article_id=blk.article_id,
+                direction=blk.direction,
+                bbox=blk.bbox,
+            )
             if not _has_real_text(blk.text):
                 # Source is empty / symbol-only (hand-added or partial-recognition
                 # block). If any reference language has this block, translate FROM
@@ -435,15 +462,9 @@ async def _translate_task(
                     pcode, ptext = pivot
                     refs.pop(pcode, None)
                     all_items.append(TranslationItem(id=blk.id, text=ptext,
-                                                     references=refs, pivot_lang=pcode,
-                                                     page_index=page.index,
-                                                     image_path=_page_image_path(workspace, page)))
-                    block_map[blk.id] = (page, blk)
+                                                     pivot_lang=pcode, **item_kwargs))
                     continue
-            all_items.append(TranslationItem(id=blk.id, text=blk.text, references=refs,
-                                             page_index=page.index,
-                                             image_path=_page_image_path(workspace, page)))
-            block_map[blk.id] = (page, blk)
+            all_items.append(TranslationItem(id=blk.id, text=blk.text, **item_kwargs))
 
     if all_items:
         chapters, story_contexts = await _story_contexts_by_chapter(workspace, translator, story_description)
@@ -455,28 +476,64 @@ async def _translate_task(
         logger.info(f"[task: {workspace.task_name}] Queued for translation: "
                     f"{len(all_items)} block(s) → {workspace.target_lang}")
 
-        # Perform translation
-        translated_ids = set()
-        for chapter in chapters:
-            page_indexes = {p.index for p in chapter["pages"]}
-            chapter_items = [item for item in all_items if item.page_index in page_indexes]
-            if not chapter_items:
-                continue
-            if hasattr(translator, "set_story_context"):
-                translator.set_story_context(story_contexts.get(chapter_items[0].page_index, ""))
-            logger.info(f"[task: {workspace.task_name}] Translating {chapter['name']}: {len(chapter_items)} block(s)")
-            await translator.translate(chapter_items)
-            translated_ids.update(item.id for item in chapter_items)
-        remaining_items = [item for item in all_items if item.id not in translated_ids]
-        if remaining_items:
-            if hasattr(translator, "set_story_context"):
-                translator.set_story_context(story_description or "")
-            await translator.translate(remaining_items)
+        # Translate in real page order.  This makes context_pages mean pages (not
+        # batches), lets partial pages reference their locked translations, and
+        # prevents a later page discovered during queue construction from leaking
+        # into an earlier scene.
+        items_by_page: dict[int, List[TranslationItem]] = {}
+        item_by_id = {item.id: item for item in all_items}
+        for item in all_items:
+            items_by_page.setdefault(item.page_index, []).append(item)
+
+        for chapter_no, chapter in enumerate(chapters):
+            if chapter_no and hasattr(translator, 'clear_context'):
+                translator.clear_context()
+            chapter_items = [item for page in chapter['pages']
+                             for item in items_by_page.get(page.index, [])]
+            if chapter_items:
+                logger.info(f"[task: {workspace.task_name}] Translating {chapter['name']}: {len(chapter_items)} block(s)")
+            for page in chapter['pages']:
+                if page.no_text:
+                    continue
+                if hasattr(translator, 'set_story_context'):
+                    translator.set_story_context(story_contexts.get(page.index, story_description or ''))
+                page_items = items_by_page.get(page.index, [])
+                page_item_ids = {item.id for item in page_items}
+                locked_lines = [
+                    f"{block.text} => {translations[block.id].text}"
+                    for block in page.blocks
+                    if block.id not in page_item_ids
+                    and _translation_is_current(block, translations.get(block.id), profile)
+                ]
+                if hasattr(translator, 'set_locked_page_context'):
+                    translator.set_locked_page_context('\n'.join(locked_lines))
+                if page_items:
+                    await translator.translate(page_items, add_context=False)
+
+                # Commit one complete page to short-range context after its last
+                # request.  New outputs take precedence; existing approved text
+                # fills the remaining blocks in a partial page.
+                context_lines = []
+                for block in page.blocks:
+                    item = item_by_id.get(block.id)
+                    text = item.translation if item and item.translation else ''
+                    if not text and _translation_is_current(block, translations.get(block.id), profile):
+                        text = translations[block.id].text
+                    if text:
+                        context_lines.append(f"{block.text} => {text}")
+                translator.add_context_page(context_lines)
+                if hasattr(translator, 'set_locked_page_context'):
+                    translator.set_locked_page_context('')
 
         # Write back translations
         for item in all_items:
             if item.translation:
-                translations[item.id] = Translation(text=item.translation, edited=False)
+                translations[item.id] = Translation(
+                    text=item.translation,
+                    edited=False,
+                    source_hash=item.source_hash,
+                    profile=profile,
+                )
 
         # Final save
         save_translations(workspace.root, workspace.target_lang, translations)
@@ -484,8 +541,8 @@ async def _translate_task(
     else:
         logger.info(f"[task: {workspace.task_name}] All blocks already translated, skipping translation phase.")
 
-    # Perform translation review
-    await _run_review_for_task(workspace, translations, cfg, overwrite=overwrite)
+    # Review is intentionally a separate manual command. Automatic rewrites are
+    # risky for character voice (manga) and factual copy (magazines).
     return workspace
 
 
@@ -537,6 +594,10 @@ async def run_translate(
             task_cfg.translator.target_lang = target_lang
         else:
             task_cfg.translator.target_lang = workspace.target_lang
+        # New workspaces retain the extract-time source hint; old workspaces store
+        # "auto", which must not override a later explicit config choice.
+        if workspace.source_lang and workspace.source_lang.lower() != "auto":
+            task_cfg.translator.source_lang = workspace.source_lang
         return await _translate_task(workspace, task_cfg, overwrite=overwrite,
                                      start_index=start_index, reference_langs=reference_langs)
 
@@ -564,4 +625,40 @@ async def run_translate(
         results = [ws for ws in gathered if ws is not None]
 
     logger.info(f"Translation complete for {len(results)} task(s).")
+    return results
+
+
+async def run_review(
+    work_dir: str,
+    cfg: Config,
+    overwrite: bool = False,
+    target_lang: Optional[str] = None,
+) -> List[Workspace]:
+    """Manually review existing translations for every task under ``work_dir``.
+
+    Kept separate from :func:`run_translate` so a routine incremental translation
+    can never silently rewrite character voice or magazine copy.
+    """
+    work_dir = os.path.abspath(os.path.expanduser(work_dir))
+    tasks = discover_tasks(work_dir)
+    if not tasks:
+        raise FileNotFoundError(f"No task subdirectories found under {work_dir}")
+
+    results: List[Workspace] = []
+    for task_name in tasks:
+        task_dir = os.path.join(work_dir, task_name)
+        workspace = load_workspace(task_dir)
+        task_cfg = cfg.model_copy(deep=True)
+        if target_lang:
+            workspace.target_lang = target_lang
+            task_cfg.translator.target_lang = target_lang
+        else:
+            task_cfg.translator.target_lang = workspace.target_lang
+        if workspace.source_lang and workspace.source_lang.lower() != "auto":
+            task_cfg.translator.source_lang = workspace.source_lang
+        translations = load_translations(workspace.root, workspace.target_lang)
+        await _run_review_for_task(workspace, translations, task_cfg, overwrite=overwrite)
+        results.append(workspace)
+
+    logger.info(f"Review complete for {len(results)} task(s).")
     return results

@@ -77,12 +77,16 @@ async def merge_bboxes(bboxes: List[Quadrilateral], width: int, height: int) -> 
         if len(bbox) == 1:
             return_box.append(bbox[0])
         else:
+            source_det_indices = set()
+            for box in bbox:
+                source_det_indices.update(getattr(box, 'source_det_indices', ()))
             prob = [q.prob for q in bbox]
             prob = sum(prob)/len(prob)
             base_box = bbox[0]
             for box in bbox[1:]:
                 min_rect = np.array(Polygon([*base_box.pts, *box.pts]).minimum_rotated_rectangle.exterior.coords[:4])
                 base_box = Quadrilateral(min_rect, '', prob)
+            base_box.source_det_indices = tuple(sorted(source_det_indices))
             return_box.append(base_box)
     return return_box, merge_idx
 

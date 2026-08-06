@@ -204,5 +204,12 @@ async def dispatch(textlines: List[Quadrilateral], width: int, height: int, verb
         texts = [txtln.text for txtln in txtlns]
         region = TextBlock(lines, texts, font_size=font_size, angle=angle, prob=np.exp(total_logprobs),
                            fg_color=fg_color, bg_color=bg_color)
+        # Retain every detector line that contributed to this final render block.
+        # OCR may have coalesced several Quadrilaterals into one, so object identity
+        # cannot express this provenance.
+        source_det_indices = set()
+        for txtln in txtlns:
+            source_det_indices.update(getattr(txtln, 'source_det_indices', ()))
+        region.source_det_indices = tuple(sorted(source_det_indices))
         text_regions.append(region)
     return text_regions
