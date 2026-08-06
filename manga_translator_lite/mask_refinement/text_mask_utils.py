@@ -11,6 +11,7 @@ from shapely.geometry import Polygon
 # from collections import defaultdict
 # from scipy.optimize import linear_sum_assignment
 
+from .component_rules import _is_tiny_component_inside_line
 from ..utils import Quadrilateral, cv2_imwrite
 
 COLOR_RANGE_SIGMA = 1.5 # how many stddev away is considered the same color
@@ -93,11 +94,6 @@ def refine_mask(rgbimg, rawmask):
     res = np.argmax(Q, axis=0).reshape((rgbimg.shape[0], rgbimg.shape[1]))
     crf_mask = np.array(res * 255, dtype=np.uint8)
     return crf_mask
-
-
-def _is_tiny_component_inside_line(area: int, overlap_ratio: float, keep_threshold: float) -> bool:
-    """Keep small detector components only when they are inside a text line."""
-    return area <= 9 and overlap_ratio > keep_threshold
 
 
 def complete_mask(img: np.ndarray, mask: np.ndarray, textlines: List[Quadrilateral], keep_threshold = 1e-2, dilation_offset = 0,kernel_size=3):
