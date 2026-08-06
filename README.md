@@ -212,6 +212,17 @@ pages = "first_last"         # none | first | last | first_last | every
 
 `provider = "openai"` covers any OpenAI-compatible HTTP endpoint, including DeepSeek, OpenRouter, Groq and Ollama. API keys can live in `[translator] api_key` or in `.env` vars (`OPENAI_API_KEY` / `GEMINI_API_KEY`).
 
+### Choosing an OCR engine
+
+`[ocr] ocr` controls recognition only; it does not change text detection. The `32px` / `48px` names are the recognizer's normalized text height, not `detection_size`. Start with `48px`; changing OCR requires re-running `extract --overwrite` to regenerate blocks.
+
+| Value | Best use | Trade-off |
+|---|---|---|
+| `"32px"` | Fast, lightweight extraction on CPU / constrained VRAM, or clean large print where throughput matters most. | Legacy 32-pixel autoregressive model; more likely to miss tiny, dense, or decorative text. |
+| `"48px"` | Default for mixed-language comics, magazines, and most general pages. Best first baseline for ordinary horizontal or vertical text. | A little more compute than `32px`, but usually noticeably better recall on small text. |
+| `"48px_ctc"` | Try when `48px` makes systematic character mistakes, or when using `ocr.ignore_bubble` to skip free/SFX text outside balloons. | Alternative CTC decoder, not a universal accuracy upgrade; compare a few representative pages before adopting it for a whole task. |
+| `"mocr"` | Japanese-dominant manga, especially handwritten or stylized Japanese that the bundled recognizers read poorly. Set `use_mocr_merge = true` only when multi-line Japanese regions should be recognized as one phrase. | Slowest option: manga-ocr runs per region in addition to the normal geometry/color pass. Merging can combine adjacent lines, so inspect the resulting blocks before translating. |
+
 The sample config is intentionally conservative; a common high-recall setup for mixed page sizes is `detection_size = -1`, `secondary_detector = "rtdetr"`, `secondary_box_threshold = 0.25–0.3`, and `concurrency = 3` for hosted LLMs. Keep secrets out of shared configs: leave `api_key = ""` and use environment variables when committing or sending examples.
 
 ### Choosing a text detector · RT-DETR

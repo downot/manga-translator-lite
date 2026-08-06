@@ -212,6 +212,17 @@ pages = "first_last"         # none | first | last | first_last | every
 
 `provider = "openai"` 支持任何兼容 OpenAI 的 HTTP 接口（如 DeepSeek、OpenRouter、Groq、Ollama）。API 密钥可放在 `[translator] api_key` 或 `.env`（`OPENAI_API_KEY` / `GEMINI_API_KEY`）中。
 
+### 选择 OCR 引擎
+
+`[ocr] ocr` 只控制文字识别，不改变文字检测。`32px` / `48px` 指的是识别器归一化后的文字高度，不是 `detection_size`。建议先用 `48px`；切换 OCR 后请用 `extract --overwrite` 重建文字块。
+
+| 值 | 适用场景 | 取舍 |
+|---|---|---|
+| `"32px"` | CPU / 显存受限时追求速度，或印刷体清晰、字号较大且批量吞吐优先的任务。 | 旧版 32 像素自回归模型；小字、密集字、花体字更容易漏识别。 |
+| `"48px"` | 默认选择；适合混合语种漫画、杂志以及大多数通用页面，横排/竖排正文都应先从它开始对比。 | 比 `32px` 稍耗算力，但对小字通常有更好的召回率。 |
+| `"48px_ctc"` | 当 `48px` 对某类字符持续识别错误时用于交叉验证；也适合配合 `ocr.ignore_bubble` 忽略气泡外的自由文字 / SFX。 | CTC 解码器是替代方案，并非普遍更准；应先用有代表性的几页对比再用于整部作品。 |
+| `"mocr"` | 日文为主的漫画，尤其手写体或风格化日文被内置识别器读错时。只有多行日文确实应视为同一句时再开启 `use_mocr_merge = true`。 | 最慢：每个区域都会额外运行 manga-ocr，同时仍执行常规几何/颜色流程。合并可能把相邻行合成一个块，翻译前需检查结果。 |
+
 范例配置偏保守；混合页面尺寸、追求高召回时，常见实战组合是 `detection_size = -1`、`secondary_detector = "rtdetr"`、`secondary_box_threshold = 0.25–0.3`，云端 LLM 可把 `concurrency` 设为 `3` 左右。共享配置时不要带密钥：把 `api_key = ""` 留空，改用环境变量。
 
 ### 选择文字检测器 · RT-DETR
