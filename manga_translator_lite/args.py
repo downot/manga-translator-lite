@@ -114,6 +114,10 @@ def build_parser() -> argparse.ArgumentParser:
                           help='Force spelling and fluency proofreading check on translations.')
     p_render.add_argument('--no-check', action='store_true',
                           help='Skip spelling and fluency proofreading check.')
+    p_render.add_argument('--report-only', action='store_true',
+                          help='Run render layout analysis and write render_report.json without output images.')
+    p_render.add_argument('--repair-overflow', action='store_true',
+                          help='Before final rendering, shorten translations that overflow according to a dry-run report.')
     p_render.add_argument('-y', '--yes', action='store_true',
                           help='Automatically accept and apply all proofreading suggestions (requires --check or interactive confirmation).')
     _add_common(p_render)
@@ -132,6 +136,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help='Force spelling and fluency proofreading check on translations.')
     p_run.add_argument('--no-check', action='store_true',
                        help='Skip spelling and fluency proofreading check.')
+    p_run.add_argument('--repair-overflow', action='store_true',
+                       help='Shorten render-overflow translations before final output.')
     p_run.add_argument('-y', '--yes', action='store_true',
                        help='Automatically accept and apply all proofreading suggestions (requires --check or interactive confirmation).')
     p_run.add_argument('-j', '--concurrency', type=int, default=None,

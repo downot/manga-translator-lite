@@ -24,7 +24,10 @@ from ..config import Config
 from ..rendering import dispatch as dispatch_rendering
 from ..utils import BASE_PATH, TextBlock, get_logger, cv2_imread
 from ..utils.textblock import rotate_polygons
-from .schema import Block, Page, Workspace, discover_tasks, load_workspace, load_translations, safe_workspace_path
+from .schema import (
+    Block, Page, Workspace, apply_layout_overrides, discover_tasks, load_workspace,
+    load_translations, safe_workspace_path, save_render_report,
+)
 
 logger = get_logger('render')
 
@@ -130,7 +133,31 @@ def _block_to_textblock(block: Block, translation_text: str, target_lang: str, r
     return tb
 
 
-async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, translations: dict, out_name: str) -> Optional[str]:
+def _textblock_report(block: Block, text: str, tb: TextBlock) -> dict:
+    return {
+        "block_id": block.id,
+        "page_index": None,
+        "text_length": len(text or ""),
+        "font_size": int(getattr(tb, "qa_font_size", getattr(tb, "font_size", 0)) or 0),
+        "overflow": bool(getattr(tb, "qa_overflow", False)),
+        "expand_x": float(getattr(tb, "qa_expand_x", 1.0) or 1.0),
+        "expand_y": float(getattr(tb, "qa_expand_y", 1.0) or 1.0),
+        "box_width": float(getattr(tb, "qa_box_width", 0.0) or 0.0),
+        "box_height": float(getattr(tb, "qa_box_height", 0.0) or 0.0),
+        "fixed_region": bool(getattr(tb, "qa_fixed_region", getattr(block, "fixed_region", False))),
+        "direction": str(getattr(tb, "qa_direction", getattr(block, "direction", "auto"))),
+    }
+
+
+async def _render_page(
+    page: Page,
+    ws: Workspace,
+    cfg: Config,
+    out_dir: str,
+    translations: dict,
+    out_name: str,
+    report_only: bool = False,
+) -> tuple[Optional[str], dict]:
     """Render a single page.  Always produces an output file.
 
     - ``no_text`` pages → copy the original image directly.
@@ -140,6 +167,13 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
     # Defense in depth: the output name is already a basename via Page.from_dict,
     # but never let a caller's name steer the write outside out_dir.
     out_path = os.path.join(out_dir, os.path.basename(out_name))
+    page_report = {
+        "page_index": page.index,
+        "name": page.name,
+        "output": os.path.basename(out_name),
+        "blocks": {},
+        "overflow_blocks": [],
+    }
 
     # page.clean is workspace-relative and client-writable → confine it to ws.root
     # before any read/copy, so a tampered pages.json can't reach outside the task.
@@ -148,21 +182,24 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
     # no_text pages — copy clean directly (which is a copy of original)
     if page.no_text:
         if clean_path and os.path.exists(clean_path):
-            shutil.copy2(clean_path, out_path)
-            logger.info(f"[page {page.index}] no_text → copied original (from clean) → {out_path}")
+            if not report_only:
+                shutil.copy2(clean_path, out_path)
+                logger.info(f"[page {page.index}] no_text → copied original (from clean) → {out_path}")
+            else:
+                logger.info(f"[page {page.index}] no_text → report only")
         else:
             logger.warning(f"[page {page.index}] no_text but clean image missing/unsafe, skipping")
-            return None
-        return out_path
+            return None, page_report
+        return (None if report_only else out_path), page_report
 
     if not clean_path or not os.path.exists(clean_path):
         logger.warning(f"[page {page.index}] clean image missing/unsafe: {page.clean!r}, skipping")
-        return None
+        return None, page_report
 
     img_bgr = cv2_imread(clean_path, cv2.IMREAD_COLOR)
     if img_bgr is None:
         logger.warning(f"[page {page.index}] could not read {clean_path}")
-        return None
+        return None, page_report
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
     # Background-fill pass: paint a solid color behind blocks flagged bg_fill (covers
@@ -194,9 +231,10 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
     if not blocks_to_render:
         if not fill_blocks:
             logger.info(f"[page {page.index}] no translated blocks, copying clean image as-is")
-            shutil.copy2(clean_path, out_path)
-            logger.info(f"[page {page.index}] → {out_path}")
-            return out_path
+            if not report_only:
+                shutil.copy2(clean_path, out_path)
+                logger.info(f"[page {page.index}] → {out_path}")
+            return (None if report_only else out_path), page_report
         # Background fills changed the image but there is no text to draw → save the filled image.
         logger.info(f"[page {page.index}] bg-fill only ({len(fill_blocks)} region(s)), no text")
         rendered_rgb = img_rgb
@@ -230,7 +268,17 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
             hyphenate=not cfg.render.no_hyphenation,
             line_spacing=cfg.render.line_spacing,
             disable_font_border=cfg.render.disable_font_border,
+            draw=not report_only,
         )
+        for b, text, tb in zip((b for b, _ in blocks_to_render), (t for _, t in blocks_to_render), text_regions):
+            entry = _textblock_report(b, text, tb)
+            entry["page_index"] = page.index
+            page_report["blocks"][b.id] = entry
+            if entry["overflow"]:
+                page_report["overflow_blocks"].append(b.id)
+
+    if report_only:
+        return None, page_report
 
     pil_img = Image.fromarray(rendered_rgb)
     _, ext = os.path.splitext(out_path)
@@ -259,13 +307,23 @@ async def _render_page(page: Page, ws: Workspace, cfg: Config, out_dir: str, tra
         pil_img.save(out_path)
 
     logger.info(f"[page {page.index}] → {out_path}")
-    return out_path
+    return out_path, page_report
 
 
-async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cfg: Config) -> List[str]:
+async def _render_task(
+    task_name: str,
+    task_work_dir: str,
+    task_out_dir: str,
+    cfg: Config,
+    report_only: bool = False,
+) -> List[str]:
     """Render all pages for a single task."""
     workspace = load_workspace(task_work_dir)
-    os.makedirs(task_out_dir, exist_ok=True)
+    applied_layouts = apply_layout_overrides(workspace, workspace.target_lang)
+    if applied_layouts:
+        logger.info(f"[task: {task_name}] Applied {applied_layouts} {workspace.target_lang} layout override(s)")
+    if not report_only:
+        os.makedirs(task_out_dir, exist_ok=True)
     logger.info(f"[task: {task_name}] Rendering {len(workspace.pages)} page(s) into {task_out_dir}")
 
     # Load translations for the target language
@@ -281,9 +339,23 @@ async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cf
     total_pages = len(workspace.pages)
 
     written: List[str] = []
+    report = {
+        "version": 1,
+        "task": task_name,
+        "target_lang": workspace.target_lang,
+        "pages": [],
+        "blocks": {},
+        "overflow_blocks": [],
+    }
     for i, page in enumerate(workspace.pages):
         out_name = _ordered_output_name(page, i)
-        path = await _render_page(page, workspace, cfg, task_out_dir, translations, out_name)
+        path, page_report = await _render_page(
+            page, workspace, cfg, task_out_dir, translations, out_name,
+            report_only=report_only,
+        )
+        report["pages"].append(page_report)
+        report["blocks"].update(page_report.get("blocks", {}))
+        report["overflow_blocks"].extend(page_report.get("overflow_blocks", []))
         if path:
             written.append(path)
             if needs_signature(sig, i, total_pages):
@@ -293,6 +365,12 @@ async def _render_task(task_name: str, task_work_dir: str, task_out_dir: str, cf
                     logger.warning(f"[page {page.index}] signature could not be added")
 
     no_text_count = sum(1 for p in workspace.pages if p.no_text)
+    report_path = save_render_report(workspace.root, report)
+    logger.info(f"[task: {task_name}] Render report written: {report_path} "
+                f"({len(report['overflow_blocks'])} overflow block(s))")
+    if report_only:
+        logger.info(f"[task: {task_name}] Report-only run wrote no output images")
+        return []
     logger.info(f"[task: {task_name}] Wrote {len(written)} image(s) "
                 f"({no_text_count} no-text pass-through)")
     return written
@@ -306,6 +384,8 @@ async def run_render(
     no_check: bool = False,
     yes: bool = False,
     tasks: Optional[List[str]] = None,
+    report_only: bool = False,
+    repair_overflow: bool = False,
 ) -> List[str]:
     """Render tasks under work_dir.
 
@@ -351,9 +431,20 @@ async def run_render(
             logger.error(f"[task: {task_name}] Error loading workspace: {e}", exc_info=True)
             continue
 
+        if repair_overflow:
+            logger.info(f"[task: {task_name}] Running overflow dry-run before final render")
+            await _render_task(task_name, task_work_dir, task_out_dir, cfg, report_only=True)
+            from .translate import repair_overflow_translations
+            updated = await repair_overflow_translations(work_dir, cfg, target_lang=None, tasks=[task_name])
+            logger.info(f"[task: {task_name}] Overflow repair updated {updated} translation(s)")
+            if report_only:
+                continue
+
         # Proofreading check before rendering
         should_run_check = False
-        if check:
+        if report_only:
+            should_run_check = False
+        elif check:
             should_run_check = True
         elif no_check:
             should_run_check = False
@@ -375,7 +466,10 @@ async def run_render(
                 raise KeyboardInterrupt("Cancelled by user during proofreading check")
 
         try:
-            written = await _render_task(task_name, task_work_dir, task_out_dir, cfg)
+            written = await _render_task(
+                task_name, task_work_dir, task_out_dir, cfg,
+                report_only=report_only,
+            )
             all_written.extend(written)
         except Exception as e:
             logger.error(f"[task: {task_name}] Error during rendering: {e}", exc_info=True)

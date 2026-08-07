@@ -317,7 +317,8 @@ def resolve_pipeline_paths(input_path, output_path, config_path, task_path, root
 async def run_pipeline(*, cmd, task_path, log: Callable[[str, str], None],
                        config_path=None, target_lang=None, overwrite=False,
                        start_index=None, reference_langs=None,
-                       input_path=None, output_path=None) -> None:
+                       input_path=None, output_path=None,
+                       report_only=False, repair_overflow=False) -> None:
     """Run one pipeline command (``extract`` / ``translate`` / ``render`` / ``run``).
 
     Transport-agnostic: progress/results are reported only through ``log(kind, msg)``
@@ -348,12 +349,18 @@ async def run_pipeline(*, cmd, task_path, log: Callable[[str, str], None],
             await run_translate(task_path, cfg, overwrite=overwrite, target_lang=target_lang,
                                 start_index=start_index, reference_langs=reference_langs)
         elif cmd == "render":
-            await run_render(task_path, output_path or str(task_path / "out"), cfg)
+            await run_render(
+                task_path, output_path or str(task_path / "out"), cfg,
+                report_only=report_only, repair_overflow=repair_overflow,
+            )
         elif cmd == "run":
             await run_extract(input_path or str(task_path / "in"), task_path, cfg, overwrite=overwrite)
             await run_translate(task_path, cfg, overwrite=overwrite, target_lang=target_lang,
                                 reference_langs=reference_langs)
-            await run_render(task_path, output_path or str(task_path / "out"), cfg)
+            await run_render(
+                task_path, output_path or str(task_path / "out"), cfg,
+                repair_overflow=repair_overflow,
+            )
         log("status", "--- Pipeline Finished ---")
     except Exception as e:
         log("error", f"Error: {str(e)}")

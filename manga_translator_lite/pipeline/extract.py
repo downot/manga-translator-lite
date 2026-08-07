@@ -38,12 +38,24 @@ from ..utils import (
 )
 from .schema import (
     Block, Page, Workspace, block_id, save_workspace, load_workspace,
-    load_translations, save_translations, get_translations_dir
+    load_translations, save_translations, get_translations_dir,
+    load_layout_overrides, save_layout_overrides,
 )
 
 logger = get_logger('extract')
 
 IMG_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tif', '.tiff'}
+
+LAYOUT_MIGRATION_FIELDS = (
+    "fg_color",
+    "bg_color",
+    "direction",
+    "alignment",
+    "bg_fill",
+    "fixed_region",
+    "scale_exempt",
+)
+GEOMETRY_MIGRATION_FIELDS = ("bbox", "polygon", "lines", "font_size", "angle")
 
 
 def _select_device(use_gpu: bool) -> str:
@@ -553,6 +565,56 @@ async def _process_image(
     )
 
 
+def _best_old_block(new_b: Block, old_p: Page) -> tuple[float, Optional[Block]]:
+    best_iou = 0.0
+    best_old = None
+    for old_b in old_p.blocks:
+        iou = _compute_iou(new_b.bbox, old_b.bbox)
+        if iou > best_iou:
+            best_iou = iou
+            best_old = old_b
+    return best_iou, best_old
+
+
+def _block_has_manual_layout(block: Block) -> bool:
+    return bool(
+        getattr(block, "fixed_region", False)
+        or getattr(block, "scale_exempt", False)
+        or getattr(block, "bg_fill", "none") != "none"
+        or getattr(block, "direction", "auto") != "auto"
+        or getattr(block, "alignment", "auto") != "auto"
+    )
+
+
+def _copy_layout_fields(dst: Block, src: Block, include_geometry: bool) -> None:
+    fields = list(LAYOUT_MIGRATION_FIELDS)
+    if include_geometry:
+        fields.extend(GEOMETRY_MIGRATION_FIELDS)
+    for name in fields:
+        setattr(dst, name, getattr(src, name))
+
+
+def _migrate_manual_layout(workspace: Workspace, existing_pages: Dict[str, Page]) -> int:
+    """Carry user layout work across ``extract --overwrite`` by spatial match."""
+    migrated = 0
+    for new_p in workspace.pages:
+        fname = os.path.basename(new_p.original)
+        old_p = existing_pages.get(fname)
+        if not old_p:
+            continue
+        for new_b in new_p.blocks:
+            if getattr(new_b, 'user_added', False):
+                continue
+            best_iou, old_b = _best_old_block(new_b, old_p)
+            if best_iou <= 0.3 or old_b is None:
+                continue
+            include_geometry = bool(getattr(old_b, "fixed_region", False) or getattr(old_b, "scale_exempt", False))
+            if include_geometry or _block_has_manual_layout(old_b):
+                _copy_layout_fields(new_b, old_b, include_geometry=include_geometry)
+                migrated += 1
+    return migrated
+
+
 def _merge_task_translations(workspace: Workspace, existing_pages: Dict[str, Page]) -> None:
     """Merge existing translations into the newly extracted workspace based on spatial IoU."""
     trans_dir = get_translations_dir(workspace.root)
@@ -579,13 +641,8 @@ def _merge_task_translations(workspace: Workspace, existing_pages: Dict[str, Pag
                         if new_b.id in old_trans:
                             new_trans[new_b.id] = old_trans[new_b.id]
                         continue
-                    best_iou = 0.0
-                    best_old_b_id = None
-                    for old_b in old_p.blocks:
-                        iou = _compute_iou(new_b.bbox, old_b.bbox)
-                        if iou > best_iou:
-                            best_iou = iou
-                            best_old_b_id = old_b.id
+                    best_iou, best_old_b = _best_old_block(new_b, old_p)
+                    best_old_b_id = best_old_b.id if best_old_b else None
 
                     if best_iou > 0.3 and best_old_b_id in old_trans:
                         new_trans[new_b.id] = old_trans[best_old_b_id]
@@ -632,7 +689,7 @@ def _normalize_block_ids(workspace: Workspace) -> Dict[str, str]:
 
 
 def _remap_translation_keys(workspace: Workspace, id_map: Dict[str, str]) -> None:
-    """Apply an old→new block-id map to every translation file in the task."""
+    """Apply an old→new block-id map to every translation/layout file in the task."""
     if not id_map:
         return
     trans_dir = get_translations_dir(workspace.root)
@@ -647,6 +704,9 @@ def _remap_translation_keys(workspace: Workspace, id_map: Dict[str, str]) -> Non
             continue
         remapped = {id_map.get(k, k): v for k, v in trans.items()}
         save_translations(workspace.root, lang, remapped)
+        layout = load_layout_overrides(workspace.root, lang)
+        if layout:
+            save_layout_overrides(workspace.root, lang, {id_map.get(k, k): v for k, v in layout.items()})
 
 
 async def _extract_task(
@@ -712,6 +772,9 @@ async def _extract_task(
         restored = _reinsert_user_blocks(workspace, existing_pages)
         if restored:
             logger.info(f"[task: {task_name}] Preserved {restored} manually-added block(s) across re-extract")
+        migrated_layout = _migrate_manual_layout(workspace, existing_pages)
+        if migrated_layout:
+            logger.info(f"[task: {task_name}] Migrated manual layout for {migrated_layout} matched block(s)")
         _merge_task_translations(workspace, existing_pages)
 
     # Keep block ids consistent with final page positions and carry translations along.

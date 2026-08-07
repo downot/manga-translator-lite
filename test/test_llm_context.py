@@ -111,6 +111,23 @@ def test_build_prompt_includes_source_profile_and_block_semantics():
     assert "direction=v" in prompt
 
 
+def test_build_prompt_includes_capacity_and_glossary_context():
+    prompt = _build_prompt(
+        [TranslationItem(
+            id="p0001_b000",
+            text="先輩",
+            page_index=1,
+            capacity_hint="max≈8 chars",
+        )],
+        "Simplified Chinese",
+        glossary_context="- 先輩 => 学长 (fixed; must use this translation)",
+    )
+
+    assert "Mandatory glossary" in prompt
+    assert "先輩 => 学长" in prompt
+    assert "max≈8 chars" in prompt
+
+
 def test_parse_response_uses_block_ids():
     parsed = _parse_response(
         "<|p0001_b001|>Second\n<|p0001_b000|>First\n[[[MTL_DONE]]]",

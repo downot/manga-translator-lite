@@ -22,7 +22,7 @@ from ..utils import get_logger
 from .schema import (
     Block, Page, Workspace, Translation,
     discover_tasks, load_workspace, load_translations, save_translations, get_translations_dir,
-    safe_workspace_path
+    safe_workspace_path, apply_layout_overrides, load_glossary, load_render_report,
 )
 
 logger = get_logger('translate')
@@ -57,6 +57,103 @@ def _block_source_hash(block: Block) -> str:
     """Fingerprint the source used for translation without changing old schemas."""
     text = (block.ocr_text or block.text or '').strip()
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+
+def _target_uses_cjk(lang: str) -> bool:
+    s = (lang or "").upper()
+    return any(code in s for code in ("CHS", "CHT", "JPN", "JA", "KOR", "KO", "ZH"))
+
+
+def _estimate_capacity_chars(block: Block, target_lang: str) -> int:
+    """Rough text budget for an LLM hint.
+
+    This is intentionally approximate; render_report repair is the hard feedback
+    loop.  The hint simply tells the model whether this is a tiny balloon or a
+    roomy narration box.
+    """
+    try:
+        w = max(1.0, float(block.bbox[2]))
+        h = max(1.0, float(block.bbox[3]))
+    except Exception:
+        return 0
+    fs = max(8.0, float(block.font_size or min(w, h) / 2 or 16))
+    k = 1.0 if _target_uses_cjk(target_lang) else 0.5
+    budget = int((w * h) / max(fs * fs * k, 1.0))
+    return max(4, min(240, budget))
+
+
+def _capacity_hint(block: Block, target_lang: str) -> str:
+    n = _estimate_capacity_chars(block, target_lang)
+    return f"max≈{n} chars" if n else ""
+
+
+def _format_glossary_context(glossary: dict, target_lang: str) -> str:
+    if not isinstance(glossary, dict) or not glossary:
+        return ""
+    lines = []
+    for source, raw in sorted(glossary.items()):
+        if not isinstance(raw, dict):
+            continue
+        rule = str(raw.get("rule", "preferred"))
+        target = str(raw.get(target_lang, raw.get("target", raw.get("text", "")))).strip()
+        if rule == "no_translate":
+            target = source
+        if not target:
+            continue
+        if rule == "fixed":
+            lines.append(f"- {source} => {target} (fixed; must use this translation)")
+        elif rule == "no_translate":
+            lines.append(f"- {source} (no_translate; keep exactly as written)")
+        else:
+            lines.append(f"- {source} => {target} (preferred)")
+    return "\n".join(lines)
+
+
+def _glossary_violations(
+    blocks_by_id: dict[str, Block],
+    translations: dict[str, Translation],
+    glossary: dict,
+    target_lang: str,
+) -> List[tuple[str, str, str, str]]:
+    if not isinstance(glossary, dict) or not glossary:
+        return []
+    out: List[tuple[str, str, str, str]] = []
+    for source_term, raw in glossary.items():
+        if not isinstance(raw, dict):
+            continue
+        rule = str(raw.get("rule", "preferred"))
+        if rule not in ("fixed", "no_translate"):
+            continue
+        expected = source_term if rule == "no_translate" else str(
+            raw.get(target_lang, raw.get("target", raw.get("text", "")))
+        ).strip()
+        if not expected:
+            continue
+        for bid, block in blocks_by_id.items():
+            source = block.text or block.ocr_text or ""
+            if source_term not in source:
+                continue
+            t = translations.get(bid)
+            current = t.text if t else ""
+            if current and expected not in current:
+                out.append((
+                    bid,
+                    source,
+                    current,
+                    f"{source_term!r} must be rendered as {expected!r} ({rule})",
+                ))
+    return out
+
+
+def _report_block_map(report: dict) -> dict:
+    blocks = report.get("blocks") if isinstance(report, dict) else None
+    if isinstance(blocks, dict):
+        return blocks
+    out = {}
+    for page in report.get("pages", []) if isinstance(report, dict) else []:
+        if isinstance(page, dict) and isinstance(page.get("blocks"), dict):
+            out.update(page["blocks"])
+    return out
 
 
 def _translation_is_current(block: Block, translation: Optional[Translation], profile: str) -> bool:
@@ -402,6 +499,11 @@ async def _translate_task(
     story_description = _load_story_description(workspace.root)
     if story_description and hasattr(translator, "set_story_context"):
         translator.set_story_context(story_description)
+    glossary = load_glossary(workspace.root)
+    glossary_context = _format_glossary_context(glossary, workspace.target_lang)
+    if glossary_context and hasattr(translator, "set_glossary_context"):
+        translator.set_glossary_context(glossary_context)
+        logger.info(f"[task: {workspace.task_name}] Loaded glossary rules for {workspace.target_lang}")
 
     # Load existing translations for the target language
     translations = load_translations(workspace.root, workspace.target_lang)
@@ -449,6 +551,7 @@ async def _translate_task(
                 article_id=blk.article_id,
                 direction=blk.direction,
                 bbox=blk.bbox,
+                capacity_hint=_capacity_hint(blk, workspace.target_lang),
             )
             if not _has_real_text(blk.text):
                 # Source is empty / symbol-only (hand-added or partial-recognition
@@ -536,10 +639,40 @@ async def _translate_task(
                 )
 
         # Final save
+        if glossary_context and hasattr(translator, "repair_glossary"):
+            violations = [
+                item for item in _glossary_violations(blocks_by_id, translations, glossary, workspace.target_lang)
+                if not (translations.get(item[0]) and translations[item[0]].edited)
+            ]
+            if violations:
+                logger.info(f"[task: {workspace.task_name}] Repairing {len(violations)} glossary violation(s)")
+                repaired = await translator.repair_glossary(violations)
+                for bid, text in repaired.items():
+                    if bid in translations and text and text.strip() and not translations[bid].edited:
+                        translations[bid].text = text.strip()
+                        translations[bid].edited = False
+
         save_translations(workspace.root, workspace.target_lang, translations)
         logger.info(f"[task: {workspace.task_name}] Translations written to {workspace.target_lang}.json")
     else:
         logger.info(f"[task: {workspace.task_name}] All blocks already translated, skipping translation phase.")
+        if glossary_context and hasattr(translator, "repair_glossary"):
+            violations = [
+                item for item in _glossary_violations(blocks_by_id, translations, glossary, workspace.target_lang)
+                if not (translations.get(item[0]) and translations[item[0]].edited)
+            ]
+            if violations:
+                logger.info(f"[task: {workspace.task_name}] Repairing {len(violations)} glossary violation(s)")
+                repaired = await translator.repair_glossary(violations)
+                updated = 0
+                for bid, text in repaired.items():
+                    if bid in translations and text and text.strip() and not translations[bid].edited:
+                        translations[bid].text = text.strip()
+                        translations[bid].edited = False
+                        updated += 1
+                if updated:
+                    save_translations(workspace.root, workspace.target_lang, translations)
+                    logger.info(f"[task: {workspace.task_name}] Glossary repair updated {updated} translation(s).")
 
     # Review is intentionally a separate manual command. Automatic rewrites are
     # risky for character voice (manga) and factual copy (magazines).
@@ -594,6 +727,9 @@ async def run_translate(
             task_cfg.translator.target_lang = target_lang
         else:
             task_cfg.translator.target_lang = workspace.target_lang
+        applied_layouts = apply_layout_overrides(workspace, task_cfg.translator.target_lang)
+        if applied_layouts:
+            logger.info(f"[task: {task_name}] Applied {applied_layouts} {task_cfg.translator.target_lang} layout override(s)")
         # New workspaces retain the extract-time source hint; old workspaces store
         # "auto", which must not override a later explicit config choice.
         if workspace.source_lang and workspace.source_lang.lower() != "auto":
@@ -626,6 +762,104 @@ async def run_translate(
 
     logger.info(f"Translation complete for {len(results)} task(s).")
     return results
+
+
+def _overflow_budget(block: Block, report_entry: dict, target_lang: str) -> int:
+    fs = float(report_entry.get("font_size") or block.font_size or 16)
+    w = float(report_entry.get("box_width") or (block.bbox[2] if block.bbox else 0) or 1)
+    h = float(report_entry.get("box_height") or (block.bbox[3] if block.bbox else 0) or 1)
+    k = 1.0 if _target_uses_cjk(target_lang) else 0.5
+    by_area = int((w * h) / max(fs * fs * k, 1.0))
+    return max(4, min(240, by_area))
+
+
+async def repair_overflow_translations(
+    work_dir: str,
+    cfg: Config,
+    target_lang: Optional[str] = None,
+    tasks: Optional[List[str]] = None,
+) -> int:
+    """Shorten translations for blocks flagged by the latest render_report.json."""
+    work_dir = os.path.abspath(os.path.expanduser(work_dir))
+    available = discover_tasks(work_dir)
+    if tasks:
+        requested = [name.strip() for entry in tasks for name in entry.split(',') if name.strip()]
+        wanted = set(requested)
+        task_names = [name for name in available if name in wanted]
+    else:
+        task_names = available
+
+    repaired_total = 0
+    for task_name in task_names:
+        task_dir = os.path.join(work_dir, task_name)
+        try:
+            workspace = load_workspace(task_dir)
+        except FileNotFoundError:
+            continue
+        if target_lang:
+            workspace.target_lang = target_lang
+        task_cfg = cfg.model_copy(deep=True)
+        task_cfg.translator.target_lang = workspace.target_lang
+        task_cfg.translator.temperature = 0
+        apply_layout_overrides(workspace, workspace.target_lang)
+
+        report = load_render_report(workspace.root)
+        report_blocks = _report_block_map(report)
+        if not report_blocks:
+            logger.info(f"[task: {task_name}] No render_report.json block data; skipping overflow repair.")
+            continue
+
+        translations = load_translations(workspace.root, workspace.target_lang)
+        blocks_by_id = {block.id: block for page in workspace.pages for block in page.blocks}
+        glossary = load_glossary(workspace.root)
+        glossary_context = _format_glossary_context(glossary, workspace.target_lang)
+        translator = build_translator(task_cfg.translator)
+        if glossary_context and hasattr(translator, "set_glossary_context"):
+            translator.set_glossary_context(glossary_context)
+
+        items: List[tuple[str, str, str, int]] = []
+        for bid, entry in report_blocks.items():
+            if not isinstance(entry, dict) or not entry.get("overflow"):
+                continue
+            block = blocks_by_id.get(bid)
+            tr = translations.get(bid)
+            if not block or not tr or not tr.text or tr.edited:
+                continue
+            items.append((bid, block.text, tr.text, _overflow_budget(block, entry, workspace.target_lang)))
+
+        if not items:
+            logger.info(f"[task: {task_name}] No machine-generated overflow translations to repair.")
+            continue
+        if cfg.translator.provider == LLMProvider.none or not hasattr(translator, "shorten_to_fit"):
+            logger.warning(f"[task: {task_name}] Translator cannot shorten overflow blocks; skipping.")
+            continue
+
+        shortened = await translator.shorten_to_fit(items)
+        updated = 0
+        for bid, text in shortened.items():
+            tr = translations.get(bid)
+            if tr and text and text.strip() and not tr.edited and tr.text.strip() != text.strip():
+                tr.text = text.strip()
+                tr.edited = False
+                updated += 1
+
+        if updated:
+            if glossary_context and hasattr(translator, "repair_glossary"):
+                violations = [
+                    item for item in _glossary_violations(blocks_by_id, translations, glossary, workspace.target_lang)
+                    if not (translations.get(item[0]) and translations[item[0]].edited)
+                ]
+                if violations:
+                    repaired = await translator.repair_glossary(violations)
+                    for bid, text in repaired.items():
+                        tr = translations.get(bid)
+                        if tr and text and text.strip() and not tr.edited:
+                            tr.text = text.strip()
+            save_translations(workspace.root, workspace.target_lang, translations)
+            repaired_total += updated
+            logger.info(f"[task: {task_name}] Shortened {updated} overflow translation(s).")
+
+    return repaired_total
 
 
 async def run_review(

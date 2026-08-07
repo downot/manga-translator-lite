@@ -28,6 +28,22 @@ WORKSPACE_VERSION = 4
 PAGES_JSON = "pages.json"
 CLEAN_DIR = "clean"
 TRANSLATIONS_DIR = "translations"
+RENDER_REPORT_JSON = "render_report.json"
+GLOSSARY_JSON = "glossary.json"
+LAYOUT_FIELDS = (
+    "bbox",
+    "polygon",
+    "lines",
+    "font_size",
+    "angle",
+    "fg_color",
+    "bg_color",
+    "direction",
+    "alignment",
+    "bg_fill",
+    "fixed_region",
+    "scale_exempt",
+)
 
 
 @dataclass
@@ -235,6 +251,18 @@ def get_translation_path(root: str, lang: str) -> str:
     return os.path.join(get_translations_dir(root), f"{lang}.json")
 
 
+def get_layout_path(root: str, lang: str) -> str:
+    return os.path.join(get_translations_dir(root), f"{lang}.layout.json")
+
+
+def get_render_report_path(root: str) -> str:
+    return os.path.join(root, RENDER_REPORT_JSON)
+
+
+def get_glossary_path(root: str) -> str:
+    return os.path.join(root, GLOSSARY_JSON)
+
+
 def load_translations(root: str, lang: str) -> Dict[str, Translation]:
     path = get_translation_path(root, lang)
     if not os.path.exists(path):
@@ -255,6 +283,84 @@ def save_translations(root: str, lang: str, translations: Dict[str, Translation]
     data = {bid: t.to_dict() for bid, t in translations.items()}
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def load_layout_overrides(root: str, lang: str) -> Dict[str, dict]:
+    path = get_layout_path(root, lang)
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    overrides = data.get("blocks", data)
+    return overrides if isinstance(overrides, dict) else {}
+
+
+def save_layout_overrides(root: str, lang: str, overrides: Dict[str, dict]):
+    os.makedirs(get_translations_dir(root), exist_ok=True)
+    path = get_layout_path(root, lang)
+    data = {"version": 1, "blocks": overrides}
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def apply_layout_overrides(workspace: Workspace, lang: str) -> int:
+    """Apply per-language layout overrides to a workspace in memory.
+
+    The detected geometry remains the shared baseline in pages.json.  A
+    ``translations/<lang>.layout.json`` file may override only presentation fields
+    for one target language, preventing one language's manual layout fixes from
+    leaking into another language.
+    """
+    overrides = load_layout_overrides(workspace.root, lang)
+    if not overrides:
+        return 0
+    changed = 0
+    for page in workspace.pages:
+        for block in page.blocks:
+            patch = overrides.get(block.id)
+            if not isinstance(patch, dict):
+                continue
+            for field_name in LAYOUT_FIELDS:
+                if field_name in patch:
+                    setattr(block, field_name, patch[field_name])
+            changed += 1
+    return changed
+
+
+def load_render_report(root: str) -> dict:
+    path = get_render_report_path(root)
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def save_render_report(root: str, report: dict) -> str:
+    path = get_render_report_path(root)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+    return path
+
+
+def load_glossary(root: str) -> dict:
+    path = get_glossary_path(root)
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError:
+        return {}
 
 
 def safe_workspace_path(root: str, rel: str) -> Optional[str]:

@@ -242,6 +242,13 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
         dst_points_list.append(dst_points)
         region.font_size = int(target_font_size)
         region.qa_overflow = bool(region_overflow)
+        region.qa_font_size = int(target_font_size)
+        region.qa_expand_x = float(scale_x)
+        region.qa_expand_y = float(scale_y)
+        region.qa_box_width = float(max_w)
+        region.qa_box_height = float(max_h)
+        region.qa_fixed_region = bool(fixed)
+        region.qa_direction = "horizontal" if is_horiz else "vertical"
         block_id = getattr(region, "block_id", "unknown")
         if region_overflow:
             overflow_blocks.append(block_id)
@@ -270,7 +277,8 @@ async def dispatch(
     hyphenate: bool = True,
     render_mask: np.ndarray = None,
     line_spacing: int = None,
-    disable_font_border: bool = False
+    disable_font_border: bool = False,
+    draw: bool = True
     ) -> np.ndarray:
 
     text_render.set_font(font_path)
@@ -283,6 +291,9 @@ async def dispatch(
     )
 
     # TODO: Maybe remove intersections
+
+    if not draw:
+        return img
 
     # Render text
     for region, dst_points in tqdm(zip(text_regions, dst_points_list), '[render]', total=len(text_regions)):

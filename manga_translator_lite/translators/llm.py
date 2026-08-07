@@ -141,6 +141,31 @@ STORY_USER_PROMPT = (
     "{script}"
 )
 
+SHORTEN_SYSTEM_PROMPT = (
+    "You are a professional {profile} localization editor. Shorten translated "
+    "text so it fits comic text regions while preserving meaning, speaker voice, "
+    "and tone. Output only tagged revised translations."
+)
+
+SHORTEN_USER_PROMPT_HEADER = (
+    "The following translations overflow their render boxes. Rewrite each one in "
+    "{to_lang} so it is concise enough for the target character budget while "
+    "preserving the original meaning and tone.\n"
+    "Return one tagged translation per line using the exact block IDs. No notes.\n\n"
+)
+
+GLOSSARY_REPAIR_SYSTEM_PROMPT = (
+    "You are a professional {profile} localization editor. Repair translations so "
+    "they obey the supplied glossary exactly while preserving natural {to_lang}."
+)
+
+GLOSSARY_REPAIR_USER_PROMPT_HEADER = (
+    "Repair only the glossary violations below. Keep each translation natural, but "
+    "fixed/no-translate glossary rules are mandatory.\n"
+    "Return one tagged translation per line using the exact block IDs. No notes.\n\n"
+    "Glossary:\n{glossary}\n\n"
+)
+
 
 
 @dataclass
@@ -167,6 +192,7 @@ class TranslationItem:
     article_id: str = ""
     direction: str = "auto"
     bbox: List[int] = field(default_factory=list)
+    capacity_hint: str = ""
 
 
 @dataclass
@@ -259,6 +285,7 @@ def _build_prompt(
     to_lang_human: str,
     context: Optional[str] = None,
     story_context: Optional[str] = None,
+    glossary_context: Optional[str] = None,
     extra_instructions: Optional[str] = None,
     source_lang: str = "auto",
     profile: str = "manga",
@@ -276,6 +303,9 @@ def _build_prompt(
     if story_context:
         parts.append("Overall story context (use for characters, relationships, setting, and tone):")
         parts.append(story_context.strip())
+    if glossary_context:
+        parts.append("Mandatory glossary / terminology rules:")
+        parts.append(glossary_context.strip())
     if context:
         parts.append("Recent source→translation context (for continuity only, do not retranslate):")
         parts.append(context.strip())
@@ -319,6 +349,8 @@ def _build_prompt(
             tags.append(f"article={item.article_id}")
         if item.direction and item.direction != "auto":
             tags.append(f"direction={item.direction}")
+        if item.capacity_hint:
+            tags.append(item.capacity_hint)
         tag = f" [{'; '.join(tags)}]" if tags else ""
         parts.append(f"<|{item.id}|>{item.text}{tag}")
         for code, ref_text in item.references.items():
@@ -518,6 +550,7 @@ class LLMTranslator:
         self.target_human = _normalise_lang(cfg.target_lang)
         self._context_pages: List[List[str]] = []  # translated lines per past page
         self._story_context: str = ""
+        self._glossary_context: str = ""
         self._locked_page_context: str = ""
         self._openai_client = None
 
@@ -537,6 +570,9 @@ class LLMTranslator:
 
     def set_story_context(self, story_context: str) -> None:
         self._story_context = (story_context or "").strip()
+
+    def set_glossary_context(self, glossary_context: str) -> None:
+        self._glossary_context = (glossary_context or "").strip()
 
     def set_locked_page_context(self, context: str) -> None:
         """Set existing approved translations for the page currently being translated."""
@@ -680,6 +716,65 @@ class LLMTranslator:
 
         return polished_translations
 
+    async def shorten_to_fit(self, items: List[tuple[str, str, str, int]]) -> dict[str, str]:
+        """Rewrite overflowing translations to a target character budget.
+
+        Items are ``(block_id, source_text, current_translation, max_chars)``.
+        """
+        if not items or self.cfg.provider == LLMProvider.none:
+            return {}
+
+        profile = str(getattr(self.cfg.profile, "value", self.cfg.profile))
+        batches = [items[i:i + 40] for i in range(0, len(items), 40)]
+        shortened: dict[str, str] = {}
+
+        for batch_no, batch in enumerate(batches, 1):
+            logger.info(f"Shortening overflow batch {batch_no}/{len(batches)}: {len(batch)} blocks")
+            lines = [SHORTEN_USER_PROMPT_HEADER.format(to_lang=self.target_human)]
+            if self._glossary_context:
+                lines.append("Mandatory glossary / terminology rules:")
+                lines.append(self._glossary_context)
+            for bid, source, current, max_chars in batch:
+                lines.append(
+                    f"<|{bid}|> budget≈{max_chars} chars | source: {source} | current: {current}"
+                )
+            text = await self._request_custom(
+                "\n".join(lines),
+                SHORTEN_SYSTEM_PROMPT.format(to_lang=self.target_human, profile=profile),
+            )
+            shortened.update(_parse_review_response(text, [bid for bid, _, _, _ in batch]))
+
+        return shortened
+
+    async def repair_glossary(self, items: List[tuple[str, str, str, str]]) -> dict[str, str]:
+        """Repair translations that violate fixed/no-translate glossary rules.
+
+        Items are ``(block_id, source_text, current_translation, violation_note)``.
+        """
+        if not items or self.cfg.provider == LLMProvider.none:
+            return {}
+
+        profile = str(getattr(self.cfg.profile, "value", self.cfg.profile))
+        batches = [items[i:i + 40] for i in range(0, len(items), 40)]
+        repaired: dict[str, str] = {}
+        glossary = self._glossary_context or "(none)"
+
+        for batch_no, batch in enumerate(batches, 1):
+            logger.info(f"Repairing glossary batch {batch_no}/{len(batches)}: {len(batch)} blocks")
+            lines = [GLOSSARY_REPAIR_USER_PROMPT_HEADER.format(glossary=glossary)]
+            for bid, source, current, note in batch:
+                lines.append(f"<|{bid}|> issue: {note} | source: {source} | current: {current}")
+            text = await self._request_custom(
+                "\n".join(lines),
+                GLOSSARY_REPAIR_SYSTEM_PROMPT.format(
+                    to_lang=self.target_human,
+                    profile=profile,
+                ),
+            )
+            repaired.update(_parse_review_response(text, [bid for bid, _, _, _ in batch]))
+
+        return repaired
+
     async def proofread(self, items: List[tuple[str, str, str]]) -> List[dict]:
         """Proofread translations.
         
@@ -799,6 +894,7 @@ class LLMTranslator:
                 self.target_human,
                 context=ctx,
                 story_context=story,
+                glossary_context=self._glossary_context,
                 extra_instructions=extra_instructions,
                 source_lang=self.cfg.source_lang,
                 profile=str(getattr(self.cfg.profile, "value", self.cfg.profile)),
@@ -813,6 +909,7 @@ class LLMTranslator:
                 locked = _truncate_tokens(locked, max(0, self.cfg.context_token_budget // 4))
                 prompt = _build_prompt(
                     pending, self.target_human, context=ctx, story_context=story,
+                    glossary_context=self._glossary_context,
                     extra_instructions=extra_instructions,
                     source_lang=self.cfg.source_lang,
                     profile=str(getattr(self.cfg.profile, "value", self.cfg.profile)),
@@ -861,6 +958,22 @@ class LLMTranslator:
             if attempt < self.cfg.max_retries:
                 await asyncio.sleep(min(2 ** attempt, 10))
         raise InvalidServerResponse(f"All {self.cfg.max_retries} attempts failed: {last_err}")
+
+    async def _request_custom(self, prompt: str, system_prompt: str) -> str:
+        last_err: Optional[Exception] = None
+        for attempt in range(1, self.cfg.max_retries + 1):
+            try:
+                if self.cfg.provider == LLMProvider.openai:
+                    return await self._request_openai(prompt, system_prompt=system_prompt)
+                if self.cfg.provider == LLMProvider.gemini:
+                    return await self._request_gemini(prompt, system_prompt=system_prompt)
+                raise ValueError(f"Unsupported provider: {self.cfg.provider}")
+            except Exception as e:
+                last_err = e
+                logger.warning(f"LLM custom request attempt {attempt}/{self.cfg.max_retries} failed: {e}")
+                if attempt < self.cfg.max_retries:
+                    await asyncio.sleep(min(2 ** attempt, 10))
+        raise InvalidServerResponse(f"All {self.cfg.max_retries} custom attempts failed: {last_err}")
 
     async def _request_openai(
         self,

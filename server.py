@@ -218,6 +218,28 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "text/plain")
                 self.end_headers()
                 self.wfile.write(b"")
+        elif parsed.path.endswith("/api/render-report"):
+            report_path = task_path / "render_report.json"
+            if report_path.exists():
+                self.serve_file(report_path, "application/json")
+            else:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b"{}")
+        elif parsed.path.endswith("/api/layout"):
+            lang = params.get('lang', [None])[0]
+            if not lang or not sc.is_safe_lang(lang):
+                self.send_error(400, "Invalid language format")
+                return
+            layout_path = task_path / "translations" / f"{lang}.layout.json"
+            if layout_path.exists():
+                self.serve_file(layout_path, "application/json")
+            else:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b"{}")
         elif parsed.path.endswith("/api/image"):
             img_name = params.get('name', [None])[0]
             if img_name:
@@ -364,6 +386,30 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                 with _SAVE_LOCK:
                     with open(target_file, "wb") as f:
                         f.write(post_data)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success"}).encode())
+            except Exception as e:
+                self.send_error(500, str(e))
+        elif parsed.path.endswith("/api/layout/save"):
+            lang = params.get('lang', [None])[0]
+            if not lang or not sc.is_safe_lang(lang):
+                self.send_error(400, "Invalid language format")
+                return
+            try:
+                content_length = int(self.headers.get('Content-Length', 0) or 0)
+                if content_length > 64 * 1024 * 1024:
+                    raise ValueError("Payload too large")
+                data = json.loads(self.rfile.read(content_length) or b'{}')
+                if not isinstance(data, dict):
+                    raise ValueError("Layout payload must be an object")
+                trans_dir = task_path / "translations"
+                trans_dir.mkdir(exist_ok=True)
+                target_file = trans_dir / f"{lang}.layout.json"
+                with _SAVE_LOCK:
+                    with open(target_file, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -582,6 +628,8 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
         output_path = args.get('output')
         config_path = args.get('config')
         reference_langs = sc.parse_reference_langs(args.get('reference_langs', 'auto'))
+        report_only = bool(args.get('report_only', False))
+        repair_overflow = bool(args.get('repair_overflow', False))
 
         try:
             input_path, output_path, config_path = sc.resolve_pipeline_paths(
@@ -621,6 +669,7 @@ class EditorHandler(http.server.BaseHTTPRequestHandler):
                     cmd=cmd, task_path=task_path, config_path=config_path,
                     target_lang=target_lang, overwrite=overwrite, start_index=start_index,
                     reference_langs=reference_langs, input_path=input_path, output_path=output_path,
+                    report_only=report_only, repair_overflow=repair_overflow,
                     log=lambda kind, msg: send_log(msg, kind))
             finally:
                 log_q.put(None)

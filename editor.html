@@ -1956,6 +1956,14 @@
                         <input type="checkbox" id="pipeline-overwrite">
                         <label for="pipeline-overwrite" data-i18n="labelOverwrite">Overwrite existing</label>
                     </div>
+                    <div id="group-render-report" class="form-row" style="display: none;">
+                        <input type="checkbox" id="pipeline-report-only">
+                        <label for="pipeline-report-only" data-i18n="labelReportOnly">Report only</label>
+                    </div>
+                    <div id="group-repair-overflow" class="form-row" style="display: none;">
+                        <input type="checkbox" id="pipeline-repair-overflow">
+                        <label for="pipeline-repair-overflow" data-i18n="labelRepairOverflow">Repair overflow text</label>
+                    </div>
                     <div id="group-start-index" class="form-group" style="display: none;">
                         <label data-i18n="labelStartIndex">Start Index</label>
                         <input type="number" id="pipeline-start-index" value="0" min="0">
@@ -2359,6 +2367,12 @@
         i18n.zh.aiFail = 'AI 失败：{err}'; i18n.en.aiFail = 'AI failed: {err}'; i18n.ja.aiFail = 'AI 失敗：{err}';
         i18n.zh.aiCropFail = '无法截取该区域图片（可能图片跨域受限）'; i18n.en.aiCropFail = "Couldn't capture the region image (it may be cross-origin restricted)"; i18n.ja.aiCropFail = '領域画像を取得できません（クロスオリジン制限の可能性）';
         i18n.zh.aiTimeout = '请求超时（已自动取消）'; i18n.en.aiTimeout = 'Request timed out (auto-cancelled)'; i18n.ja.aiTimeout = 'リクエストがタイムアウトしました（自動キャンセル）';
+        i18n.zh.labelReportOnly = '仅生成渲染报告';
+        i18n.en.labelReportOnly = 'Render report only';
+        i18n.ja.labelReportOnly = 'レンダーレポートのみ';
+        i18n.zh.labelRepairOverflow = '自动压缩溢出译文';
+        i18n.en.labelRepairOverflow = 'Shorten overflowing translations';
+        i18n.ja.labelRepairOverflow = 'はみ出す訳文を短縮';
         i18n.zh.aiNetwork = '网络/CORS 错误：连不上该端点。请确认 API 地址正确，且端点允许浏览器跨域（OpenAI 官方端点通常不允许）'; i18n.en.aiNetwork = "Network/CORS error: couldn't reach the endpoint. Check the API base and that it allows browser CORS (api.openai.com usually doesn't)"; i18n.ja.aiNetwork = 'ネットワーク/CORS エラー：エンドポイントに接続できません。API ベースと CORS 許可を確認（api.openai.com は通常不可）';
         i18n.zh.aiBadResponse = '返回内容不是有效 JSON'; i18n.en.aiBadResponse = 'Response was not valid JSON'; i18n.ja.aiBadResponse = '応答が有効な JSON ではありません';
         i18n.zh.aiBadUrl = 'API 地址无效'; i18n.en.aiBadUrl = 'Invalid API base URL'; i18n.ja.aiBadUrl = 'API ベース URL が無効です';
@@ -2513,6 +2527,39 @@
         }
 
         const IS_FILE_MODE = window.location.protocol === 'file:';
+        const LAYOUT_FIELDS = [
+            'bbox', 'polygon', 'lines', 'font_size', 'angle',
+            'fg_color', 'bg_color', 'direction', 'alignment',
+            'bg_fill', 'fixed_region', 'scale_exempt'
+        ];
+
+        function deepClone(obj) {
+            return JSON.parse(JSON.stringify(obj));
+        }
+
+        function collectLayoutOverrides(data) {
+            const blocks = {};
+            (data?.pages || []).forEach(page => (page.blocks || []).forEach(block => {
+                if (!block || !block.id) return;
+                const entry = {};
+                LAYOUT_FIELDS.forEach(k => { if (block[k] !== undefined) entry[k] = deepClone(block[k]); });
+                blocks[block.id] = entry;
+            }));
+            return { version: 1, blocks };
+        }
+
+        function applyLayoutOverridesToData(data, layout) {
+            const blocks = layout && (layout.blocks || layout);
+            if (!blocks || typeof blocks !== 'object') return 0;
+            let n = 0;
+            (data?.pages || []).forEach(page => (page.blocks || []).forEach(block => {
+                const patch = block && blocks[block.id];
+                if (!patch || typeof patch !== 'object') return;
+                LAYOUT_FIELDS.forEach(k => { if (patch[k] !== undefined) block[k] = deepClone(patch[k]); });
+                n++;
+            }));
+            return n;
+        }
 
         async function readJsonFile(file, label, emptyValue) {
             const text = await file.text();
@@ -2639,7 +2686,11 @@
                     if (!resp.ok) throw new Error("Task not found");
                     const data = await resp.json();
                     const task = this.serverTasks && this.serverTasks.find(t => t.token === this.token);
-                    this.currentTask = { name: (task && task.name) || data.task_name || "Remote Task", data: data };
+                    this.currentTask = {
+                        name: (task && task.name) || data.task_name || "Remote Task",
+                        data: data,
+                        baseData: deepClone(data)
+                    };
                     state.pageOrderAnchor = -1;
                     state.pageOrderRange = null;
                     state.pageOrderDragging = null;
@@ -2665,6 +2716,7 @@
                     clearImageCaches();
                     const file = await task.pagesJsonHandle.getFile();
                     task.data = await readJsonFile(file, `${task.name}/pages.json`);
+                    task.baseData = deepClone(task.data);
                     task.imageHandles = {};
                     const cleanDir = await task.handle.getDirectoryHandle('clean');
                     for await (const entry of cleanDir.values()) if (entry.kind === 'file') task.imageHandles[entry.name] = entry;
@@ -2690,10 +2742,51 @@
                         this.currentTask.transHandle = handle;
                     } catch (e) { this.currentTask.translations = {}; }
                 }
+                await this.loadLayout(lang);
                 // Fresh server/disk state is the new baseline: clear local edit tracking.
                 this.dirtyBlocks.clear();
                 this.deletedBlocks.clear();
                 setDirty(false);
+            },
+
+            async loadLayout(lang) {
+                if (!this.currentTask) return;
+                if (this.currentTask.baseData) {
+                    this.currentTask.data = deepClone(this.currentTask.baseData);
+                }
+                let layout = {};
+                if (this.isServer) {
+                    try {
+                        const resp = await fetch(`api/layout?t=${this.token}&lang=${encodeURIComponent(lang)}`);
+                        layout = resp.ok ? await resp.json() : {};
+                    } catch (e) { layout = {}; }
+                } else {
+                    try {
+                        const transDir = await this.currentTask.handle.getDirectoryHandle('translations', { create: true });
+                        const handle = await transDir.getFileHandle(`${lang}.layout.json`);
+                        layout = await readJsonFile(await handle.getFile(), `${lang}.layout.json`, {});
+                    } catch (e) { layout = {}; }
+                }
+                applyLayoutOverridesToData(this.currentTask.data, layout);
+            },
+
+            async saveLayout(lang) {
+                if (!this.currentTask) return;
+                const payload = collectLayoutOverrides(this.currentTask.data);
+                if (this.isServer) {
+                    const resp = await fetch(`api/layout/save?t=${this.token}&lang=${encodeURIComponent(lang)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!resp.ok) throw new Error('Failed to save layout overlay');
+                } else {
+                    const transDir = await this.currentTask.handle.getDirectoryHandle('translations', { create: true });
+                    const handle = await transDir.getFileHandle(`${lang}.layout.json`, { create: true });
+                    const w = await handle.createWritable();
+                    await w.write(JSON.stringify(payload, null, 2));
+                    await w.close();
+                }
             },
 
             // Mark a translation block as locally edited (unsaved). Drives the
@@ -3906,6 +3999,8 @@
             document.getElementById('group-input').style.display = (cmd === 'extract' || cmd === 'run') ? 'flex' : 'none';
             document.getElementById('group-output').style.display = (cmd === 'render' || cmd === 'run') ? 'flex' : 'none';
             document.getElementById('group-start-index').style.display = (cmd === 'translate') ? 'flex' : 'none';
+            document.getElementById('group-render-report').style.display = (cmd === 'render') ? 'flex' : 'none';
+            document.getElementById('group-repair-overflow').style.display = (cmd === 'render' || cmd === 'run') ? 'flex' : 'none';
             // Cross-language reference applies to the translate phase (translate / run).
             document.getElementById('group-reference').style.display = (cmd === 'translate' || cmd === 'run') ? 'flex' : 'none';
             const refMode = document.getElementById('pipeline-ref-mode').value;
@@ -3937,7 +4032,9 @@
                 output: document.getElementById('pipeline-output').value,
                 config: document.getElementById('pipeline-config').value,
                 start_index: parseInt(document.getElementById('pipeline-start-index').value),
-                reference_langs: reference_langs
+                reference_langs: reference_langs,
+                report_only: !!document.getElementById('pipeline-report-only')?.checked,
+                repair_overflow: !!document.getElementById('pipeline-repair-overflow')?.checked
             };
 
             btn.disabled = true;
@@ -4962,7 +5059,7 @@
             document.body.appendChild(overlay);
         }
 
-        async function savePagesJson() {
+        async function savePagesJson(updateBase = true) {
             const data = storage.currentTask.data;
             if (storage.isServer) {
                 const resp = await fetch(`api/save?t=${storage.token}`, { method: 'POST', body: JSON.stringify(data) });
@@ -4975,6 +5072,13 @@
                 await w.write(JSON.stringify(data, null, 2));
                 await w.close();
             }
+            if (updateBase && storage.currentTask) storage.currentTask.baseData = deepClone(data);
+        }
+
+        async function saveCurrentLayoutOverlay() {
+            if (!storage.currentTask) return;
+            const lang = elements.targetLangSelect.value || storage.currentTask.data.target_lang || 'ENG';
+            await storage.saveLayout(lang);
         }
 
         function movePageRange(pages, fromPage, toPage, beforePage) {
@@ -6931,7 +7035,9 @@
             return b;
         }
         function persistGeometry() {
-            savePagesJson().catch(e => showToast('Save failed: ' + e.message));
+            savePagesJson(false)
+                .then(saveCurrentLayoutOverlay)
+                .catch(e => showToast('Save failed: ' + e.message));
         }
         // Background fill is a small palette, mirroring the font-color picker: transparent
         // and white are always offered; every other choice is a real color sampled from

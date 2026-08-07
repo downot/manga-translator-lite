@@ -116,3 +116,46 @@ def test_optional_translation_semantics_and_provenance_remain_backward_compatibl
     assert block.kind == "auto" and block.article_id == ""
     assert old_translation.source_hash == "" and old_translation.profile == ""
     assert schema.Translation(text="y", source_hash="hash", profile="magazine").to_dict()["profile"] == "magazine"
+
+
+def test_layout_overrides_apply_per_language(tmp_path):
+    ws = schema.Workspace(root=str(tmp_path), target_lang="ENG", pages=[
+        schema.Page(
+            index=0,
+            name="0001.png",
+            original="0001.png",
+            size=(100, 100),
+            clean="clean/0001.png",
+            blocks=[schema.Block(
+                id="p0000_b000",
+                text="x",
+                bbox=[0, 0, 10, 10],
+                polygon=[[0, 0], [10, 0], [10, 10], [0, 10]],
+                lines=[],
+            )],
+        )
+    ])
+    schema.save_layout_overrides(str(tmp_path), "ENG", {
+        "p0000_b000": {
+            "bbox": [1, 2, 30, 40],
+            "fixed_region": True,
+            "direction": "h",
+        }
+    })
+
+    assert schema.apply_layout_overrides(ws, "ENG") == 1
+    assert ws.pages[0].blocks[0].bbox == [1, 2, 30, 40]
+    assert ws.pages[0].blocks[0].fixed_region is True
+    assert ws.pages[0].blocks[0].direction == "h"
+
+
+def test_render_report_and_glossary_helpers_round_trip(tmp_path):
+    report = {"version": 1, "blocks": {"p0000_b000": {"overflow": True}}}
+    path = schema.save_render_report(str(tmp_path), report)
+
+    assert path.endswith("render_report.json")
+    assert schema.load_render_report(str(tmp_path)) == report
+
+    glossary_path = tmp_path / "glossary.json"
+    glossary_path.write_text('{"先輩":{"rule":"fixed","CHS":"学长"}}', encoding="utf-8")
+    assert schema.load_glossary(str(tmp_path))["先輩"]["CHS"] == "学长"

@@ -50,7 +50,9 @@ async def _dispatch(args) -> int:
                          check=getattr(args, 'check', False),
                          no_check=getattr(args, 'no_check', False),
                          yes=getattr(args, 'yes', False),
-                         tasks=getattr(args, 'task', None))
+                         tasks=getattr(args, 'task', None),
+                         report_only=getattr(args, 'report_only', False),
+                         repair_overflow=getattr(args, 'repair_overflow', False))
         return 0
 
     if args.cmd == 'run':
@@ -65,7 +67,8 @@ async def _dispatch(args) -> int:
         await run_render(args.work_dir, args.output, cfg,
                          check=getattr(args, 'check', False),
                          no_check=getattr(args, 'no_check', False),
-                         yes=getattr(args, 'yes', False))
+                         yes=getattr(args, 'yes', False),
+                         repair_overflow=getattr(args, 'repair_overflow', False))
         return 0
 
     if args.cmd == 'config-help':
